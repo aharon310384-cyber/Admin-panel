@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Задачник — Админ-панель</title>
+  <style>
+    :root {
+      --accent: #bb5a2c;
+      --accent-light: #f5ebe3;
+      --accent-dark: #8f3e18;
+      --done: #2e7d52;
+      --done-bg: #e8f5ee;
+      --pending: #6b7280;
+      --bg: #faf8f5;
+      --card: #ffffff;
+      --border: #e8e0d8;
+      --text: #1a1a1a;
+      --text-secondary: #6b7280;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 32px 16px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 32px;
+    }
+
+    header h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-dark);
+      margin-bottom: 6px;
+    }
+
+    header p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .progress-bar-wrap {
+      background: var(--border);
+      border-radius: 8px;
+      height: 10px;
+      margin-top: 16px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+      border-radius: 8px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    .progress-label {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .progress-label strong {
+      color: var(--accent-dark);
+    }
+
+    .stage {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .stage-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+      transition: background 0.15s;
+    }
+
+    .stage-header:hover {
+      background: var(--accent-light);
+    }
+
+    .stage-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stage-number {
+      background: var(--accent);
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 2px 8px;
+      min-width: 32px;
+      text-align: center;
+    }
+
+    .stage-number.all-done {
+      background: var(--done);
+    }
+
+    .stage-title {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .stage-counter {
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px 10px;
+    }
+
+    .stage-counter.all-done {
+      background: var(--done-bg);
+      color: var(--done);
+      border-color: #b2d8c3;
+    }
+
+    .stage-arrow {
+      color: var(--text-secondary);
+      font-size: 12px;
+      transition: transform 0.2s;
+    }
+
+    .stage.open .stage-arrow {
+      transform: rotate(180deg);
+    }
+
+    .stage-body {
+      display: none;
+      padding: 8px 0;
+    }
+
+    .stage.open .stage-body {
+      display: block;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background 0.12s;
+      border-radius: 0;
+    }
+
+    .task-item:hover {
+      background: var(--bg);
+    }
+
+    .task-item input[type="checkbox"] {
+      display: none;
+    }
+
+    .task-checkbox {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-radius: 5px;
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      background: white;
+    }
+
+    .task-item.done .task-checkbox {
+      background: var(--done);
+      border-color: var(--done);
+    }
+
+    .task-item.done .task-checkbox::after {
+      content: '✓';
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .task-text {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+
+    .task-text .task-id {
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin-right: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .task-item.done .task-text {
+      color: var(--text-secondary);
+      text-decoration: line-through;
+      text-decoration-color: #b0b8c1;
+    }
+
+    .legend {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+
+    .legend-dot.done { background: var(--done); }
+    .legend-dot.pending { background: var(--border); border: 2px solid #ccc; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Задачник — Админ-панель</h1>
+    <p>Последовательность разработки. Кликайте на задачи чтобы отмечать выполненные.</p>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <p class="progress-label">Выполнено: <strong id="progressText">0 / 66</strong></p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot done"></div> Выполнено</div>
+    <div class="legend-item"><div class="legend-dot pending"></div> Не начато</div>
+  </div>
+
+  <!-- ЭТАП 0 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">0</span>
+        <span class="stage-title">Подготовка проекта</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 6</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">0.1</span>Проверить и настроить <code>package.json</code> (зависимости, скрипты)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">0.2</span>Установить зависимости: next-auth, @auth/prisma-adapter, react-hook-form, zod, @tanstack/react-table, recharts, sonner, bcryptjs</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">0.3</span>Настроить <code>.env</code> (DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">0.4</span>Создать базовую структуру папок: app, components, lib, actions, types</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">0.5</span>Настроить глобальные стили (CSS-переменные, шрифты Inter + Space Grotesk)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">0.6</span>Создать Prisma-клиент (<code>lib/prisma.ts</code>)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭТАП 1 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">1</span>
+        <span class="stage-title">База данных</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 6</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">1.1</span>Написать схему Prisma: модели Customer, Product, Order, OrderItem, OrderStatus</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">1.2</span>Добавить новые модели: User, UserRole (enum), OrderStatusHistory</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">1.3</span>Добавить индексы на поля фильтрации и поиска</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">1.4</span>Запустить миграцию (<code>prisma migrate dev</code>)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">1.5</span>Написать seed-скрипт: тестовые пользователи, клиенты, товары, заказы</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">1.6</span>Запустить seed и проверить данные в БД</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭТАП 2 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">2</span>
+        <span class="stage-title">Авторизация</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 9</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">2.1</span>Установить и настроить NextAuth.js v5 с Prisma Adapter</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">2.2</span>Создать <code>auth.ts</code> — конфигурация providers, callbacks, session с ролью пользователя</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">2.3</span>Создать <code>app/api/auth/[...nextauth]/route.ts</code></div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">2.4</span>Написать middleware (<code>middleware.ts</code>) — защита всех роутов кроме /login</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">2.5</span>Создать страницу <code>/login</code> — форма email + пароль, валидация Zod</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">2.6</span>Реализовать логику входа через signIn (bcrypt-проверка пароля)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">2.7</span>Реализовать выход из системы (signOut)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">2.8</span>Добавить ролевую логику ADMIN / MANAGER — проверка в middleware и Server Actions</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">2.9</span>Проверить: неавторизованный → редирект /login, менеджер не видит admin-действия</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭТАП 3 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">3</span>
+        <span class="stage-title">Основной layout</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 4</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">3.1</span>Создать <code>app/(admin)/layout.tsx</code> — обёртка для защищённых страниц</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">3.2</span>Создать компонент Sidebar с навигацией (Dashboard, Заказы, Клиенты, Товары, Настройки)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">3.3</span>Создать компонент Header — имя пользователя, кнопка выхода</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">3.4</span>Настроить редирект / → /dashboard</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭТАП 4 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">4</span>
+        <span class="stage-title">Заказы</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 10</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.1</span>Создать <code>app/(admin)/orders/page.tsx</code> — список заказов</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.2</span>Таблица TanStack Table: колонки — номер, клиент, статус, сумма, дата</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.3</span>Поиск по номеру заказа и имени клиента</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.4</span>Фильтры: по статусу (NEW/PROCESSING/SHIPPED/COMPLETED/CANCELED), диапазону дат, диапазону суммы</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.5</span>Пагинация — 20 записей на страницу</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.6</span>Создать <code>app/(admin)/orders/[id]/page.tsx</code> — детальная страница заказа</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.7</span>Отобразить: данные клиента, список товаров, итоговая сумма, история статусов, заметки</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.8</span>Смена статуса заказа (Server Action + запись в OrderStatusHistory)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.9</span>Soft delete заказа — только для ADMIN</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">4.10</span>Экспорт списка заказов в CSV (<code>/api/export/orders</code>)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭТАП 5 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">5</span>
+        <span class="stage-title">Клиенты</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 9</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">5.1</span>Создать <code>app/(admin)/customers/page.tsx</code> — список клиентов</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">5.2</span>Таблица: имя, email, город, кол-во заказов, сумма покупок</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">5.3</span>Поиск по имени, email, городу</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">5.4</span>Сортировка по дате регистрации и сумме покупок</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">5.5</span>Пагинация — 20 записей на страницу</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">5.6</span>Создать <code>app/(admin)/customers/[id]/page.tsx</code> — карточка клиента</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">5.7</span>Отобразить: контактные данные, статистика (заказы, сумма), история всех заказов</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">5.8</span>Редактирование данных клиента — только ADMIN</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">5.9</span>Soft delete клиента — только ADMIN</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭТАП 6 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">6</span>
+        <span class="stage-title">Товары</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 11</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.1</span>Создать <code>app/(admin)/products/page.tsx</code> — каталог товаров</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.2</span>Таблица: название, SKU, цена, остаток, статус активности</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.3</span>Поиск по названию, SKU, slug</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.4</span>Фильтры: по статусу активности, наличию на складе</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.5</span>Пагинация — 20 записей на страницу</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.6</span>Создать <code>app/(admin)/products/new/page.tsx</code> — форма создания товара</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.7</span>Поля формы: название, slug (автогенерация), SKU, описание, цена, остаток, статус</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.8</span>Загрузка изображения товара (<code>/api/upload</code>)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.9</span>Создать <code>app/(admin)/products/[id]/edit/page.tsx</code> — форма редактирования</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.10</span>Архивация товара (isActive = false)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">6.11</span>Soft delete с проверкой: запрет если товар присутствует в заказах</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭТАП 7 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">7</span>
+        <span class="stage-title">Dashboard</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 5</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">7.1</span>Создать <code>app/(admin)/dashboard/page.tsx</code></div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">7.2</span>3 карточки метрик: новые заказы сегодня, выручка за неделю, активные клиенты</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">7.3</span>Линейный график заказов за последние 7 дней (Recharts)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">7.4</span>Топ-5 товаров по количеству продаж</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">7.5</span>Таблица последних 10 заказов</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭТАП 8 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">8</span>
+        <span class="stage-title">Полировка</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 6</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">8.1</span>Подключить Sonner — toast-уведомления при успехе и ошибке во всех действиях</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">8.2</span>Модальные окна подтверждения перед удалением — во всех разделах</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">8.3</span>Страница /settings — смена пароля, просмотр информации об аккаунте</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">8.4</span>Проверить и доработать адаптивность (десктоп + планшет)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">8.5</span>Понятные сообщения об ошибках валидации форм на русском языке</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">8.6</span>Страница 404 и обработка ошибок (<code>error.tsx</code>, <code>not-found.tsx</code>)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭТАП 9 -->
+  <div class="stage open">
+    <div class="stage-header" onclick="toggleStage(this)">
+      <div class="stage-header-left">
+        <span class="stage-number">9</span>
+        <span class="stage-title">Финальная проверка</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="stage-counter">0 / 7</span>
+        <span class="stage-arrow">▼</span>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">9.1</span>Пройти по всем критериям приёмки из technical-specification.md</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">9.2</span>Проверить ролевой доступ: ADMIN vs MANAGER — все ограничения</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">9.3</span>Проверить soft delete во всех разделах (заказы, клиенты, товары)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">9.4</span>Проверить экспорт в CSV</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">9.5</span>Проверить загрузку изображений для товаров</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">9.6</span>Проверить хранение паролей в зашифрованном виде (bcrypt)</div>
+      </div>
+      <div class="task-item" onclick="toggleTask(this)">
+        <div class="task-checkbox"></div>
+        <div class="task-text"><span class="task-id">9.7</span>Проверить серверную валидацию (Zod) во всех API и Server Actions</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const STORAGE_KEY = 'admin-panel-tasks';
+
+  function getState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+  }
+
+  function saveState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function getTaskId(el) {
+    return el.querySelector('.task-id').textContent.trim();
+  }
+
+  function updateProgress() {
+    const all = document.querySelectorAll('.task-item');
+    const done = document.querySelectorAll('.task-item.done');
+    const total = all.length;
+    const count = done.length;
+    const pct = total ? Math.round((count / total) * 100) : 0;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressText').textContent = count + ' / ' + total;
+  }
+
+  function updateStageCounter(stageEl) {
+    const items = stageEl.querySelectorAll('.task-item');
+    const doneItems = stageEl.querySelectorAll('.task-item.done');
+    const counter = stageEl.querySelector('.stage-counter');
+    const number = stageEl.querySelector('.stage-number');
+    const total = items.length;
+    const count = doneItems.length;
+    counter.textContent = count + ' / ' + total;
+    const allDone = count === total;
+    counter.classList.toggle('all-done', allDone);
+    number.classList.toggle('all-done', allDone);
+  }
+
+  function toggleTask(el) {
+    const state = getState();
+    const id = getTaskId(el);
+    const isDone = el.classList.toggle('done');
+    state[id] = isDone;
+    saveState(state);
+    updateStageCounter(el.closest('.stage'));
+    updateProgress();
+  }
+
+  function toggleStage(headerEl) {
+    headerEl.closest('.stage').classList.toggle('open');
+  }
+
+  function restoreState() {
+    const state = getState();
+    document.querySelectorAll('.task-item').forEach(el => {
+      const id = getTaskId(el);
+      if (state[id]) el.classList.add('done');
+    });
+    document.querySelectorAll('.stage').forEach(stageEl => {
+      updateStageCounter(stageEl);
+    });
+    updateProgress();
+  }
+
+  restoreState();
+</script>
+</body>
+</html>

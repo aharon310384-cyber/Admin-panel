@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+}
+
+enum OrderStatus {
+  NEW
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  CANCELED
+  PAID
+  RETURNED_PAID
+  RETURNED_UNPAID
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      UserRole  @default(MANAGER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  statusChanges OrderStatusHistory[]
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  code      String?   @unique
+  name      String
+  email     String?   @unique
+  phone     String?
+  username  String?
+  country   String?
+  city      String?
+  address   String?
+  sourceRow Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  orders Order[]
+
+  @@index([name])
+  @@index([email])
+  @@index([code])
+  @@index([country])
+  @@index([city])
+  @@index([createdAt])
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  sku         String    @unique
+  description String?
+  price       Decimal
+  stock       Int       @default(0)
+  imageUrl    String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  orderItems OrderItem[]
+
+  @@index([name])
+  @@index([sku])
+  @@index([slug])
+  @@index([isActive])
+  @@index([stock])
+}
+
+model Order {
+  id                    String      @id @default(cuid())
+  number                String      @unique
+  status                OrderStatus @default(NEW)
+  total                 Decimal
+  totalUsd              Decimal     @default(0)
+  exchangeRateCnyPerUsd Decimal     @default(7.1)
+  totalCny              Decimal     @default(0)
+  localDeliveryCny      Decimal?
+  discountCny           Decimal?
+  supplierCostCny       Decimal?
+  profitCny             Decimal?
+  isPaid                Boolean     @default(false)
+  paymentMark           String?
+  parcelNumber          String?
+  parcelNumberLooksValid Boolean    @default(false)
+  sourceSheet           String?
+  sourceRow             Int?
+  lr                    String?
+  sourceInfo            String?
+  packageCount          Int?
+  insuranceUsd          Decimal?
+  weightKg              Decimal?
+  consolidationUsd      Decimal?
+  packagingUsd          Decimal?
+  calculationUsd        Decimal?
+  saleDate              DateTime?
+  recipientName         String?
+  recipientAddress      String?
+  recipientPhone        String?
+  routePrefix           String?
+  routeNumber           String?
+  routeCountry          String?
+  notes                 String?
+  customerId            String
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  deletedAt             DateTime?
+
+  customer      Customer             @relation(fields: [customerId], references: [id])
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([saleDate])
+  @@index([total])
+  @@index([totalUsd])
+  @@index([totalCny])
+  @@index([number])
+  @@index([parcelNumber])
+  @@index([isPaid])
+  @@index([sourceSheet, sourceRow])
+}
+
+model OrderItem {
+  id               String   @id @default(cuid())
+  orderId          String
+  productId        String
+  quantity         Int
+  price            Decimal
+  name             String?
+  sourceInfo       String?
+  declaredValueUsd Decimal?
+  weightKg         Decimal?
+  lineTotalUsd     Decimal?
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  changedBy String
+  note      String?
+  createdAt DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+  user  User  @relation(fields: [changedBy], references: [id])
+
+  @@index([orderId])
+}

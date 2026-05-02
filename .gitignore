@@ -1,0 +1,44 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Environment and local secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+.cookies.txt
+.mcp.json
+.mcp*.json
+
+# Logs and generated state
+*.log
+.codex-dev-server*.log
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# Local tools and editor state
+.claude/
+.obsidian/
+.tools/
+.vscode/
+.idea/
+Downloads/
+.recovery/
+
+# Databases
+data/*.db
+data/*.db-journal
+prisma/dev.db
+prisma/dev.db-journal
+prisma/migrations/dev/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Restored numbered copies from sync/recovery tools
+**/* ([0-9])*
