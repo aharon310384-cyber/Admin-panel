@@ -5,24 +5,39 @@ import { usePathname } from "next/navigation";
 import {
   BadgeDollarSign,
   ChevronLeft,
+  ClipboardList,
+  Globe,
+  IdCard,
   LayoutDashboard,
   LogOut,
-  PackageCheck,
+  Package,
   Settings,
-  Truck,
+  Sparkles,
+  Tags,
   Users,
+  Workflow,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { USER_ROLE_LABELS } from "@/types";
 import type { UserRole } from "@prisma/client";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Операции", icon: LayoutDashboard },
-  { href: "/orders", label: "Заказы", icon: Truck },
-  { href: "/customers", label: "Получатели", icon: Users },
-  { href: "/products", label: "Услуги", icon: PackageCheck },
+const NAV_GROUPS = [
+  [
+    { href: "/dashboard", label: "Операции", icon: LayoutDashboard },
+    { href: "/orders", label: "Заказы", icon: ClipboardList },
+    { href: "/parcels", label: "Посылки", icon: Package },
+    { href: "/recipients", label: "Получатели", icon: Users },
+  ],
+  [
+    { href: "/clients", label: "Клиенты", icon: IdCard },
+    { href: "/product-names", label: "Наименования товаров", icon: Tags },
+    { href: "/countries", label: "Страны", icon: Globe },
+    { href: "/statuses", label: "Статусы", icon: Workflow },
+    { href: "/services", label: "Услуги", icon: Sparkles },
+  ],
 ];
 
 type SidebarProps = {
@@ -33,19 +48,31 @@ type SidebarProps = {
 export default function Sidebar({ userName, userRole }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const isOrderEditAlias = /^\/orders\/[^/]+\/edit$/.test(pathname);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + "/");
+  const isActive = (href: string) => {
+    if (isOrderEditAlias) {
+      return href === "/orders";
+    }
+
+    return pathname === href || pathname.startsWith(href + "/");
+  };
 
   const roleLabel = USER_ROLE_LABELS[userRole as UserRole] ?? userRole;
 
   return (
     <aside className={cn("sidebar", collapsed && "sidebar--collapsed")}>
       <div className="sidebar-top">
-        <div className="sidebar-brand">
-          <div className="sidebar-logo">PF</div>
-          {!collapsed && <span className="sidebar-brand-name">PostmanFox</span>}
-        </div>
+        <a
+          href="https://postmanfox.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="sidebar-brand"
+          aria-label="Перейти на postmanfox.com"
+          title="Перейти на postmanfox.com"
+        >
+          <BrandLogo size="sm" showWordmark={!collapsed} />
+        </a>
         <button
           type="button"
           className="sidebar-collapse-btn"
@@ -60,16 +87,21 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
       </div>
 
       <nav className="sidebar-nav">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn("sidebar-link", isActive(href) && "sidebar-link--active")}
-            title={collapsed ? label : undefined}
-          >
-            <Icon size={18} className="sidebar-link-icon" />
-            {!collapsed && <span>{label}</span>}
-          </Link>
+        {NAV_GROUPS.map((group, groupIndex) => (
+          <div key={groupIndex} className="sidebar-nav-group">
+            {groupIndex > 0 && <div className="sidebar-nav-divider" role="separator" />}
+            {group.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className={cn("sidebar-link", isActive(href) && "sidebar-link--active")}
+                title={collapsed ? label : undefined}
+              >
+                <Icon size={18} className="sidebar-link-icon" />
+                {!collapsed && <span>{label}</span>}
+              </Link>
+            ))}
+          </div>
         ))}
       </nav>
 
@@ -147,29 +179,13 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
           align-items: center;
           gap: 10px;
           overflow: hidden;
+          text-decoration: none;
+          color: inherit;
+          transition: opacity 0.15s;
         }
 
-        .sidebar-logo {
-          width: 32px;
-          height: 32px;
-          background: var(--color-accent);
-          border-radius: var(--radius-sm);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-accent-fg);
-          font-family: var(--font-display);
-          font-weight: 700;
-          font-size: 12px;
-          flex-shrink: 0;
-        }
-
-        .sidebar-brand-name {
-          font-size: 14px;
-          font-weight: 600;
-          white-space: nowrap;
-          overflow: hidden;
-          color: var(--color-text);
+        .sidebar-brand:hover {
+          opacity: 0.85;
         }
 
         .sidebar-collapse-btn {
@@ -199,6 +215,18 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
           flex-direction: column;
           gap: 2px;
           overflow-y: auto;
+        }
+
+        .sidebar-nav-group {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .sidebar-nav-divider {
+          height: 1px;
+          background: var(--color-border);
+          margin: 10px 8px;
         }
 
         .sidebar-link {
@@ -325,7 +353,7 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
           .sidebar {
             width: 64px;
           }
-          .sidebar-brand-name,
+          .sidebar-brand .brand-logo-wordmark,
           .sidebar-link span,
           .sidebar-user-info {
             display: none;
