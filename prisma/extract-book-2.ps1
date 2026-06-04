@@ -44,7 +44,15 @@ function Clean-CellValue {
 
   $clean = ($Value -replace "`r", "`n") -replace "`n+", "`n"
   $clean = $clean.Trim()
-  if ($clean -eq "" -or $clean -eq "x" -or $clean -eq ([string][char]0x0445)) {
+  if (
+    $clean -eq "" -or
+    $clean -eq "x" -or
+    $clean -eq ([string][char]0x0445) -or
+    $clean -eq "#ЗНАЧ!" -or
+    $clean -eq "#VALUE!" -or
+    $clean -eq "#REF!" -or
+    $clean -eq "#N/A"
+  ) {
     return $null
   }
 
@@ -369,6 +377,8 @@ try {
     $isPaid = $paymentMark -eq "+"
     $parcelLooksValid = $null -ne $parcelNumber
 
+    $saleDateRaw = Clean-CellValue (Get-MapValue $row.cells "W")
+
     $orders += [pscustomobject]@{
       sourceRow = $row.row
       orderNumber = $number
@@ -394,7 +404,8 @@ try {
       parcelNumberLooksValid = $parcelLooksValid
       supplierCostCny = Convert-ToNumber (Get-MapValue $row.cells "T")
       profitCny = Convert-ToNumber (Get-MapValue $row.cells "U")
-      saleDate = Convert-ToDateIso (Get-MapValue $row.cells "W")
+      saleDate = Convert-ToDateIso $saleDateRaw
+      saleDateRaw = $saleDateRaw
       recipientName = Clean-CellValue (Get-MapValue $row.cells "X")
       recipientAddress = Clean-CellValue (Get-MapValue $row.cells "Y")
       recipientPhone = Clean-CellValue (Get-MapValue $row.cells "Z")

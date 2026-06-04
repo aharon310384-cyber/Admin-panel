@@ -13,3 +13,7 @@ echo Starting PostmanFox admin panel on http://localhost:45371
 echo Press Ctrl+C to stop the local server.
 
 call npm.cmd run dev -- -p 45371
+
+echo.
+echo === Server stopped (exit code %ERRORLEVEL%) ===
+pause

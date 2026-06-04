@@ -1,28 +1,39 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { dedupeCustomers } from "@/lib/customer-dedupe";
 import OrderForm from "../order-form";
+import { createOrder } from "@/actions/orders";
 
 export const metadata: Metadata = { title: "Новый заказ" };
 
-export default async function NewOrderPage() {
-  const [customers, products] = await Promise.all([
-    prisma.customer.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, email: true },
-    }),
-    prisma.product.findMany({
-      where: { deletedAt: null, isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, sku: true, price: true },
-    }),
-  ]);
+export default async function NewProductPage() {
+  const session = await auth();
+  if (session?.user.role !== "ADMIN") redirect("/orders");
 
-  const productsForForm = products.map((p) => ({
-    ...p,
-    price: Number(p.price),
-  }));
+  const customers = await prisma.customer.findMany({
+    where: { deletedAt: null },
+    orderBy: [{ name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      lastName: true,
+      firstName: true,
+      middleName: true,
+      email: true,
+      phone: true,
+      code: true,
+      clientCode: true,
+      country: true,
+      city: true,
+      postalCode: true,
+      address: true,
+      informationDate: true,
+      sourceRow: true,
+    },
+  });
 
   return (
     <div className="page">
@@ -37,7 +48,7 @@ export default async function NewOrderPage() {
         </div>
       </div>
 
-      <OrderForm customers={customers} products={productsForForm} />
+      <OrderForm action={createOrder} customers={dedupeCustomers(customers)} />
 
       <style>{`
         .page { display: flex; flex-direction: column; gap: 24px; }

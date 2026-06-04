@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
 
 const PUBLIC_ROUTES = ["/login"];
-const ADMIN_ONLY_PREFIXES = ["/products/new"];
+const ADMIN_ONLY_PREFIXES = ["/orders/new"];
 
 const { auth } = NextAuth(authConfig);
 

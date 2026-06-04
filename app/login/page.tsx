@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import LoginForm from "./login-form";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 export const metadata: Metadata = {
   title: "Вход",
@@ -10,13 +11,27 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <div className="login-logo">
-            <span>АП</span>
-          </div>
+          <a
+            href="https://postmanfox.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="login-brand"
+            aria-label="Перейти на postmanfox.com"
+          >
+            <BrandLogo size="lg" />
+          </a>
           <h1 className="login-title">Добро пожаловать</h1>
-          <p className="login-subtitle">Войдите в систему управления магазином</p>
+          <p className="login-subtitle">Войдите в админ-панель PostmanFox</p>
         </div>
         <LoginForm />
+        <a
+          href="https://postmanfox.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="login-site-link"
+        >
+          Перейти на postmanfox.com →
+        </a>
       </div>
 
       <style>{`
@@ -50,20 +65,26 @@ export default function LoginPage() {
           margin-bottom: 32px;
         }
 
-        .login-logo {
-          width: 56px;
-          height: 56px;
-          background: var(--color-accent);
-          border-radius: var(--radius-md);
-          display: flex;
+        .login-brand {
+          display: inline-flex;
           align-items: center;
-          justify-content: center;
-          margin: 0 auto 20px;
-          color: var(--color-accent-fg);
-          font-family: var(--font-display);
-          font-weight: 700;
-          font-size: 18px;
-          letter-spacing: -0.5px;
+          margin: 0 auto 24px;
+          text-decoration: none;
+          color: inherit;
+        }
+
+        .login-site-link {
+          display: block;
+          text-align: center;
+          margin-top: 20px;
+          font-size: 13px;
+          color: var(--color-muted);
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+
+        .login-site-link:hover {
+          color: var(--color-accent);
         }
 
         .login-title {

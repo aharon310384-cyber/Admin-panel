@@ -12,7 +12,7 @@ enum UserRole {
   MANAGER
 }
 
-enum OrderStatus {
+enum ParcelStatus {
   NEW
   PROCESSING
   SHIPPED
@@ -33,99 +33,175 @@ model User {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  statusChanges OrderStatusHistory[]
+  statusChanges ParcelStatusHistory[]
+}
+
+model Country {
+  code              String   @id
+  nameRu            String
+  nameEn            String
+  postalCodeRegex   String?
+  postalCodeExample String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([nameRu])
+  @@index([nameEn])
 }
 
 model Customer {
+  id                  String    @id @default(cuid())
+  code                String?   @unique
+  clientCode          String?
+  name                String
+  lastName            String?
+  firstName           String?
+  middleName          String?
+  email               String?   @unique
+  phone               String?
+  username            String?
+  country             String?
+  countryCode         String?
+  city                String?
+  postalCode          String?
+  address             String?
+  informationDate     DateTime?
+  informationDateText String?
+  sourceSheet         String?
+  sourceRow           Int?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  parcels Parcel[]
+  orders  Order[]
+
+  @@index([name])
+  @@index([clientCode])
+  @@index([lastName])
+  @@index([firstName])
+  @@index([email])
+  @@index([code])
+  @@index([country])
+  @@index([city])
+  @@index([postalCode])
+  @@index([informationDate])
+  @@index([createdAt])
+}
+
+model ProductName {
   id        String    @id @default(cuid())
-  code      String?   @unique
-  name      String
-  email     String?   @unique
-  phone     String?
-  username  String?
-  country   String?
-  city      String?
-  address   String?
+  code      String    @unique
+  nameRu    String
+  nameEn    String?
+  nameCn    String?
   sourceRow Int?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  orders Order[]
-
-  @@index([name])
-  @@index([email])
-  @@index([code])
-  @@index([country])
-  @@index([city])
+  @@index([nameRu])
+  @@index([nameEn])
+  @@index([nameCn])
   @@index([createdAt])
 }
 
-model Product {
-  id          String    @id @default(cuid())
-  name        String
-  slug        String    @unique
-  sku         String    @unique
-  description String?
-  price       Decimal
-  stock       Int       @default(0)
-  imageUrl    String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+model Order {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  sku          String    @unique
+  customerId   String?
+  deliveryType String?
+  comments     String?
+  description  String?
+  price        Decimal
+  stock        Int       @default(0)
+  imageUrl     String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
-  orderItems OrderItem[]
+  customer    Customer?        @relation(fields: [customerId], references: [id])
+  parcelItems ParcelItem[]
+  trackItems  OrderTrackItem[]
 
   @@index([name])
   @@index([sku])
   @@index([slug])
+  @@index([customerId])
+  @@index([deliveryType])
   @@index([isActive])
   @@index([stock])
+  @@map("Product")
 }
 
-model Order {
-  id                    String      @id @default(cuid())
-  number                String      @unique
-  status                OrderStatus @default(NEW)
-  total                 Decimal
-  totalUsd              Decimal     @default(0)
-  exchangeRateCnyPerUsd Decimal     @default(7.1)
-  totalCny              Decimal     @default(0)
-  localDeliveryCny      Decimal?
-  discountCny           Decimal?
-  supplierCostCny       Decimal?
-  profitCny             Decimal?
-  isPaid                Boolean     @default(false)
-  paymentMark           String?
-  parcelNumber          String?
-  parcelNumberLooksValid Boolean    @default(false)
-  sourceSheet           String?
-  sourceRow             Int?
-  lr                    String?
-  sourceInfo            String?
-  packageCount          Int?
-  insuranceUsd          Decimal?
-  weightKg              Decimal?
-  consolidationUsd      Decimal?
-  packagingUsd          Decimal?
-  calculationUsd        Decimal?
-  saleDate              DateTime?
-  recipientName         String?
-  recipientAddress      String?
-  recipientPhone        String?
-  routePrefix           String?
-  routeNumber           String?
-  routeCountry          String?
-  notes                 String?
-  customerId            String
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
-  deletedAt             DateTime?
+model OrderTrackItem {
+  id             String   @id @default(cuid())
+  productId      String
+  trackNumber    String
+  name           String
+  quantity       Int      @default(1)
+  unitPrice      Decimal
+  totalPrice     Decimal
+  productUrl     String?
+  imageUrl       String?
+  photoReport    Boolean  @default(false)
+  photoReportUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  customer      Customer             @relation(fields: [customerId], references: [id])
-  items         OrderItem[]
-  statusHistory OrderStatusHistory[]
+  order Order @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([trackNumber])
+  @@index([name])
+  @@map("ProductTrackItem")
+}
+
+model Parcel {
+  id                     String       @id @default(cuid())
+  number                 String       @unique
+  status                 ParcelStatus @default(NEW)
+  total                  Decimal
+  totalUsd               Decimal      @default(0)
+  exchangeRateCnyPerUsd  Decimal      @default(7.1)
+  totalCny               Decimal      @default(0)
+  localDeliveryCny       Decimal?
+  discountCny            Decimal?
+  supplierCostCny        Decimal?
+  profitCny              Decimal?
+  isPaid                 Boolean      @default(false)
+  paymentMark            String?
+  parcelNumber           String?
+  parcelNumberLooksValid Boolean      @default(false)
+  sourceSheet            String?
+  sourceRow              Int?
+  lr                     String?
+  sourceInfo             String?
+  packageCount           Int?
+  insuranceUsd           Decimal?
+  weightKg               Decimal?
+  consolidationUsd       Decimal?
+  packagingUsd           Decimal?
+  calculationUsd         Decimal?
+  saleDate               DateTime?
+  recipientName          String?
+  recipientAddress       String?
+  recipientPhone         String?
+  routePrefix            String?
+  routeNumber            String?
+  routeCountry           String?
+  notes                  String?
+  customerId             String
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  deletedAt              DateTime?
+
+  customer      Customer              @relation(fields: [customerId], references: [id])
+  items         ParcelItem[]
+  statusHistory ParcelStatusHistory[]
 
   @@index([status])
   @@index([customerId])
@@ -137,10 +213,12 @@ model Order {
   @@index([number])
   @@index([parcelNumber])
   @@index([isPaid])
+  @@index([routePrefix])
   @@index([sourceSheet, sourceRow])
+  @@map("Order")
 }
 
-model OrderItem {
+model ParcelItem {
   id               String   @id @default(cuid())
   orderId          String
   productId        String
@@ -152,23 +230,25 @@ model OrderItem {
   weightKg         Decimal?
   lineTotalUsd     Decimal?
 
-  order   Order   @relation(fields: [orderId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  parcel Parcel @relation(fields: [orderId], references: [id])
+  order  Order  @relation(fields: [productId], references: [id])
 
   @@index([orderId])
   @@index([productId])
+  @@map("OrderItem")
 }
 
-model OrderStatusHistory {
-  id        String      @id @default(cuid())
+model ParcelStatusHistory {
+  id        String       @id @default(cuid())
   orderId   String
-  status    OrderStatus
+  status    ParcelStatus
   changedBy String
   note      String?
-  createdAt DateTime    @default(now())
+  createdAt DateTime     @default(now())
 
-  order Order @relation(fields: [orderId], references: [id])
-  user  User  @relation(fields: [changedBy], references: [id])
+  parcel Parcel @relation(fields: [orderId], references: [id])
+  user   User   @relation(fields: [changedBy], references: [id])
 
   @@index([orderId])
+  @@map("OrderStatusHistory")
 }

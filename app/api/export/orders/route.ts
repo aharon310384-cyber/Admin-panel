@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { ORDER_STATUS_LABELS } from "@/types";
+import { PARCEL_STATUS_LABELS } from "@/types";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -10,7 +10,7 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const orders = await prisma.order.findMany({
+  const orders = await prisma.parcel.findMany({
     where: { deletedAt: null },
     include: { customer: true },
     orderBy: { createdAt: "desc" },
@@ -18,7 +18,7 @@ export async function GET() {
 
   const rows = [
     [
-      "Номер заказа",
+    "Номер посылки",
       "Получатель",
       "Email",
       "Статус",
@@ -33,7 +33,7 @@ export async function GET() {
       o.number,
       o.recipientName || o.customer.name,
       o.customer.email ?? "",
-      ORDER_STATUS_LABELS[o.status],
+      PARCEL_STATUS_LABELS[o.status],
       Number(o.totalUsd || o.total).toFixed(2),
       Number(o.exchangeRateCnyPerUsd).toFixed(4),
       Number(o.totalCny).toFixed(2),

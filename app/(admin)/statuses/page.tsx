@@ -143,8 +143,10 @@ export default function StatusesPage() {
               {[...MAIN_FLOW, ...SIDE_FLOW].map((from) => (
                 <tr key={from.code}>
                   <th scope="row">
-                    <span className={`status-dot status-dot--${PARCEL_STATUS_TONE[from.code]}`} aria-hidden="true" />
-                    <span className="matrix-row-code">{from.code}</span>
+                    <span className="matrix-row-inner">
+                      <span className={`status-dot status-dot--${PARCEL_STATUS_TONE[from.code]}`} aria-hidden="true" />
+                      <span className="matrix-row-code">{from.code}</span>
+                    </span>
                   </th>
                   {[...MAIN_FLOW, ...SIDE_FLOW].map((to) => {
                     const allowed = TRANSITIONS.some(
@@ -197,8 +199,8 @@ export default function StatusesPage() {
 
         .flow-divider { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 4px 12px 4px 8px; margin-left: 90px; color: var(--color-muted); font-size: 12px; font-weight: 500; }
 
-        .status-card { width: 168px; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-strong, var(--color-surface)); display: flex; flex-direction: column; gap: 6px; position: relative; }
-        .status-card::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 2px 2px 0; background: currentColor; opacity: 0.7; }
+        .status-card { width: 220px; padding: 16px 18px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-strong, var(--color-surface)); display: flex; flex-direction: column; gap: 8px; position: relative; }
+        .status-card::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 2px 2px 0; background: currentColor; opacity: 0.7; }
         .status-card--new { color: var(--color-status-new); }
         .status-card--processing { color: var(--color-status-processing); }
         .status-card--shipped { color: var(--color-status-shipped); }
@@ -207,26 +209,27 @@ export default function StatusesPage() {
         .status-card--returned-paid { color: var(--color-status-completed); }
         .status-card--returned-unpaid { color: var(--color-status-processing); }
 
-        .status-card-head { display: flex; align-items: center; gap: 6px; }
-        .status-card-code { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--color-muted); }
-        .status-card-title { margin: 0; color: var(--color-text); font-size: 14px; font-weight: 600; }
-        .status-card-desc { margin: 0; color: var(--color-muted); font-size: 11.5px; line-height: 1.35; min-height: 30px; }
-        .status-card-meta { display: flex; align-items: baseline; gap: 5px; margin-top: 2px; }
-        .status-card-count { color: var(--color-text); font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .status-card-count-label { color: var(--color-muted); font-size: 11px; }
+        .status-card-head { display: flex; align-items: center; gap: 8px; }
+        .status-card-code { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--color-muted); }
+        .status-card-title { margin: 0; color: var(--color-text); font-size: 16px; font-weight: 600; }
+        .status-card-desc { margin: 0; color: var(--color-muted); font-size: 12.5px; line-height: 1.4; min-height: 36px; }
+        .status-card-meta { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
+        .status-card-count { color: var(--color-text); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+        .status-card-count-label { color: var(--color-muted); font-size: 12px; }
 
-        .matrix-wrap { overflow-x: auto; }
-        .matrix { border-collapse: collapse; font-size: 12px; min-width: 100%; }
-        .matrix th, .matrix td { padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--color-border); border-right: 1px solid var(--color-border); white-space: nowrap; }
+        .matrix-wrap { display: inline-block; max-width: 100%; overflow-x: auto; }
+        .matrix { border-collapse: collapse; font-size: 11px; width: auto; }
+        .matrix th, .matrix td { padding: 4px 6px; text-align: center; border-bottom: 1px solid var(--color-border); border-right: 1px solid var(--color-border); white-space: nowrap; }
         .matrix th:last-child, .matrix td:last-child { border-right: none; }
         .matrix tbody tr:last-child th, .matrix tbody tr:last-child td { border-bottom: none; }
         .matrix-corner { background: transparent; }
-        .matrix thead th { color: var(--color-muted); font-weight: 600; font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; background: var(--color-muted-bg); }
-        .matrix tbody th { text-align: left; color: var(--color-muted); font-weight: 600; font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; background: var(--color-muted-bg); display: flex; align-items: center; gap: 8px; padding: 10px 12px; min-height: 38px; }
+        .matrix thead th { color: var(--color-muted); font-weight: 600; font-size: 10px; letter-spacing: 0.02em; background: var(--color-muted-bg); }
+        .matrix tbody th { text-align: left; color: var(--color-muted); font-weight: 600; font-size: 10px; letter-spacing: 0.02em; background: var(--color-muted-bg); padding: 4px 8px 4px 6px; }
+        .matrix tbody th .matrix-row-inner { display: inline-flex; align-items: center; gap: 6px; }
         .matrix-col-code, .matrix-row-code { font-family: var(--font-mono); }
-        .matrix-mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: var(--radius-full); font-size: 14px; line-height: 1; }
-        .matrix-mark--on { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 14%, transparent); }
-        .matrix-mark--off { color: var(--color-border-strong, var(--color-border)); }
+        .matrix-mark { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: var(--radius-full); font-size: 11px; line-height: 1; }
+        .matrix-mark--on { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 16%, transparent); }
+        .matrix-mark--off { color: color-mix(in srgb, var(--color-muted) 35%, transparent); font-size: 9px; }
         .matrix-mark--self { color: var(--color-muted); }
         .matrix-self { background: var(--color-muted-bg); }
 

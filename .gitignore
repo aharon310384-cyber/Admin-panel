@@ -22,12 +22,19 @@ coverage/
 
 # Local tools and editor state
 .claude/
+.codex/
+.codex-restart-note.txt
 .obsidian/
 .tools/
 .vscode/
 .idea/
 Downloads/
 .recovery/
+start-dev-hidden.vbs
+
+# User uploads (runtime-generated)
+public/uploads/*
+!public/uploads/.gitkeep
 
 # Databases
 data/*.db

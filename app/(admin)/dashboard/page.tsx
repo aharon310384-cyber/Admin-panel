@@ -4,23 +4,16 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatCny } from "@/lib/utils";
 import {
-  FileSpreadsheet,
   TrendingUp,
   Truck,
   Users,
 } from "lucide-react";
 import OrdersChart from "@/components/ui/orders-chart";
-import { OrderStatusBadge } from "@/components/ui/status-badge";
+import { ParcelStatusBadge } from "@/components/ui/status-badge";
 import { startOfDay, startOfWeek, subDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 
 export const metadata: Metadata = { title: "Операции" };
-
-const LOGISTICS_INSIGHTS = [
-  "Получатели из листа «Клиенты»",
-  "Заказы OS / LR / tracking из «ALL 6»",
-  "Вес, упаковка, скидки, CNY/USD и прибыль",
-];
 
 async function getDashboardData() {
   const today = startOfDay(new Date());
@@ -34,10 +27,10 @@ async function getDashboardData() {
     topProducts,
     weeklyOrders,
   ] = await Promise.all([
-    prisma.order.count({
+    prisma.parcel.count({
       where: { createdAt: { gte: today }, deletedAt: null },
     }),
-    prisma.order.aggregate({
+    prisma.parcel.aggregate({
       where: {
         createdAt: { gte: weekStart },
         deletedAt: null,
@@ -48,16 +41,16 @@ async function getDashboardData() {
     prisma.customer.count({
       where: {
         deletedAt: null,
-        orders: { some: { deletedAt: null } },
+        parcels: { some: { deletedAt: null } },
       },
     }),
-    prisma.order.findMany({
+    prisma.parcel.findMany({
       where: { deletedAt: null },
       include: { customer: true },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
-    prisma.orderItem.groupBy({
+    prisma.parcelItem.groupBy({
       by: ["productId"],
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
@@ -67,7 +60,7 @@ async function getDashboardData() {
       Array.from({ length: 7 }, (_, i) => {
         const day = startOfDay(subDays(new Date(), 6 - i));
         const nextDay = startOfDay(subDays(new Date(), 5 - i));
-        return prisma.order.count({
+        return prisma.parcel.count({
           where: {
             createdAt: { gte: day, lt: nextDay },
             deletedAt: null,
@@ -81,7 +74,7 @@ async function getDashboardData() {
   ]);
 
   const productIds = topProducts.map((p) => p.productId);
-  const products = await prisma.product.findMany({
+  const products = await prisma.order.findMany({
     where: { id: { in: productIds } },
     select: { id: true, name: true, price: true },
   });
@@ -111,7 +104,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="page-title">Операции PostmanFox</h1>
           <p className="page-subtitle">
-            Рабочий центр заказов, {session?.user.name}
+            Рабочий центр посылок, {session?.user.name}
           </p>
         </div>
       </div>
@@ -122,7 +115,7 @@ export default async function DashboardPage() {
             <Truck size={20} />
           </div>
           <div className="metric-body">
-            <p className="metric-label">Заказов сегодня</p>
+            <p className="metric-label">Посылок сегодня</p>
             <p className="metric-value">{data.ordersToday}</p>
           </div>
         </div>
@@ -148,29 +141,14 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="logistics-strip">
-        <div className="strip-icon">
-          <FileSpreadsheet size={18} />
-        </div>
-        <div className="strip-copy">
-          <p className="strip-kicker">Источник: Downloads/book-2.xlsx</p>
-          <h2 className="strip-title">Система подстраивается под консолидацию и международные заказы</h2>
-        </div>
-        <div className="strip-items">
-          {LOGISTICS_INSIGHTS.map((item) => (
-            <span key={item} className="strip-chip">{item}</span>
-          ))}
-        </div>
-      </div>
-
       <div className="card">
-        <h2 className="card-title">Заказы за последние 7 дней</h2>
+        <h2 className="card-title">Посылки за последние 7 дней</h2>
         <OrdersChart data={data.weeklyOrders} />
       </div>
 
       <div className="dashboard-grid">
         <div className="card">
-          <h2 className="card-title">Топ-5 услуг и позиций</h2>
+          <h2 className="card-title">Топ-5 заказов</h2>
           <div className="top-products">
             {data.topProductsWithNames.map((item, i) => (
               <div key={item.productId} className="top-product-row">
@@ -184,13 +162,13 @@ export default async function DashboardPage() {
               </div>
             ))}
             {data.topProductsWithNames.length === 0 && (
-              <p className="empty-text">Нет данных по услугам</p>
+              <p className="empty-text">Нет данных по заказам</p>
             )}
           </div>
         </div>
 
         <div className="card card--wide">
-          <h2 className="card-title">Последние заказы</h2>
+          <h2 className="card-title">Последние посылки</h2>
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -205,13 +183,13 @@ export default async function DashboardPage() {
                 {data.recentOrders.map((order) => (
                   <tr key={order.id}>
                     <td>
-                      <Link href={`/orders/${order.id}`} className="link">
+                      <Link href={`/parcels/${order.id}`} className="link">
                         {order.number}
                       </Link>
                     </td>
                     <td>{order.recipientName || order.customer.name}</td>
                     <td>
-                      <OrderStatusBadge status={order.status} />
+                      <ParcelStatusBadge status={order.status} />
                     </td>
                     <td className="tabular">{formatCny(order.totalCny)}</td>
                   </tr>
@@ -219,7 +197,7 @@ export default async function DashboardPage() {
                 {data.recentOrders.length === 0 && (
                   <tr>
                     <td colSpan={4} className="empty-text" style={{ textAlign: "center" }}>
-                      Заказов пока нет
+                      Посылок пока нет
                     </td>
                   </tr>
                 )}
@@ -297,62 +275,6 @@ export default async function DashboardPage() {
           color: var(--color-text);
           font-variant-numeric: tabular-nums;
           margin: 0;
-        }
-
-        .logistics-strip {
-          display: grid;
-          grid-template-columns: auto minmax(220px, 1fr) minmax(260px, 1.4fr);
-          gap: 16px;
-          align-items: center;
-          padding: 16px;
-          background: var(--color-surface);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          box-shadow: var(--shadow-card);
-        }
-
-        .strip-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: var(--radius-sm);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-status-shipped);
-          background: var(--color-status-shipped-bg);
-        }
-
-        .strip-kicker {
-          margin: 0 0 4px;
-          color: var(--color-muted);
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .strip-title {
-          margin: 0;
-          color: var(--color-text);
-          font-size: 15px;
-          font-weight: 700;
-        }
-
-        .strip-items {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          justify-content: flex-end;
-        }
-
-        .strip-chip {
-          padding: 6px 10px;
-          border-radius: var(--radius-full);
-          color: var(--color-text-secondary);
-          background: var(--color-muted-bg);
-          font-size: 12px;
-          font-weight: 600;
-          white-space: nowrap;
         }
 
         .dashboard-grid {
@@ -450,11 +372,6 @@ export default async function DashboardPage() {
         .empty-text {
           color: var(--color-muted);
           font-size: 13px;
-        }
-
-        @media (max-width: 980px) {
-          .logistics-strip { grid-template-columns: auto 1fr; }
-          .strip-items { grid-column: 1 / -1; justify-content: flex-start; }
         }
 
         @media (max-width: 900px) {

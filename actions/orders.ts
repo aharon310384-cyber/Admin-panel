@@ -3,184 +3,354 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import type { OrderStatus } from "@prisma/client";
+import { resolveOrderNumber } from "@/lib/order-number";
+import { requireAdmin } from "@/lib/server-helpers";
+import { slugify } from "@/lib/utils";
 
-const itemSchema = z.object({
-  productId: z.string().min(1),
-  quantity: z.coerce.number().int().positive(),
-  price: z.coerce.number().positive(),
-});
-
-const createOrderSchema = z.object({
+const productSchema = z.object({
+  slug: z.string().optional(),
+  sku: z.string().trim().optional(),
   customerId: z.string().min(1, "Выберите получателя"),
-  exchangeRateCnyPerUsd: z.coerce
-    .number()
-    .positive("Курс должен быть больше 0")
-    .default(7.1),
-  notes: z.string().optional(),
-  items: z.array(itemSchema).min(1, "Добавьте хотя бы одну услугу или позицию"),
+  deliveryType: z
+    .string({
+      required_error: "Выберите вид доставки",
+      invalid_type_error: "Выберите вид доставки",
+    })
+    .trim()
+    .min(1, "Выберите вид доставки"),
+  comments: z.string().trim().optional(),
+  description: z.string().optional(),
+  isActive: z.coerce.boolean().default(true),
 });
 
-const exchangeRateSchema = z.object({
-  exchangeRateCnyPerUsd: z.coerce
-    .number()
-    .positive("Курс должен быть больше 0"),
+const trackItemSchema = z.object({
+  trackNumber: z.string().trim().min(1, "Трек номер обязателен"),
+  name: z.string().trim().min(1, "Наименование обязательно"),
+  quantity: z.coerce.number().int().min(1, "Количество должно быть больше 0"),
+  unitPrice: z.coerce.number().positive("Стоимость за единицу должна быть больше 0"),
+  productUrl: z.string().trim().optional(),
+  photoReport: z.boolean().optional().default(false),
+  photoReportUrl: z.string().trim().optional(),
 });
 
-function calculateTotalCny(
-  totalUsd: number,
-  exchangeRateCnyPerUsd: number,
-  localDeliveryCny = 0,
-  discountCny = 0
-) {
-  return totalUsd * exchangeRateCnyPerUsd + localDeliveryCny - discountCny;
+const trackItemsSchema = z.array(trackItemSchema).min(1, "Добавьте хотя бы одну строку");
+
+type TrackItemInput = z.infer<typeof trackItemSchema>;
+
+function productPayloadFromFormData(formData: FormData) {
+  const isActiveValue = formData.get("isActive");
+
+  return {
+    ...Object.fromEntries(formData),
+    isActive: isActiveValue === null ? true : isActiveValue === "on",
+  };
+}
+
+function parseTrackItems(formData: FormData): {
+  trackItems?: TrackItemInput[];
+  error?: Record<string, string[]>;
+} {
+  const rawTrackItems = formData.get("trackItems");
+
+  if (typeof rawTrackItems !== "string") {
+    return { error: { trackItems: ["Добавьте хотя бы одну строку"] } };
+  }
+
+  try {
+    const parsed = trackItemsSchema.safeParse(JSON.parse(rawTrackItems));
+
+    if (!parsed.success) {
+      return {
+        error: { trackItems: [parsed.error.issues[0]?.message ?? "Проверьте строки треков"] },
+      };
+    }
+
+    return { trackItems: parsed.data };
+  } catch {
+    return { error: { trackItems: ["Проверьте строки треков"] } };
+  }
+}
+
+function trackItemsSummary(trackItems: TrackItemInput[]) {
+  return trackItems.reduce(
+    (summary, item) => ({
+      trackNumbers: [...summary.trackNumbers, item.trackNumber],
+      quantity: summary.quantity + item.quantity,
+      totalPrice: summary.totalPrice + item.quantity * item.unitPrice,
+    }),
+    { trackNumbers: [] as string[], quantity: 0, totalPrice: 0 }
+  );
+}
+
+function trackItemCreateData(productId: string, trackItems: TrackItemInput[]) {
+  return trackItems.map((item) => ({
+    productId,
+    trackNumber: item.trackNumber,
+    name: item.name,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    totalPrice: item.quantity * item.unitPrice,
+    productUrl: item.productUrl?.trim() || null,
+    imageUrl: null,
+    photoReport: item.photoReport,
+    photoReportUrl: item.photoReportUrl?.trim() || null,
+  }));
+}
+
+async function isSkuTaken(sku: string, excludeId?: string): Promise<boolean> {
+  const existing = await prisma.order.findFirst({
+    where: {
+      sku,
+      ...(excludeId ? { NOT: { id: excludeId } } : {}),
+    },
+    select: { id: true },
+  });
+  return Boolean(existing);
+}
+
+type SkuResolution =
+  | { ok: true; sku: string }
+  | { ok: false; error: Record<string, string[]>; missingRecipientFields?: { customerId: string; missing: string[] } };
+
+async function resolveOrderSkuForCreate(
+  manualSku: string | undefined,
+  customerId: string
+): Promise<SkuResolution> {
+  const trimmed = manualSku?.trim();
+
+  if (trimmed) {
+    if (await isSkuTaken(trimmed)) {
+      return { ok: false, error: { sku: ["Такой номер уже занят"] } };
+    }
+    return { ok: true, sku: trimmed };
+  }
+
+  const resolved = await resolveOrderNumber(customerId);
+
+  if (!resolved.ok) {
+    if (!resolved.recipient) {
+      return { ok: false, error: { customerId: ["Получатель не найден"] } };
+    }
+    return {
+      ok: false,
+      error: {
+        customerId: [
+          `У получателя не заполнены: ${resolved.missing.join(", ")}. Откройте карточку получателя для дозаполнения.`,
+        ],
+      },
+      missingRecipientFields: {
+        customerId: resolved.recipient.id,
+        missing: resolved.missing,
+      },
+    };
+  }
+
+  if (await isSkuTaken(resolved.parts.number)) {
+    return { ok: false, error: { sku: [`Номер ${resolved.parts.number} уже занят, повторите попытку`] } };
+  }
+
+  return { ok: true, sku: resolved.parts.number };
+}
+
+async function ensureUniqueSlug(
+  base: string,
+  excludeId?: string
+): Promise<string> {
+  const trimmed = base.trim();
+  const seed = trimmed || `product-${Date.now()}`;
+
+  for (let suffix = 0; suffix < 1000; suffix++) {
+    const candidate = suffix === 0 ? seed : `${seed}-${suffix + 1}`;
+    const existing = await prisma.order.findFirst({
+      where: {
+        slug: candidate,
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return candidate;
+    }
+  }
+
+  return `${seed}-${Date.now()}`;
+}
+
+async function validateCustomer(customerId: string) {
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null },
+    select: { id: true },
+  });
+
+  if (!customer) {
+    return { customerId: ["Выберите существующего получателя"] };
+  }
+
+  return null;
 }
 
 export async function createOrder(formData: FormData) {
-  const session = await auth();
-  if (!session) redirect("/login");
+  await requireAdmin();
 
-  let items: unknown;
-  try {
-    items = JSON.parse(formData.get("items") as string);
-  } catch {
-    return { error: { items: ["Неверный формат позиций"] } };
-  }
-
-  const parsed = createOrderSchema.safeParse({
-    customerId: formData.get("customerId"),
-    exchangeRateCnyPerUsd: formData.get("exchangeRateCnyPerUsd") || 7.1,
-    notes: formData.get("notes"),
-    items,
-  });
+  const parsed = productSchema.safeParse(productPayloadFromFormData(formData));
+  const trackItemsResult = parseTrackItems(formData);
 
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const count = await prisma.order.count();
-  const number = `ORD-${String(2024000 + count + 1).padStart(7, "0")}`;
-  const total = parsed.data.items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  const totalCny = calculateTotalCny(total, parsed.data.exchangeRateCnyPerUsd);
+  if (trackItemsResult.error || !trackItemsResult.trackItems) {
+    return { error: trackItemsResult.error };
+  }
 
-  const order = await prisma.order.create({
-    data: {
-      number,
-      customerId: parsed.data.customerId,
-      notes: parsed.data.notes || null,
-      total,
-      totalUsd: total,
-      exchangeRateCnyPerUsd: parsed.data.exchangeRateCnyPerUsd,
-      totalCny,
-      items: {
-        create: parsed.data.items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          price: item.price,
-        })),
+  const trackItems = trackItemsResult.trackItems;
+  const { slug, sku, customerId, deliveryType, comments, description, isActive } = parsed.data;
+  const customerError = await validateCustomer(customerId);
+
+  if (customerError) {
+    return { error: customerError };
+  }
+
+  const skuResolution = await resolveOrderSkuForCreate(sku, customerId);
+  if (!skuResolution.ok) {
+    return skuResolution.missingRecipientFields
+      ? { error: skuResolution.error, missingRecipientFields: skuResolution.missingRecipientFields }
+      : { error: skuResolution.error };
+  }
+
+  const summary = trackItemsSummary(trackItems);
+  const name = summary.trackNumbers.join("\n");
+  const finalSlug = await ensureUniqueSlug(slug?.trim() || slugify(name));
+  const finalSku = skuResolution.sku;
+
+  await prisma.$transaction(async (tx) => {
+    const product = await tx.order.create({
+      data: {
+        name,
+        slug: finalSlug,
+        sku: finalSku,
+        customerId,
+        deliveryType,
+        comments: comments || null,
+        description,
+        price: summary.totalPrice,
+        stock: summary.quantity,
+        isActive,
+        imageUrl: null,
       },
-      statusHistory: {
-        create: { status: "NEW", changedBy: session.user.id },
-      },
-    },
+      select: { id: true },
+    });
+
+    await tx.orderTrackItem.createMany({
+      data: trackItemCreateData(product.id, trackItems),
+    });
   });
 
   revalidatePath("/orders");
-  redirect(`/orders/${order.id}`);
+  redirect("/orders");
 }
 
-export async function updateOrderExchangeRate(
-  orderId: string,
-  formData: FormData
-) {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Нет доступа");
-  }
+export async function updateOrder(id: string, formData: FormData) {
+  await requireAdmin();
 
-  const parsed = exchangeRateSchema.safeParse({
-    exchangeRateCnyPerUsd: formData.get("exchangeRateCnyPerUsd"),
-  });
+  const parsed = productSchema.safeParse(productPayloadFromFormData(formData));
+  const trackItemsResult = parseTrackItems(formData);
 
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    select: {
-      total: true,
-      totalUsd: true,
-      localDeliveryCny: true,
-      discountCny: true,
-    },
-  });
-
-  if (!order) {
-    throw new Error("Заказ не найден");
+  if (trackItemsResult.error || !trackItemsResult.trackItems) {
+    return { error: trackItemsResult.error };
   }
 
-  const totalUsd = Number(order.totalUsd || order.total || 0);
-  const totalCny = calculateTotalCny(
-    totalUsd,
-    parsed.data.exchangeRateCnyPerUsd,
-    Number(order.localDeliveryCny ?? 0),
-    Number(order.discountCny ?? 0)
-  );
+  const trackItems = trackItemsResult.trackItems;
+  const { slug, sku, customerId, deliveryType, comments, description, isActive } = parsed.data;
+  const customerError = await validateCustomer(customerId);
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: {
-      exchangeRateCnyPerUsd: parsed.data.exchangeRateCnyPerUsd,
-      totalCny,
-    },
+  if (customerError) {
+    return { error: customerError };
+  }
+
+  const currentProduct = await prisma.order.findFirst({
+    where: { id, deletedAt: null },
+    select: { sku: true },
   });
 
-  revalidatePath(`/orders/${orderId}`);
+  if (!currentProduct) {
+    return { error: { sku: ["Заказ не найден"] } };
+  }
+
+  const trimmedSku = sku?.trim();
+  if (trimmedSku && trimmedSku !== currentProduct.sku && (await isSkuTaken(trimmedSku, id))) {
+    return { error: { sku: ["Такой номер уже занят"] } };
+  }
+
+  const summary = trackItemsSummary(trackItems);
+  const name = summary.trackNumbers.join("\n");
+  const finalSlug = await ensureUniqueSlug(slug?.trim() || slugify(name), id);
+  const finalSku = trimmedSku || currentProduct.sku;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.order.update({
+      where: { id },
+      data: {
+        name,
+        slug: finalSlug,
+        sku: finalSku,
+        customerId,
+        deliveryType,
+        comments: comments || null,
+        description,
+        price: summary.totalPrice,
+        stock: summary.quantity,
+        isActive,
+        imageUrl: null,
+      },
+    });
+
+    await tx.orderTrackItem.deleteMany({ where: { productId: id } });
+    await tx.orderTrackItem.createMany({
+      data: trackItemCreateData(id, trackItems),
+    });
+  });
+
+  revalidatePath(`/orders/${id}/edit`);
+  revalidatePath("/orders");
+  redirect("/orders");
+}
+
+export async function archiveOrder(id: string) {
+  await requireAdmin();
+
+  await prisma.order.update({
+    where: { id },
+    data: { isActive: false },
+  });
+
   revalidatePath("/orders");
 }
 
-export async function updateOrderStatus(
-  orderId: string,
-  status: OrderStatus,
-  note?: string
-) {
-  const session = await auth();
-  if (!session) redirect("/login");
+export async function deleteOrder(id: string) {
+  await requireAdmin();
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status },
+  const hasOrders = await prisma.parcelItem.findFirst({
+    where: { productId: id },
   });
 
-  await prisma.orderStatusHistory.create({
-    data: {
-      orderId,
-      status,
-      changedBy: session.user.id,
-      note: note ?? null,
-    },
-  });
-
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
-}
-
-export async function deleteOrder(orderId: string) {
-  const session = await auth();
-  if (!session || session.user.role !== "ADMIN") {
-    throw new Error("Нет доступа");
+  if (hasOrders) {
+    return {
+      error: "Нельзя удалить заказ, который уже используется в посылках. Используйте архивирование.",
+    };
   }
 
   await prisma.order.update({
-    where: { id: orderId },
+    where: { id },
     data: { deletedAt: new Date() },
   });
 
   revalidatePath("/orders");
+  redirect("/orders");
 }

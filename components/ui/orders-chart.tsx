@@ -40,7 +40,7 @@ export default function OrdersChart({ data }: { data: DataPoint[] }) {
             fontSize: 12,
             color: "var(--color-text)",
           }}
-          formatter={(value: number) => [value, "Заказов"]}
+        formatter={(value: number) => [value, "Посылок"]}
         />
         <Line
           type="monotone"

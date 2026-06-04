@@ -12,6 +12,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "book2:extract": "powershell -NoProfile -ExecutionPolicy Bypass -File prisma/extract-book-2.ps1",
+    "book2:update-recipients": "tsx prisma/update-all6-recipients.ts",
+    "book2:update-order-routes": "tsx prisma/update-order-routes.ts",
+    "product-names:import": "tsx prisma/import-product-names.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio"
   },
