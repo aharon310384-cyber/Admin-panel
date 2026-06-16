@@ -135,7 +135,7 @@ export const EMS_SHIPPING_TARIFFS: ShippingTariff[] = [
   },
   {
     title: "Таиланд, Филиппины, Индонезия, Вьетнам, Камбоджа, Малайзия, Сингапур",
-    destination: "Юго-Восточная Азия",
+    destination: "Таиланд, Филиппины, Индонезия, Вьетнам, Камбоджа, Малайзия, Сингапур",
     mode: "ems",
     pricePerKgUsd: 12,
     handlingFeeUsd: 15,
@@ -155,7 +155,7 @@ export const EMS_SHIPPING_TARIFFS: ShippingTariff[] = [
   },
   {
     title: "Европа и Грузия",
-    destination: "Германия, Франция, Италия, Испания, Польша, Чехия, Грузия и др.",
+    destination: "Германия, Франция, Италия, Испания, Австрия, Бельгия, Великобритания, Дания, Финляндия, Греция, Ирландия, Люксембург, Португалия, Швеция, Польша, Чехия, Венгрия, Румыния, Хорватия, Латвия, Литва, Эстония, Грузия",
     mode: "ems",
     pricePerKgUsd: 15,
     handlingFeeUsd: 25,
@@ -165,7 +165,7 @@ export const EMS_SHIPPING_TARIFFS: ShippingTariff[] = [
   },
   {
     title: "ОАЭ, Америка, Канада, Россия и др.",
-    destination: "ОАЭ, Марокко, ЮАР, Бразилия, Мексика, Канада, Россия и др.",
+    destination: "ОАЭ, Иордания, Марокко, ЮАР, Аргентина, Бразилия, Колумбия, Панама, Перу, Куба, Мексика, Канада, Кипр, Мальта, Норвегия, Швейцария, Россия",
     mode: "ems",
     pricePerKgUsd: 20,
     handlingFeeUsd: 25,
@@ -175,7 +175,7 @@ export const EMS_SHIPPING_TARIFFS: ShippingTariff[] = [
   },
   {
     title: "Индия, Турция, Пакистан, Катар, Оман, Кения и др.",
-    destination: "Индия, Турция, Пакистан, Катар, Оман, Кения и др.",
+    destination: "Индия, Турция, Пакистан, Бангладеш, Шри-Ланка, Непал, Лаос, Катар, Бахрейн, Кувейт, Тунис, Оман, Кения, Сенегал, Уганда",
     mode: "ems",
     pricePerKgUsd: 23,
     handlingFeeUsd: 28,
@@ -195,7 +195,7 @@ export const EMS_SHIPPING_TARIFFS: ShippingTariff[] = [
   },
   {
     title: "Остальные страны мира",
-    destination: "Остальные страны мира",
+    destination: "Остальные страны мира (DHL/UPS/EMS/ARAMEX)",
     mode: "request",
     pricePerKgUsd: null,
     handlingFeeUsd: null,

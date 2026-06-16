@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveOrderNumber } from "@/lib/order-number";
+import { ORDER_NOT_IN_ACTIVE_PARCEL } from "@/lib/order-filters";
+import { getFinanceSettings } from "@/lib/finance";
 import { requireAuth, requireAdmin } from "@/lib/server-helpers";
 import type { ParcelStatus } from "@prisma/client";
 
@@ -16,18 +18,8 @@ const itemSchema = z.object({
 
 const createParcelSchema = z.object({
   customerId: z.string().min(1, "Выберите получателя"),
-  exchangeRateCnyPerUsd: z.coerce
-    .number()
-    .positive("Курс должен быть больше 0")
-    .default(7.1),
   notes: z.string().optional(),
   items: z.array(itemSchema).min(1, "Добавьте хотя бы один заказ"),
-});
-
-const exchangeRateSchema = z.object({
-  exchangeRateCnyPerUsd: z.coerce
-    .number()
-    .positive("Курс должен быть больше 0"),
 });
 
 function calculateTotalCny(
@@ -52,7 +44,6 @@ export async function createParcel(formData: FormData) {
 
   const parsed = createParcelSchema.safeParse({
     customerId: formData.get("customerId"),
-    exchangeRateCnyPerUsd: formData.get("exchangeRateCnyPerUsd") || 7.1,
     notes: formData.get("notes"),
     items,
   });
@@ -80,12 +71,13 @@ export async function createParcel(formData: FormData) {
     };
   }
 
+  const finance = await getFinanceSettings();
   const { clientCode, countryCode, routeNumber, number } = resolved.parts;
   const total = parsed.data.items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
-  const totalCny = calculateTotalCny(total, parsed.data.exchangeRateCnyPerUsd);
+  const totalCny = calculateTotalCny(total, finance.exchangeRateCnyPerUsd);
 
   const order = await prisma.parcel.create({
     data: {
@@ -94,7 +86,7 @@ export async function createParcel(formData: FormData) {
       notes: parsed.data.notes || null,
       total,
       totalUsd: total,
-      exchangeRateCnyPerUsd: parsed.data.exchangeRateCnyPerUsd,
+      exchangeRateCnyPerUsd: finance.exchangeRateCnyPerUsd,
       totalCny,
       routePrefix: clientCode,
       routeNumber: String(routeNumber),
@@ -113,55 +105,8 @@ export async function createParcel(formData: FormData) {
   });
 
   revalidatePath("/parcels");
+  revalidatePath("/orders");
   redirect(`/parcels/${order.id}`);
-}
-
-export async function updateParcelExchangeRate(
-  orderId: string,
-  formData: FormData
-) {
-  await requireAdmin();
-
-  const parsed = exchangeRateSchema.safeParse({
-    exchangeRateCnyPerUsd: formData.get("exchangeRateCnyPerUsd"),
-  });
-
-  if (!parsed.success) {
-    return { error: parsed.error.flatten().fieldErrors };
-  }
-
-  const order = await prisma.parcel.findUnique({
-    where: { id: orderId },
-    select: {
-      total: true,
-      totalUsd: true,
-      localDeliveryCny: true,
-      discountCny: true,
-    },
-  });
-
-  if (!order) {
-    throw new Error("Посылка не найдена");
-  }
-
-  const totalUsd = Number(order.totalUsd || order.total || 0);
-  const totalCny = calculateTotalCny(
-    totalUsd,
-    parsed.data.exchangeRateCnyPerUsd,
-    Number(order.localDeliveryCny ?? 0),
-    Number(order.discountCny ?? 0)
-  );
-
-  await prisma.parcel.update({
-    where: { id: orderId },
-    data: {
-      exchangeRateCnyPerUsd: parsed.data.exchangeRateCnyPerUsd,
-      totalCny,
-    },
-  });
-
-  revalidatePath(`/parcels/${orderId}`);
-  revalidatePath("/parcels");
 }
 
 export async function updateParcelStatus(
@@ -187,6 +132,134 @@ export async function updateParcelStatus(
 
   revalidatePath(`/parcels/${orderId}`);
   revalidatePath("/parcels");
+  revalidatePath("/orders");
+}
+
+const createFromOrdersSchema = z.object({
+  orderIds: z.array(z.string().min(1)).min(1, "Отметьте хотя бы один заказ"),
+  notes: z.string().optional(),
+});
+
+export async function createParcelFromOrders(input: {
+  orderIds: string[];
+  notes?: string;
+}) {
+  const session = await requireAuth();
+
+  const parsed = createFromOrdersSchema.safeParse({
+    orderIds: input.orderIds,
+    notes: input.notes,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors };
+  }
+
+  const orders = await prisma.order.findMany({
+    where: {
+      id: { in: parsed.data.orderIds },
+      deletedAt: null,
+      ...ORDER_NOT_IN_ACTIVE_PARCEL,
+    },
+    select: {
+      id: true,
+      customerId: true,
+      deliveryType: true,
+      price: true,
+      stock: true,
+      trackItems: {
+        select: { name: true, quantity: true, unitPrice: true, totalPrice: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+
+  if (orders.length !== parsed.data.orderIds.length) {
+    return {
+      error: {
+        orderIds: [
+          "Часть заказов уже оформлена в другую посылку или удалена. Обновите страницу и попробуйте снова.",
+        ],
+      },
+    };
+  }
+
+  const customerIds = new Set(orders.map((o) => o.customerId));
+  if (customerIds.size > 1 || customerIds.has(null)) {
+    return {
+      error: {
+        orderIds: ["В одной посылке могут быть только заказы одного получателя"],
+      },
+    };
+  }
+  const customerId = orders[0].customerId as string;
+
+  const deliveryTypes = new Set(orders.map((o) => o.deliveryType ?? ""));
+  if (deliveryTypes.size > 1) {
+    return {
+      error: {
+        orderIds: ["Заказы должны иметь одинаковый тип доставки"],
+      },
+    };
+  }
+
+  const resolved = await resolveOrderNumber(customerId);
+  if (!resolved.ok) {
+    return {
+      error: {
+        orderIds: [
+          resolved.recipient
+            ? `У получателя не заполнены: ${resolved.missing.join(", ")}.`
+            : "Получатель не найден",
+        ],
+      },
+    };
+  }
+
+  const finance = await getFinanceSettings();
+  const { clientCode, countryCode, routeNumber, number } = resolved.parts;
+  const totalUsd = orders.reduce((sum, o) => sum + Number(o.price), 0);
+  const totalCny = calculateTotalCny(totalUsd, finance.exchangeRateCnyPerUsd);
+
+  const parcel = await prisma.parcel.create({
+    data: {
+      number,
+      customerId,
+      notes: parsed.data.notes || null,
+      total: totalUsd,
+      totalUsd,
+      exchangeRateCnyPerUsd: finance.exchangeRateCnyPerUsd,
+      totalCny,
+      routePrefix: clientCode,
+      routeNumber: String(routeNumber),
+      routeCountry: countryCode,
+      items: {
+        create: orders.map((o) => {
+          const track = o.trackItems[0];
+          const quantity = track ? track.quantity : 1;
+          const unitPrice = track ? Number(track.unitPrice) : Number(o.price);
+          const lineTotalUsd = track
+            ? Number(track.totalPrice ?? Number(track.unitPrice) * track.quantity)
+            : Number(o.price);
+          return {
+            productId: o.id,
+            quantity,
+            price: unitPrice,
+            name: track?.name ?? null,
+            lineTotalUsd,
+          };
+        }),
+      },
+      statusHistory: {
+        create: { status: "NEW", changedBy: session.user.id },
+      },
+    },
+    select: { id: true, number: true },
+  });
+
+  revalidatePath("/parcels");
+  revalidatePath("/orders");
+  return { ok: true as const, parcelId: parcel.id, number: parcel.number };
 }
 
 export async function deleteParcel(orderId: string) {
@@ -198,4 +271,5 @@ export async function deleteParcel(orderId: string) {
   });
 
   revalidatePath("/parcels");
+  revalidatePath("/orders");
 }

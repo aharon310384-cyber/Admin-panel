@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { Customer } from "@prisma/client";
-import { Search } from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 import SortableHeader from "@/components/ui/sortable-header";
 import { Pagination } from "@/components/ui/pagination";
+import TableRowLink from "@/components/ui/table-row-link";
 import { prisma } from "@/lib/prisma";
 import { parsePageParam } from "@/lib/list-params";
 import { formatDateTime } from "@/lib/utils";
@@ -263,6 +264,10 @@ export default async function CustomersPage({
             {duplicateCount > 0 ? `, скрыто дублей: ${duplicateCount}` : ""}
           </p>
         </div>
+        <Link href="/recipients/new" className="btn-add">
+          <UserPlus size={16} />
+          Добавить получателя
+        </Link>
       </div>
 
       <div className="search-wrap">
@@ -372,12 +377,11 @@ export default async function CustomersPage({
                     direction={sortDir}
                   />
                 </th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {visibleCustomers.map((customer) => (
-                <tr key={customer.id}>
+                <TableRowLink key={customer.id} href={`/recipients/${customer.id}`}>
                   <td>
                     <span className="code-pill">{dash(customer.clientCode ?? customer.code)}</span>
                   </td>
@@ -393,16 +397,11 @@ export default async function CustomersPage({
                     {formatInformationDate(customer.informationDate, customer.informationDateText)}
                   </td>
                   <td className="tabular">{customer._count.parcels}</td>
-                  <td>
-                    <Link href={`/recipients/${customer.id}`} className="btn-ghost btn-sm">
-                      Открыть
-                    </Link>
-                  </td>
-                </tr>
+                </TableRowLink>
               ))}
               {visibleCustomers.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="table-empty">
+                  <td colSpan={11} className="table-empty">
                     Получателей не найдено
                   </td>
                 </tr>
@@ -423,6 +422,9 @@ export default async function CustomersPage({
         .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
         .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
         .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
+
+        .btn-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; background: var(--color-accent); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; color: #fff; text-decoration: none; white-space: nowrap; transition: opacity 0.15s; }
+        .btn-add:hover { opacity: 0.9; }
 
         .search-wrap { position: relative; max-width: 620px; }
         .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
@@ -446,6 +448,8 @@ export default async function CustomersPage({
         .btn-ghost { display: inline-flex; align-items: center; padding: 5px 10px; background: transparent; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--color-accent); text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
         .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
         .btn-sm { padding: 4px 8px; }
+        .row-clickable { cursor: pointer; }
+        .row-clickable:hover td { background: var(--color-muted-bg); }
 
         .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
 

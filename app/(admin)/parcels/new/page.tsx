@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { ORDER_NOT_IN_ACTIVE_PARCEL } from "@/lib/order-filters";
+import { getFinanceSettings } from "@/lib/finance";
 import ParcelForm from "../parcel-form";
 
 export const metadata: Metadata = { title: "Новая посылка" };
@@ -12,7 +14,7 @@ export default async function NewOrderPage({
 }) {
   const { customerId: initialCustomerId } = await searchParams;
 
-  const [customers, products] = await Promise.all([
+  const [customers, products, finance] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
@@ -20,17 +22,26 @@ export default async function NewOrderPage({
         id: true,
         name: true,
         email: true,
+        phone: true,
         code: true,
         clientCode: true,
         country: true,
         countryCode: true,
+        city: true,
+        address: true,
+        postalCode: true,
       },
     }),
     prisma.order.findMany({
-      where: { deletedAt: null, isActive: true },
+      where: {
+        deletedAt: null,
+        isActive: true,
+        ...ORDER_NOT_IN_ACTIVE_PARCEL,
+      },
       orderBy: { name: "asc" },
       select: { id: true, name: true, sku: true, price: true },
     }),
+    getFinanceSettings(),
   ]);
 
   const productsForForm = products.map((p) => ({
@@ -55,6 +66,7 @@ export default async function NewOrderPage({
         customers={customers}
         products={productsForForm}
         initialCustomerId={initialCustomerId}
+        finance={{ exchangeRateCnyPerUsd: finance.exchangeRateCnyPerUsd }}
       />
 
       <style>{`

@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { resolveOrderNumber } from "@/lib/order-number";
+import { buildOrderNumber, resolveOrderNumber } from "@/lib/order-number";
 import { requireAdmin } from "@/lib/server-helpers";
 import { slugify } from "@/lib/utils";
 
@@ -72,32 +73,6 @@ function parseTrackItems(formData: FormData): {
   }
 }
 
-function trackItemsSummary(trackItems: TrackItemInput[]) {
-  return trackItems.reduce(
-    (summary, item) => ({
-      trackNumbers: [...summary.trackNumbers, item.trackNumber],
-      quantity: summary.quantity + item.quantity,
-      totalPrice: summary.totalPrice + item.quantity * item.unitPrice,
-    }),
-    { trackNumbers: [] as string[], quantity: 0, totalPrice: 0 }
-  );
-}
-
-function trackItemCreateData(productId: string, trackItems: TrackItemInput[]) {
-  return trackItems.map((item) => ({
-    productId,
-    trackNumber: item.trackNumber,
-    name: item.name,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    totalPrice: item.quantity * item.unitPrice,
-    productUrl: item.productUrl?.trim() || null,
-    imageUrl: null,
-    photoReport: item.photoReport,
-    photoReportUrl: item.photoReportUrl?.trim() || null,
-  }));
-}
-
 async function isSkuTaken(sku: string, excludeId?: string): Promise<boolean> {
   const existing = await prisma.order.findFirst({
     where: {
@@ -109,60 +84,19 @@ async function isSkuTaken(sku: string, excludeId?: string): Promise<boolean> {
   return Boolean(existing);
 }
 
-type SkuResolution =
-  | { ok: true; sku: string }
-  | { ok: false; error: Record<string, string[]>; missingRecipientFields?: { customerId: string; missing: string[] } };
-
-async function resolveOrderSkuForCreate(
-  manualSku: string | undefined,
-  customerId: string
-): Promise<SkuResolution> {
-  const trimmed = manualSku?.trim();
-
-  if (trimmed) {
-    if (await isSkuTaken(trimmed)) {
-      return { ok: false, error: { sku: ["Такой номер уже занят"] } };
-    }
-    return { ok: true, sku: trimmed };
-  }
-
-  const resolved = await resolveOrderNumber(customerId);
-
-  if (!resolved.ok) {
-    if (!resolved.recipient) {
-      return { ok: false, error: { customerId: ["Получатель не найден"] } };
-    }
-    return {
-      ok: false,
-      error: {
-        customerId: [
-          `У получателя не заполнены: ${resolved.missing.join(", ")}. Откройте карточку получателя для дозаполнения.`,
-        ],
-      },
-      missingRecipientFields: {
-        customerId: resolved.recipient.id,
-        missing: resolved.missing,
-      },
-    };
-  }
-
-  if (await isSkuTaken(resolved.parts.number)) {
-    return { ok: false, error: { sku: [`Номер ${resolved.parts.number} уже занят, повторите попытку`] } };
-  }
-
-  return { ok: true, sku: resolved.parts.number };
-}
-
-async function ensureUniqueSlug(
+async function ensureUniqueSlugInTx(
+  tx: Prisma.TransactionClient,
   base: string,
+  reserved: Set<string>,
   excludeId?: string
 ): Promise<string> {
-  const trimmed = base.trim();
-  const seed = trimmed || `product-${Date.now()}`;
+  const seed = base.trim() || `product-${Date.now()}`;
 
   for (let suffix = 0; suffix < 1000; suffix++) {
     const candidate = suffix === 0 ? seed : `${seed}-${suffix + 1}`;
-    const existing = await prisma.order.findFirst({
+    if (reserved.has(candidate)) continue;
+
+    const existing = await tx.order.findFirst({
       where: {
         slug: candidate,
         ...(excludeId ? { NOT: { id: excludeId } } : {}),
@@ -171,11 +105,14 @@ async function ensureUniqueSlug(
     });
 
     if (!existing) {
+      reserved.add(candidate);
       return candidate;
     }
   }
 
-  return `${seed}-${Date.now()}`;
+  const fallback = `${seed}-${Date.now()}`;
+  reserved.add(fallback);
+  return fallback;
 }
 
 async function validateCustomer(customerId: string) {
@@ -206,46 +143,90 @@ export async function createOrder(formData: FormData) {
   }
 
   const trackItems = trackItemsResult.trackItems;
-  const { slug, sku, customerId, deliveryType, comments, description, isActive } = parsed.data;
+  const { customerId, deliveryType, comments, description, isActive } = parsed.data;
   const customerError = await validateCustomer(customerId);
 
   if (customerError) {
     return { error: customerError };
   }
 
-  const skuResolution = await resolveOrderSkuForCreate(sku, customerId);
-  if (!skuResolution.ok) {
-    return skuResolution.missingRecipientFields
-      ? { error: skuResolution.error, missingRecipientFields: skuResolution.missingRecipientFields }
-      : { error: skuResolution.error };
+  const resolved = await resolveOrderNumber(customerId);
+  if (!resolved.ok) {
+    if (!resolved.recipient) {
+      return { error: { customerId: ["Получатель не найден"] } };
+    }
+    return {
+      error: {
+        customerId: [
+          `У получателя не заполнены: ${resolved.missing.join(", ")}. Откройте карточку получателя для дозаполнения.`,
+        ],
+      },
+      missingRecipientFields: {
+        customerId: resolved.recipient.id,
+        missing: resolved.missing,
+      },
+    };
   }
 
-  const summary = trackItemsSummary(trackItems);
-  const name = summary.trackNumbers.join("\n");
-  const finalSlug = await ensureUniqueSlug(slug?.trim() || slugify(name));
-  const finalSku = skuResolution.sku;
+  const { clientCode, countryCode, routeNumber: baseSerial } = resolved.parts;
+  const targetSkus = trackItems.map((_, i) =>
+    buildOrderNumber(clientCode, baseSerial + i, countryCode)
+  );
+
+  const taken = await prisma.order.findMany({
+    where: { sku: { in: targetSkus } },
+    select: { sku: true },
+  });
+  if (taken.length > 0) {
+    return {
+      error: {
+        trackItems: [
+          `Номера уже заняты: ${taken.map((t) => t.sku).join(", ")}. Повторите.`,
+        ],
+      },
+    };
+  }
 
   await prisma.$transaction(async (tx) => {
-    const product = await tx.order.create({
-      data: {
-        name,
-        slug: finalSlug,
-        sku: finalSku,
-        customerId,
-        deliveryType,
-        comments: comments || null,
-        description,
-        price: summary.totalPrice,
-        stock: summary.quantity,
-        isActive,
-        imageUrl: null,
-      },
-      select: { id: true },
-    });
+    const reservedSlugs = new Set<string>();
+    for (let i = 0; i < trackItems.length; i++) {
+      const item = trackItems[i];
+      const orderSku = targetSkus[i];
+      const baseSlug = slugify(item.trackNumber) || `order-${orderSku.toLowerCase()}`;
+      const orderSlug = await ensureUniqueSlugInTx(tx, baseSlug, reservedSlugs);
 
-    await tx.orderTrackItem.createMany({
-      data: trackItemCreateData(product.id, trackItems),
-    });
+      const order = await tx.order.create({
+        data: {
+          name: item.trackNumber,
+          slug: orderSlug,
+          sku: orderSku,
+          customerId,
+          deliveryType,
+          comments: comments || null,
+          description: i === 0 ? description ?? null : null,
+          price: item.quantity * item.unitPrice,
+          stock: item.quantity,
+          isActive,
+          imageUrl: null,
+        },
+        select: { id: true },
+      });
+
+      await tx.orderTrackItem.create({
+        data: {
+          productId: order.id,
+          trackNumber: item.trackNumber,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.quantity * item.unitPrice,
+          productUrl: item.productUrl?.trim() || null,
+          imageUrl: null,
+          photoReport: item.photoReport,
+          photoReportUrl: item.photoReportUrl?.trim() || null,
+        },
+      });
+    }
   });
 
   revalidatePath("/orders");
@@ -267,6 +248,16 @@ export async function updateOrder(id: string, formData: FormData) {
   }
 
   const trackItems = trackItemsResult.trackItems;
+
+  if (trackItems.length !== 1) {
+    return {
+      error: {
+        trackItems: ["В одном заказе должен быть ровно один трек. Уберите лишние строки."],
+      },
+    };
+  }
+
+  const trackItem = trackItems[0];
   const { slug, sku, customerId, deliveryType, comments, description, isActive } = parsed.data;
   const customerError = await validateCustomer(customerId);
 
@@ -288,12 +279,18 @@ export async function updateOrder(id: string, formData: FormData) {
     return { error: { sku: ["Такой номер уже занят"] } };
   }
 
-  const summary = trackItemsSummary(trackItems);
-  const name = summary.trackNumbers.join("\n");
-  const finalSlug = await ensureUniqueSlug(slug?.trim() || slugify(name), id);
   const finalSku = trimmedSku || currentProduct.sku;
+  const name = trackItem.trackNumber;
 
   await prisma.$transaction(async (tx) => {
+    const reservedSlugs = new Set<string>();
+    const finalSlug = await ensureUniqueSlugInTx(
+      tx,
+      slug?.trim() || slugify(name),
+      reservedSlugs,
+      id
+    );
+
     await tx.order.update({
       where: { id },
       data: {
@@ -304,16 +301,27 @@ export async function updateOrder(id: string, formData: FormData) {
         deliveryType,
         comments: comments || null,
         description,
-        price: summary.totalPrice,
-        stock: summary.quantity,
+        price: trackItem.quantity * trackItem.unitPrice,
+        stock: trackItem.quantity,
         isActive,
         imageUrl: null,
       },
     });
 
     await tx.orderTrackItem.deleteMany({ where: { productId: id } });
-    await tx.orderTrackItem.createMany({
-      data: trackItemCreateData(id, trackItems),
+    await tx.orderTrackItem.create({
+      data: {
+        productId: id,
+        trackNumber: trackItem.trackNumber,
+        name: trackItem.name,
+        quantity: trackItem.quantity,
+        unitPrice: trackItem.unitPrice,
+        totalPrice: trackItem.quantity * trackItem.unitPrice,
+        productUrl: trackItem.productUrl?.trim() || null,
+        imageUrl: null,
+        photoReport: trackItem.photoReport,
+        photoReportUrl: trackItem.photoReportUrl?.trim() || null,
+      },
     });
   });
 

@@ -5,17 +5,27 @@ import Link from "next/link";
 import { AlertTriangle, Loader2, Plus, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { createParcel } from "@/actions/parcels";
+import { customerLabel } from "@/lib/customer-label";
 import { formatCny, formatUsd } from "@/lib/utils";
+
+type FinanceView = {
+  exchangeRateCnyPerUsd: number;
+};
 
 type Customer = {
   id: string;
   name: string;
   email: string | null;
+  phone: string | null;
   code: string | null;
   clientCode: string | null;
   country: string | null;
   countryCode: string | null;
+  city: string | null;
+  address: string | null;
+  postalCode: string | null;
 };
+
 type Product = { id: string; name: string; sku: string; price: number };
 type Item = { productId: string; quantity: number; price: number };
 
@@ -25,14 +35,16 @@ export default function ParcelForm({
   customers,
   products,
   initialCustomerId,
+  finance,
 }: {
   customers: Customer[];
   products: Product[];
   initialCustomerId?: string;
+  finance: FinanceView;
 }) {
   const [isPending, startTransition] = useTransition();
   const [items, setItems] = useState<Item[]>([{ productId: "", quantity: 1, price: 0 }]);
-  const [exchangeRate, setExchangeRate] = useState(7.1);
+  const exchangeRate = finance.exchangeRateCnyPerUsd;
   const [error, setError] = useState<Record<string, string[]>>({});
   const [customerId, setCustomerId] = useState(initialCustomerId ?? "");
 
@@ -123,18 +135,11 @@ export default function ParcelForm({
             className={`field-input ${error.customerId ? "field-input--error" : ""}`}
           >
             <option value="">— Выберите получателя —</option>
-            {customers.map((c) => {
-              const code = (c.clientCode ?? c.code ?? "").trim();
-              const ctry = (c.countryCode ?? "").trim();
-              const tags = [code, ctry].filter(Boolean).join(" · ");
-              return (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {tags ? ` [${tags}]` : ""}
-                  {c.email ? ` (${c.email})` : ""}
-                </option>
-              );
-            })}
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {customerLabel(c)}
+              </option>
+            ))}
           </select>
           {error.customerId && <p className="field-error">{error.customerId[0]}</p>}
         </div>
@@ -168,21 +173,14 @@ export default function ParcelForm({
         <h2 className="section-title">Курс для клиента</h2>
         <div className="rate-grid">
           <div className="field">
-            <label className="field-label">
-              Курс доллара к юаню <span className="required">*</span>
-            </label>
+            <label className="field-label">Курс доллара к юаню</label>
             <input
               type="number"
-              name="exchangeRateCnyPerUsd"
-              className={`field-input ${error.exchangeRateCnyPerUsd ? "field-input--error" : ""}`}
-              min={0}
-              step={0.0001}
+              className="field-input"
               value={exchangeRate}
-              onChange={(e) => setExchangeRate(Number(e.target.value))}
+              readOnly
+              disabled
             />
-            {error.exchangeRateCnyPerUsd && (
-              <p className="field-error">{error.exchangeRateCnyPerUsd[0]}</p>
-            )}
           </div>
           <div className="rate-preview">
             <span>Расчет</span>
@@ -193,6 +191,13 @@ export default function ParcelForm({
             <strong>{formatCny(totalCny)}</strong>
           </div>
         </div>
+        <p className="muted-note">
+          Курс подтягивается из справочника{" "}
+          <Link href="/finance" className="link">
+            Финансы
+          </Link>
+          . Локальная доставка и скидка задаются в карточке посылки.
+        </p>
       </div>
 
       <div className="card">
@@ -326,8 +331,12 @@ export default function ParcelForm({
         .field-input { padding: 10px 14px; background: oklch(99% 0.008 65 / 0.6); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 14px; color: var(--color-text); font-family: var(--font-sans); outline: none; transition: border-color 0.15s; width: 100%; }
         .field-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px oklch(52% 0.14 42 / 0.1); }
         .field-input--error { border-color: var(--color-danger); }
+        .field-input:disabled { color: var(--color-muted); background: var(--color-muted-bg); cursor: not-allowed; }
         .field-textarea { resize: vertical; min-height: 80px; font-family: var(--font-sans); line-height: 1.5; }
         .field-error { font-size: 12px; color: var(--color-danger); margin: 0; }
+        .muted-note { font-size: 12.5px; color: var(--color-muted); margin: 10px 0 0; line-height: 1.45; }
+        .link { color: var(--color-accent); text-decoration: none; }
+        .link:hover { text-decoration: underline; }
 
         .items-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
 

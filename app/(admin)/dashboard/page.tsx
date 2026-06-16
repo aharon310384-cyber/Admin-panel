@@ -187,7 +187,7 @@ export default async function DashboardPage() {
                         {order.number}
                       </Link>
                     </td>
-                    <td>{order.recipientName || order.customer.name}</td>
+                    <td>{order.customer.name}</td>
                     <td>
                       <ParcelStatusBadge status={order.status} />
                     </td>

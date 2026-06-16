@@ -4,17 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BadgeDollarSign,
+  BarChart3,
   ChevronLeft,
   ClipboardList,
+  CircleDollarSign,
   Globe,
   IdCard,
   LayoutDashboard,
   LogOut,
   Package,
+  Receipt,
   Settings,
   Sparkles,
   Tags,
   Users,
+  Wrench,
   Workflow,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -24,20 +28,58 @@ import { USER_ROLE_LABELS } from "@/types";
 import type { UserRole } from "@prisma/client";
 import { BrandLogo } from "@/components/ui/brand-logo";
 
-const NAV_GROUPS = [
-  [
-    { href: "/dashboard", label: "Операции", icon: LayoutDashboard },
-    { href: "/orders", label: "Заказы", icon: ClipboardList },
-    { href: "/parcels", label: "Посылки", icon: Package },
-    { href: "/recipients", label: "Получатели", icon: Users },
-  ],
-  [
-    { href: "/clients", label: "Клиенты", icon: IdCard },
-    { href: "/product-names", label: "Наименования товаров", icon: Tags },
-    { href: "/countries", label: "Страны", icon: Globe },
-    { href: "/statuses", label: "Статусы", icon: Workflow },
-    { href: "/services", label: "Услуги", icon: Sparkles },
-  ],
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  soon?: boolean;
+};
+type NavGroup = { title?: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    items: [
+      { href: "/dashboard", label: "Операции", icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: "Документы",
+    items: [
+      { href: "/orders", label: "Заказы", icon: ClipboardList },
+      { href: "/parcels", label: "Посылки", icon: Package },
+    ],
+  },
+  {
+    title: "Справочники",
+    items: [
+      { href: "/clients", label: "Клиенты", icon: IdCard },
+      { href: "/recipients", label: "Получатели", icon: Users },
+      { href: "/product-names", label: "Наименования", icon: Tags },
+      { href: "/countries", label: "Страны", icon: Globe },
+      { href: "/statuses", label: "Статусы", icon: Workflow },
+      { href: "/services", label: "Услуги", icon: Sparkles },
+      { href: "/tariffs", label: "Тарифы", icon: BadgeDollarSign },
+    ],
+  },
+  {
+    title: "Регистры",
+    items: [
+      { href: "/finance", label: "Курс", icon: CircleDollarSign },
+      { href: "/finance?tab=payments", label: "Расчёт и оплата", icon: Receipt },
+    ],
+  },
+  {
+    title: "Обработки",
+    items: [
+      { href: "#", label: "Скоро", icon: Wrench, soon: true },
+    ],
+  },
+  {
+    title: "Отчёты",
+    items: [
+      { href: "#", label: "Скоро", icon: BarChart3, soon: true },
+    ],
+  },
 ];
 
 type SidebarProps = {
@@ -90,31 +132,37 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
         {NAV_GROUPS.map((group, groupIndex) => (
           <div key={groupIndex} className="sidebar-nav-group">
             {groupIndex > 0 && <div className="sidebar-nav-divider" role="separator" />}
-            {group.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className={cn("sidebar-link", isActive(href) && "sidebar-link--active")}
-                title={collapsed ? label : undefined}
-              >
-                <Icon size={18} className="sidebar-link-icon" />
-                {!collapsed && <span>{label}</span>}
-              </Link>
-            ))}
+            {group.title && !collapsed && (
+              <p className="sidebar-nav-title">{group.title}</p>
+            )}
+            {group.items.map(({ href, label, icon: Icon, soon }) =>
+              soon ? (
+                <span
+                  key={`${group.title}-soon`}
+                  className="sidebar-link sidebar-link--soon"
+                  title={collapsed ? label : undefined}
+                  aria-disabled="true"
+                >
+                  <Icon size={18} className="sidebar-link-icon" />
+                  {!collapsed && <span>{label}</span>}
+                </span>
+              ) : (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn("sidebar-link", isActive(href) && "sidebar-link--active")}
+                  title={collapsed ? label : undefined}
+                >
+                  <Icon size={18} className="sidebar-link-icon" />
+                  {!collapsed && <span>{label}</span>}
+                </Link>
+              )
+            )}
           </div>
         ))}
       </nav>
 
       <div className="sidebar-bottom">
-        <Link
-          href="/tariffs"
-          className={cn("sidebar-link", isActive("/tariffs") && "sidebar-link--active")}
-          title={collapsed ? "Тарифы" : undefined}
-        >
-          <BadgeDollarSign size={18} className="sidebar-link-icon" />
-          {!collapsed && <span>Тарифы</span>}
-        </Link>
-
         <Link
           href="/settings"
           className={cn("sidebar-link", isActive("/settings") && "sidebar-link--active")}
@@ -229,6 +277,16 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
           margin: 10px 8px;
         }
 
+        .sidebar-nav-title {
+          font-size: 10.5px;
+          font-weight: 600;
+          color: var(--color-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          padding: 4px 12px 6px;
+          margin: 0;
+        }
+
         .sidebar-link {
           display: flex;
           align-items: center;
@@ -264,6 +322,13 @@ export default function Sidebar({ userName, userRole }: SidebarProps) {
           width: 3px;
           background: var(--color-accent);
           border-radius: 0 2px 2px 0;
+        }
+
+        .sidebar-link--soon {
+          color: var(--color-muted);
+          opacity: 0.5;
+          cursor: default;
+          pointer-events: none;
         }
 
         .sidebar-link-icon {

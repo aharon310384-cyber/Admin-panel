@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Script from "next/script";
 import { Eye, LogOut } from "lucide-react";
 import { exitClientCabinet } from "@/actions/client-cabinet";
-import { BrandLogo } from "@/components/ui/brand-logo";
+import CabinetNav from "@/components/cabinet/cabinet-nav";
+import CabinetSidebar from "@/components/cabinet/cabinet-sidebar";
+import TelegramInit from "@/components/cabinet/telegram-init";
 
 export const metadata: Metadata = {
   title: "Кабинет клиента",
@@ -13,196 +17,155 @@ export default function ClientCabinetLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="client-cabinet-shell">
-      <header className="client-cabinet-header">
-        <a
-          href="https://postmanfox.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="client-cabinet-brand"
-          aria-label="Перейти на postmanfox.com"
-        >
-          <BrandLogo size="sm" />
-        </a>
+    <div className="cab-root">
+      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+      <TelegramInit />
+      <CabinetSidebar />
 
-        <span className="client-cabinet-header-label">
-          <Eye size={15} aria-hidden="true" />
-          Кабинет клиента
-        </span>
-      </header>
+      <div className="cab-viewport">
+        <header className="cab-header">
+          <a
+            href="https://postmanfox.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="cab-brand"
+            aria-label="Перейти на postmanfox.com"
+          >
+            <Image
+              src="/brand/logo.png"
+              alt="PostmanFox"
+              width={150}
+              height={49}
+              priority
+              className="cab-brand-img"
+            />
+          </a>
 
-      <div className="client-cabinet-banner-wrap">
-        <aside className="client-cabinet-banner" aria-label="Режим просмотра клиента">
-          <div className="client-cabinet-banner-copy">
-            <span className="client-cabinet-banner-icon" aria-hidden="true">
-              <Eye size={18} />
+          <form action={exitClientCabinet} className="cab-exit-form">
+            <span className="cab-mode-pill" title="Режим просмотра клиента">
+              <Eye size={13} aria-hidden="true" />
+              Просмотр
             </span>
-            <div>
-              <strong>Режим просмотра клиента</strong>
-              <p>
-                Вы видите кабинет так, как его видит клиент. Административные
-                действия недоступны.
-              </p>
-            </div>
-          </div>
-
-          <form action={exitClientCabinet}>
-            <button type="submit" className="client-cabinet-exit-button">
+            <button type="submit" className="cab-exit-btn" aria-label="Выйти из режима просмотра">
               <LogOut size={15} aria-hidden="true" />
-              Выйти из режима просмотра
             </button>
           </form>
-        </aside>
+        </header>
+
+        <main className="cab-main">{children}</main>
+
+        <CabinetNav />
       </div>
 
-      <main className="client-cabinet-main">{children}</main>
-
       <style>{`
-        .client-cabinet-shell {
+        .cab-root {
+          --cab-bg: #f4f7f0;
+          --cab-surface: #ffffff;
+          --cab-surface-glass: rgba(255, 255, 255, 0.74);
+          --cab-text: #1d2718;
+          --cab-text-soft: #3c4a32;
+          --cab-muted: #79836f;
+          --cab-border: rgba(29, 39, 24, 0.09);
+          --cab-border-strong: rgba(29, 39, 24, 0.16);
+
+          --cab-green: #6dab3c;
+          --cab-green-deep: #4e8a2a;
+          --cab-orange: #e8730e;
+          --cab-orange-light: #f39a1f;
+          --cab-blue: #5472d2;
+          --cab-mint: #75d69c;
+          --cab-amber: #f0b429;
+          --cab-danger: #d64545;
+
+          --cab-shadow-sm: 0 2px 8px rgba(29, 39, 24, 0.06);
+          --cab-shadow-md: 0 8px 24px rgba(29, 39, 24, 0.08);
+          --cab-shadow-lg: 0 16px 40px rgba(29, 39, 24, 0.12);
+
+          --cab-radius-lg: 24px;
+          --cab-radius-md: 18px;
+          --cab-radius-sm: 12px;
+
+          display: flex;
           min-height: 100dvh;
+          background:
+            radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--cab-mint) 22%, transparent) 0%, transparent 42%),
+            radial-gradient(120% 80% at 0% 100%, color-mix(in srgb, var(--cab-orange-light) 14%, transparent) 0%, transparent 45%),
+            var(--cab-bg);
+          color: var(--cab-text);
+          font-family: var(--font-inter), system-ui, sans-serif;
         }
 
-        .client-cabinet-header {
-          min-height: 64px;
+        .cab-viewport {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          padding: 14px 32px;
-          background: var(--color-surface);
-          backdrop-filter: blur(16px) saturate(1.4);
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .client-cabinet-brand {
-          display: inline-flex;
-          color: inherit;
-          text-decoration: none;
-        }
-
-        .client-cabinet-header-label {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          padding: 5px 10px;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-full);
-          color: var(--color-muted);
-          background: var(--color-muted-bg);
-          font-size: 12px;
-          font-weight: 600;
-          white-space: nowrap;
-        }
-
-        .client-cabinet-banner-wrap {
-          max-width: 1240px;
-          margin: 0 auto;
-          padding: 20px 32px 0;
-        }
-
-        .client-cabinet-banner {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 14px 16px;
-          border: 1px solid color-mix(in srgb, var(--color-accent) 32%, var(--color-border));
-          border-radius: var(--radius-md);
-          background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
-          box-shadow: var(--shadow-card);
-        }
-
-        .client-cabinet-banner-copy {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
+          flex-direction: column;
+          flex: 1;
           min-width: 0;
+          min-height: 100dvh;
+          max-width: 540px;
+          margin: 0 auto;
         }
 
-        .client-cabinet-banner-icon {
-          width: 34px;
-          height: 34px;
+        .cab-header {
+          position: sticky;
+          top: 0;
+          z-index: 40;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 14px 18px;
+          background: linear-gradient(to bottom, var(--cab-bg) 60%, transparent);
+        }
+        .cab-brand { display: inline-flex; }
+        .cab-brand-img { height: 34px; width: auto; }
+
+        .cab-exit-form { display: inline-flex; align-items: center; gap: 8px; }
+        .cab-mode-pill {
           display: inline-flex;
           align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          border-radius: var(--radius-sm);
-          color: var(--color-accent);
-          background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-        }
-
-        .client-cabinet-banner strong {
-          display: block;
-          color: var(--color-text);
-          font-size: 13.5px;
-          font-weight: 700;
-        }
-
-        .client-cabinet-banner p {
-          margin: 3px 0 0;
-          color: var(--color-muted);
-          font-size: 12.5px;
-          line-height: 1.45;
-        }
-
-        .client-cabinet-exit-button {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          min-height: 36px;
-          padding: 8px 13px;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          color: var(--color-text);
-          background: var(--color-surface);
-          font-size: 12.5px;
+          gap: 5px;
+          padding: 5px 10px;
+          border-radius: 999px;
+          font-size: 11.5px;
           font-weight: 600;
+          color: var(--cab-orange);
+          background: color-mix(in srgb, var(--cab-orange) 12%, var(--cab-surface));
+          border: 1px solid color-mix(in srgb, var(--cab-orange) 22%, transparent);
+        }
+        .cab-exit-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          border: 1px solid var(--cab-border);
+          background: var(--cab-surface);
+          color: var(--cab-muted);
           cursor: pointer;
-          transition: background 0.15s, border-color 0.15s, color 0.15s;
-          white-space: nowrap;
+          transition: color 0.15s, border-color 0.15s;
+        }
+        .cab-exit-btn:hover { color: var(--cab-danger); border-color: color-mix(in srgb, var(--cab-danger) 40%, transparent); }
+
+        .cab-main {
+          flex: 1;
+          padding: 6px 18px 8px;
         }
 
-        .client-cabinet-exit-button:hover {
-          color: var(--color-accent);
-          background: var(--color-muted-bg);
-          border-color: var(--color-border-strong);
-        }
-
-        .client-cabinet-exit-button:focus-visible,
-        .client-cabinet-brand:focus-visible {
-          outline: 2px solid var(--color-accent);
+        .cab-brand:focus-visible,
+        .cab-exit-btn:focus-visible {
+          outline: 2px solid var(--cab-green);
           outline-offset: 2px;
         }
 
-        .client-cabinet-main {
-          max-width: 1240px;
-          margin: 0 auto;
-          padding: 24px 32px 48px;
-        }
-
-        @media (max-width: 768px) {
-          .client-cabinet-header {
-            padding: 12px 16px;
+        @media (min-width: 1024px) {
+          .cab-viewport {
+            max-width: 1400px;
+            margin: 0;
+            padding: 0 32px;
           }
-
-          .client-cabinet-banner-wrap {
-            padding: 16px 16px 0;
-          }
-
-          .client-cabinet-banner {
-            align-items: stretch;
-            flex-direction: column;
-            gap: 12px;
-          }
-
-          .client-cabinet-exit-button {
-            width: 100%;
-          }
-
-          .client-cabinet-main {
-            padding: 20px 16px 36px;
-          }
+          .cab-header { display: none; }
+          .cab-main { padding: 28px 0 40px; }
         }
       `}</style>
     </div>

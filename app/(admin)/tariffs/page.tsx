@@ -20,7 +20,13 @@ const MODE_LABELS: Record<ShippingTariff["mode"], string> = {
   request: "Запрос",
 };
 
-function TariffRows({ rows }: { rows: ShippingTariff[] }) {
+function TariffRows({
+  rows,
+  show = "title",
+}: {
+  rows: ShippingTariff[];
+  show?: "title" | "destination";
+}) {
   return (
     <tbody>
       {rows.map((tariff) => (
@@ -31,12 +37,11 @@ function TariffRows({ rows }: { rows: ShippingTariff[] }) {
                 {MODE_LABELS[tariff.mode]}
               </span>
               <div>
-                <p className="route-title">{tariff.title}</p>
+                <p className="route-title">{show === "destination" ? tariff.destination : tariff.title}</p>
                 {tariff.cargoType && <p className="route-note">{tariff.cargoType}</p>}
               </div>
             </div>
           </td>
-          <td>{tariff.destination}</td>
           <td className="tabular">{formatTariffPrice(tariff)}</td>
           <td className="tabular">{formatTariffDays(tariff)}</td>
           <td>{tariff.deliveryTarget}</td>
@@ -91,7 +96,6 @@ export default function TariffsPage() {
             <thead>
               <tr>
                 <th>Направление</th>
-                <th>Страна</th>
                 <th>Стоимость</th>
                 <th>Срок</th>
                 <th>Доставка</th>
@@ -111,14 +115,13 @@ export default function TariffsPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Группа</th>
                 <th>Страны</th>
                 <th>Стоимость</th>
                 <th>Срок</th>
                 <th>Доставка</th>
               </tr>
             </thead>
-            <TariffRows rows={EMS_SHIPPING_TARIFFS} />
+            <TariffRows rows={EMS_SHIPPING_TARIFFS} show="destination" />
           </table>
         </div>
       </section>

@@ -49,3 +49,8 @@ Thumbs.db
 
 # Restored numbered copies from sync/recovery tools
 **/* ([0-9])*
+
+# database backups
+data/*.bak*
+*.db.bak*
+*.db-journal

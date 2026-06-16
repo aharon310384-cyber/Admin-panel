@@ -1,329 +1,288 @@
 import type { Metadata } from "next";
-import { MapPin, Package, Users } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Package, Plus, Truck, Wallet } from "lucide-react";
+import type { ParcelStatus, Prisma } from "@prisma/client";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
-import { dedupeCustomers } from "@/lib/customer-dedupe";
 import { prisma } from "@/lib/prisma";
-import { ParcelStatusBadge } from "@/components/ui/status-badge";
-import { formatCny, formatDateTime } from "@/lib/utils";
+import StatusPill, { statusLabel } from "@/components/cabinet/status-pill";
+import { formatUsd, formatDate } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Обзор",
-};
+export const metadata: Metadata = { title: "Обзор" };
 
-function dash(value: string | null | undefined): string {
-  return value?.trim() || "—";
-}
+const ACTIVE_STATUSES: ParcelStatus[] = ["NEW", "PROCESSING", "SHIPPED", "PAID"];
+const TIMELINE: ParcelStatus[] = ["NEW", "PROCESSING", "SHIPPED", "COMPLETED"];
 
-function clientDisplayName(client: { code: string; name: string }): string | null {
-  const name = client.name.trim();
-
-  if (!name || name.toLowerCase() === client.code.trim().toLowerCase()) {
-    return null;
-  }
-
-  return name;
-}
-
-function recipientName(recipient: {
-  name: string;
-  lastName: string | null;
+function greetingName(client: {
   firstName: string | null;
-  middleName: string | null;
+  name: string;
+  code: string;
 }): string {
-  return (
-    [recipient.lastName, recipient.firstName, recipient.middleName]
-      .filter(Boolean)
-      .join(" ") || dash(recipient.name)
-  );
+  const first = client.firstName?.trim();
+  if (first) return first;
+  const name = client.name.trim();
+  if (name && name.toLowerCase() !== client.code.trim().toLowerCase()) return name;
+  return "клиент";
 }
 
-export default async function ClientCabinetPage() {
+export default async function ClientCabinetOverviewPage() {
   const { client } = await getClientCabinetContext();
   const codeVariants = Array.from(
     new Set([client.code, client.code.toUpperCase(), client.code.toLowerCase()])
   );
 
-  const [recipientRecords, recentOrders] = await Promise.all([
-    prisma.customer.findMany({
-      where: {
-        deletedAt: null,
-        id: { not: client.id },
-        clientCode: { in: codeVariants },
-      },
-      select: {
-        id: true,
-        code: true,
-        clientCode: true,
-        name: true,
-        lastName: true,
-        firstName: true,
-        middleName: true,
-        country: true,
-        city: true,
-        postalCode: true,
-        address: true,
-        phone: true,
-        informationDate: true,
-        sourceRow: true,
-      },
-      orderBy: [{ informationDate: "desc" }, { createdAt: "desc" }],
-    }),
-    prisma.parcel.findMany({
-      where: {
-        deletedAt: null,
-        routePrefix: { in: codeVariants },
-      },
-      select: {
-        id: true,
-        number: true,
-        recipientName: true,
-        status: true,
-        totalCny: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
-  ]);
+  const base: Prisma.ParcelWhereInput = {
+    deletedAt: null,
+    routePrefix: { in: codeVariants },
+  };
 
-  const recipients = dedupeCustomers(recipientRecords);
-  const location = [client.country, client.city].filter(Boolean).join(" / ");
-  const displayName = clientDisplayName(client);
+  const [parcels, totalCount, activeCount, inTransitCount, toPayAgg] =
+    await Promise.all([
+      prisma.parcel.findMany({
+        where: base,
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          totalUsd: true,
+          isPaid: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 4,
+      }),
+      prisma.parcel.count({ where: base }),
+      prisma.parcel.count({ where: { ...base, status: { in: ACTIVE_STATUSES } } }),
+      prisma.parcel.count({ where: { ...base, status: "SHIPPED" } }),
+      prisma.parcel.aggregate({
+        _sum: { totalUsd: true },
+        where: { ...base, isPaid: false, status: { not: "CANCELED" } },
+      }),
+    ]);
+
+  const name = greetingName(client);
+  const toPay = toPayAgg._sum.totalUsd ?? 0;
+  const latest = parcels[0] ?? null;
+  const latestStep = latest ? TIMELINE.indexOf(latest.status) : -1;
 
   return (
-    <div className="client-cabinet-page">
-      <div className="client-cabinet-page-header">
-        <div>
-          <p className="client-cabinet-eyebrow">Личный кабинет</p>
-          <h1 className="client-cabinet-title">
-            <span className="client-cabinet-code">{client.code}</span>
-            {displayName ? <span>{displayName}</span> : null}
-          </h1>
-          <p className="client-cabinet-subtitle">
-            Контактные данные, получатели и последние посылки клиента
-          </p>
+    <div className="ov">
+      <header className="ov-greet">
+        <p className="ov-hello">Здравствуйте,</p>
+        <h1 className="ov-name">{name}</h1>
+        <span className="ov-code">{client.code}</span>
+      </header>
+
+      <div className="ov-bento">
+        <Link href="/cabinet/parcels" className="ov-card ov-hero">
+          <div className="ov-hero-top">
+            <span className="ov-hero-icon"><Package size={18} /></span>
+            <span className="ov-card-label">Активные посылки</span>
+          </div>
+          <strong className="ov-hero-num">{activeCount}</strong>
+          <span className="ov-hero-sub">из {totalCount} всего</span>
+        </Link>
+
+        <div className="ov-card ov-card--amber">
+          <div className="ov-card-top">
+            <span className="ov-card-icon ov-card-icon--amber"><Wallet size={16} /></span>
+            <span className="ov-card-label">К оплате</span>
+          </div>
+          <strong className="ov-money">{formatUsd(toPay)}</strong>
         </div>
 
-        <div className="client-cabinet-summary" aria-label="Краткая статистика">
-          <div className="client-cabinet-summary-item">
-            <Users size={17} aria-hidden="true" />
-            <span>
-              <strong>{recipients.length}</strong>
-              Получатели
-            </span>
+        <div className="ov-card ov-card--mint">
+          <div className="ov-card-top">
+            <span className="ov-card-icon ov-card-icon--mint"><Truck size={16} /></span>
+            <span className="ov-card-label">В пути</span>
           </div>
-          <div className="client-cabinet-summary-item">
-            <Package size={17} aria-hidden="true" />
-            <span>
-              <strong>{recentOrders.length}</strong>
-              Последние посылки
-            </span>
-          </div>
+          <strong className="ov-num">{inTransitCount}</strong>
         </div>
       </div>
 
-      <section className="client-cabinet-card" aria-labelledby="client-data-title">
-        <div className="client-cabinet-card-header">
-          <div>
-            <p className="client-cabinet-card-kicker">Профиль</p>
-            <h2 id="client-data-title" className="client-cabinet-card-title">
-              Данные клиента
-            </h2>
+      {latest ? (
+        <Link href={`/cabinet/parcels/${latest.id}`} className="ov-card ov-latest">
+          <div className="ov-latest-head">
+            <div>
+              <span className="ov-card-label">Последняя посылка</span>
+              <span className="ov-latest-num">{latest.number}</span>
+            </div>
+            <StatusPill status={latest.status} />
           </div>
-          {location ? (
-            <span className="client-cabinet-location">
-              <MapPin size={14} aria-hidden="true" />
-              {location}
-            </span>
-          ) : null}
+
+          <div className="ov-timeline" aria-hidden="true">
+            {TIMELINE.map((step, i) => {
+              const reached = latestStep >= 0 && i <= latestStep;
+              const isLast = i === TIMELINE.length - 1;
+              return (
+                <div key={step} className="ov-step">
+                  <span className={`ov-dot ${reached ? "ov-dot--on" : ""}`} />
+                  {!isLast && (
+                    <span className={`ov-line ${reached && i < latestStep ? "ov-line--on" : ""}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="ov-timeline-labels">
+            {TIMELINE.map((step) => (
+              <span key={step}>{statusLabel(step)}</span>
+            ))}
+          </div>
+        </Link>
+      ) : (
+        <div className="ov-card ov-empty">
+          <Package size={28} className="ov-empty-icon" />
+          <p className="ov-empty-title">Пока нет посылок</p>
+          <p className="ov-empty-sub">Оформите первый заказ — он появится здесь</p>
+        </div>
+      )}
+
+      <section className="ov-recent">
+        <div className="ov-recent-head">
+          <h2 className="ov-recent-title">Недавние</h2>
+          <Link href="/cabinet/parcels" className="ov-recent-all">
+            Все посылки <ArrowRight size={14} />
+          </Link>
         </div>
 
-        <dl className="client-cabinet-info-grid">
-          <div className="client-cabinet-info-item">
-            <dt>КОД_КЛИЕНТА</dt>
-            <dd className="client-cabinet-mono">{dash(client.code)}</dd>
-          </div>
-          <div className="client-cabinet-info-item">
-            <dt>Фамилия</dt>
-            <dd>{dash(client.lastName)}</dd>
-          </div>
-          <div className="client-cabinet-info-item">
-            <dt>Имя</dt>
-            <dd>{dash(client.firstName)}</dd>
-          </div>
-          <div className="client-cabinet-info-item">
-            <dt>Отчество</dt>
-            <dd>{dash(client.middleName)}</dd>
-          </div>
-          <div className="client-cabinet-info-item">
-            <dt>Email</dt>
-            <dd>{dash(client.email)}</dd>
-          </div>
-          <div className="client-cabinet-info-item">
-            <dt>Telegram</dt>
-            <dd>{dash(client.username)}</dd>
-          </div>
-          <div className="client-cabinet-info-item">
-            <dt>Телефон</dt>
-            <dd>{dash(client.phone)}</dd>
-          </div>
-          <div className="client-cabinet-info-item">
-            <dt>Страна / город</dt>
-            <dd>{location || "—"}</dd>
-          </div>
-        </dl>
+        {parcels.length === 0 ? (
+          <p className="ov-recent-empty">Список пуст</p>
+        ) : (
+          <ul className="ov-list">
+            {parcels.map((p) => (
+              <li key={p.id}>
+                <Link href={`/cabinet/parcels/${p.id}`} className="ov-row">
+                  <span className="ov-row-num">{p.number}</span>
+                  <span className="ov-row-mid">
+                    <StatusPill status={p.status} />
+                    <span className="ov-row-date">{formatDate(p.createdAt)}</span>
+                  </span>
+                  <span className="ov-row-sum">{formatUsd(p.totalUsd)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
-      <section className="client-cabinet-card client-cabinet-card--table" aria-labelledby="recipients-title">
-        <div className="client-cabinet-card-header client-cabinet-card-header--table">
-          <div>
-            <p className="client-cabinet-card-kicker">Адресная книга</p>
-            <h2 id="recipients-title" className="client-cabinet-card-title">
-              Получатели
-            </h2>
-          </div>
-          <span className="client-cabinet-count">{recipients.length}</span>
-        </div>
-
-        <div className="client-cabinet-table-wrap">
-          <table className="client-cabinet-table" aria-label="Получатели клиента">
-            <thead>
-              <tr>
-                <th>Получатель</th>
-                <th>Страна / город</th>
-                <th>Почтовый код</th>
-                <th>Адрес</th>
-                <th>Телефон</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recipients.map((recipient) => (
-                <tr key={recipient.id}>
-                  <td>{recipientName(recipient)}</td>
-                  <td className="client-cabinet-muted">
-                    {[recipient.country, recipient.city].filter(Boolean).join(" / ") || "—"}
-                  </td>
-                  <td className="client-cabinet-mono client-cabinet-muted">
-                    {dash(recipient.postalCode)}
-                  </td>
-                  <td className="client-cabinet-address">{dash(recipient.address)}</td>
-                  <td className="client-cabinet-muted">{dash(recipient.phone)}</td>
-                </tr>
-              ))}
-              {recipients.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="client-cabinet-empty">
-                    Получатели пока не добавлены
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="client-cabinet-card client-cabinet-card--table" aria-labelledby="orders-title">
-        <div className="client-cabinet-card-header client-cabinet-card-header--table">
-          <div>
-            <p className="client-cabinet-card-kicker">История</p>
-            <h2 id="orders-title" className="client-cabinet-card-title">
-              Последние посылки
-            </h2>
-          </div>
-          <span className="client-cabinet-count">{recentOrders.length}</span>
-        </div>
-
-        <div className="client-cabinet-table-wrap">
-          <table className="client-cabinet-table" aria-label="Последние посылки клиента">
-            <thead>
-              <tr>
-                <th>Дата</th>
-                <th>Номер</th>
-                <th>Получатель</th>
-                <th>Статус</th>
-                <th>К оплате ¥</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrders.map((order) => (
-                <tr key={order.id}>
-                  <td className="client-cabinet-muted">{formatDateTime(order.createdAt)}</td>
-                  <td className="client-cabinet-mono">{order.number}</td>
-                  <td>{dash(order.recipientName)}</td>
-                  <td>
-                    <ParcelStatusBadge status={order.status} />
-                  </td>
-                  <td className="client-cabinet-tabular">{formatCny(order.totalCny)}</td>
-                </tr>
-              ))}
-              {recentOrders.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="client-cabinet-empty">
-                    Посылок пока нет
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <span className="ov-cta ov-cta--off" aria-disabled="true" title="Скоро">
+        <Plus size={18} strokeWidth={2.5} />
+        Оформить заказ
+      </span>
 
       <style>{`
-        .client-cabinet-page { display: flex; flex-direction: column; gap: 20px; }
-        .client-cabinet-page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 4px 0; }
-        .client-cabinet-eyebrow, .client-cabinet-card-kicker { margin: 0 0 5px; color: var(--color-accent); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-        .client-cabinet-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0; color: var(--color-text); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
-        .client-cabinet-code { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 5px 11px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text); background: var(--color-muted-bg); font-family: var(--font-jetbrains-mono), monospace; font-size: 15px; letter-spacing: 0; }
-        .client-cabinet-subtitle { margin: 6px 0 0; color: var(--color-muted); font-size: 13px; }
+        .ov { display: flex; flex-direction: column; gap: 16px; padding-bottom: 8px; }
 
-        .client-cabinet-summary { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
-        .client-cabinet-summary-item { min-width: 132px; display: flex; align-items: center; gap: 9px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-accent); background: var(--color-surface); }
-        .client-cabinet-summary-item span { display: flex; flex-direction: column; gap: 1px; color: var(--color-muted); font-size: 11px; line-height: 1.2; }
-        .client-cabinet-summary-item strong { color: var(--color-text); font-size: 15px; font-variant-numeric: tabular-nums; }
-
-        .client-cabinet-card { padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); box-shadow: var(--shadow-card); overflow: hidden; }
-        .client-cabinet-card--table { padding: 0; }
-        .client-cabinet-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-        .client-cabinet-card-header--table { align-items: center; margin: 0; padding: 18px 20px 14px; border-bottom: 1px solid var(--color-border); }
-        .client-cabinet-card-title { margin: 0; color: var(--color-text); font-size: 15px; font-weight: 700; }
-        .client-cabinet-location { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: var(--radius-full); color: var(--color-muted); background: var(--color-muted-bg); font-size: 12px; white-space: nowrap; }
-        .client-cabinet-count { display: inline-flex; min-width: 26px; height: 26px; align-items: center; justify-content: center; padding: 0 8px; border-radius: var(--radius-full); color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 10%, transparent); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-
-        .client-cabinet-info-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
-        .client-cabinet-info-item { min-width: 0; padding: 13px 14px; border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
-        .client-cabinet-info-item:nth-child(4n) { border-right: none; }
-        .client-cabinet-info-item:nth-last-child(-n + 4) { border-bottom: none; }
-        .client-cabinet-info-item dt { margin: 0 0 5px; color: var(--color-muted); font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
-        .client-cabinet-info-item dd { margin: 0; overflow-wrap: anywhere; color: var(--color-text); font-size: 13px; line-height: 1.4; }
-
-        .client-cabinet-table-wrap { overflow-x: auto; }
-        .client-cabinet-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .client-cabinet-table th { padding: 9px 20px; border-bottom: 1px solid var(--color-border); color: var(--color-muted); font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-align: left; text-transform: uppercase; white-space: nowrap; }
-        .client-cabinet-table td { padding: 12px 20px; border-bottom: 1px solid var(--color-border); color: var(--color-text); vertical-align: top; }
-        .client-cabinet-table tbody tr:last-child td { border-bottom: none; }
-        .client-cabinet-table tbody tr:hover td { background: var(--color-muted-bg); }
-        .client-cabinet-address { min-width: 220px; max-width: 360px; }
-        .client-cabinet-muted { color: var(--color-muted) !important; }
-        .client-cabinet-mono { font-family: var(--font-jetbrains-mono), monospace; font-size: 12px; }
-        .client-cabinet-tabular { font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .client-cabinet-empty { padding: 30px 20px !important; color: var(--color-muted) !important; text-align: center; }
-
-        @media (max-width: 960px) {
-          .client-cabinet-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .client-cabinet-info-item:nth-child(4n) { border-right: 1px solid var(--color-border); }
-          .client-cabinet-info-item:nth-child(2n) { border-right: none; }
-          .client-cabinet-info-item:nth-last-child(-n + 4) { border-bottom: 1px solid var(--color-border); }
-          .client-cabinet-info-item:nth-last-child(-n + 2) { border-bottom: none; }
+        .ov-greet { padding: 8px 4px 2px; }
+        .ov-hello { margin: 0; color: var(--cab-muted); font-size: 14px; }
+        .ov-name {
+          margin: 2px 0 0; font-family: var(--font-space-grotesk), sans-serif;
+          font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: var(--cab-text);
+        }
+        .ov-code {
+          display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px;
+          font-family: var(--font-jetbrains-mono), monospace; font-size: 12px; font-weight: 500;
+          color: var(--cab-green-deep);
+          background: color-mix(in srgb, var(--cab-green) 13%, transparent);
+          border: 1px solid color-mix(in srgb, var(--cab-green) 24%, transparent);
         }
 
-        @media (max-width: 600px) {
-          .client-cabinet-page-header { align-items: stretch; }
-          .client-cabinet-summary { display: grid; grid-template-columns: 1fr 1fr; }
-          .client-cabinet-summary-item { min-width: 0; }
-          .client-cabinet-info-grid { grid-template-columns: 1fr; }
-          .client-cabinet-info-item, .client-cabinet-info-item:nth-child(2n), .client-cabinet-info-item:nth-child(4n) { border-right: none; }
-          .client-cabinet-info-item:nth-last-child(-n + 2) { border-bottom: 1px solid var(--color-border); }
-          .client-cabinet-info-item:last-child { border-bottom: none; }
+        .ov-bento { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .ov-card {
+          position: relative; display: flex; flex-direction: column; gap: 8px;
+          padding: 16px; border-radius: var(--cab-radius-md);
+          background: var(--cab-surface); border: 1px solid var(--cab-border);
+          box-shadow: var(--cab-shadow-sm); text-decoration: none; color: var(--cab-text);
+          transition: transform 0.16s ease, box-shadow 0.16s ease;
+        }
+        a.ov-card:hover { transform: translateY(-2px); box-shadow: var(--cab-shadow-md); }
+
+        .ov-card-label { font-size: 12px; font-weight: 600; color: var(--cab-muted); }
+        .ov-card-top, .ov-hero-top { display: flex; align-items: center; gap: 8px; }
+        .ov-card-icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 28px; height: 28px; border-radius: 9px;
+        }
+        .ov-card-icon--amber { color: var(--cab-amber); background: color-mix(in srgb, var(--cab-amber) 16%, transparent); }
+        .ov-card-icon--mint { color: var(--cab-green-deep); background: color-mix(in srgb, var(--cab-mint) 26%, transparent); }
+        .ov-num { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .ov-money { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--cab-text); }
+
+        .ov-hero {
+          grid-column: 1 / -1;
+          background:
+            radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--cab-green) 18%, transparent) 0%, transparent 55%),
+            var(--cab-surface);
+          border-color: color-mix(in srgb, var(--cab-green) 22%, var(--cab-border));
+        }
+        .ov-hero-icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 32px; height: 32px; border-radius: 10px; color: #fff;
+          background: linear-gradient(150deg, var(--cab-green), var(--cab-green-deep));
+          box-shadow: 0 6px 14px color-mix(in srgb, var(--cab-green) 40%, transparent);
+        }
+        .ov-hero-num { font-family: var(--font-space-grotesk), sans-serif; font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
+        .ov-hero-sub { font-size: 12.5px; color: var(--cab-muted); }
+
+        .ov-latest { gap: 14px; }
+        .ov-latest-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+        .ov-latest-num { display: block; margin-top: 3px; font-family: var(--font-jetbrains-mono), monospace; font-size: 15px; font-weight: 600; color: var(--cab-text); }
+
+        .ov-timeline { display: flex; align-items: center; }
+        .ov-step { display: flex; align-items: center; flex: 1; }
+        .ov-step:last-child { flex: 0; }
+        .ov-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--cab-border-strong); flex-shrink: 0; transition: background 0.2s; }
+        .ov-dot--on { background: var(--cab-green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cab-green) 16%, transparent); }
+        .ov-line { flex: 1; height: 3px; margin: 0 4px; border-radius: 2px; background: var(--cab-border-strong); }
+        .ov-line--on { background: var(--cab-green); }
+        .ov-timeline-labels { display: flex; justify-content: space-between; }
+        .ov-timeline-labels span { font-size: 10px; color: var(--cab-muted); flex: 1; text-align: left; }
+        .ov-timeline-labels span:last-child { flex: 0; text-align: right; white-space: nowrap; }
+
+        .ov-empty { align-items: center; text-align: center; gap: 6px; padding: 28px 16px; }
+        .ov-empty-icon { color: var(--cab-muted); opacity: 0.6; }
+        .ov-empty-title { margin: 4px 0 0; font-weight: 700; font-size: 15px; }
+        .ov-empty-sub { margin: 0; font-size: 12.5px; color: var(--cab-muted); }
+
+        .ov-recent { display: flex; flex-direction: column; gap: 10px; }
+        .ov-recent-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+        .ov-recent-title { margin: 0; font-size: 15px; font-weight: 700; }
+        .ov-recent-all { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--cab-green-deep); text-decoration: none; }
+        .ov-recent-empty { margin: 0; padding: 4px; color: var(--cab-muted); font-size: 13px; }
+
+        .ov-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .ov-row {
+          display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
+          padding: 12px 14px; border-radius: var(--cab-radius-sm);
+          background: var(--cab-surface); border: 1px solid var(--cab-border);
+          text-decoration: none; color: var(--cab-text); box-shadow: var(--cab-shadow-sm);
+          transition: transform 0.14s ease;
+        }
+        .ov-row:hover { transform: translateY(-1px); }
+        .ov-row-num { font-family: var(--font-jetbrains-mono), monospace; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ov-row-mid { display: inline-flex; align-items: center; gap: 8px; }
+        .ov-row-date { font-size: 11.5px; color: var(--cab-muted); white-space: nowrap; }
+        .ov-row-sum { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+
+        .ov-cta {
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+          margin-top: 4px; padding: 14px; border-radius: var(--cab-radius-md);
+          font-size: 15px; font-weight: 700; color: #fff; text-decoration: none;
+          background: linear-gradient(150deg, var(--cab-green) 0%, var(--cab-green-deep) 100%);
+          box-shadow: 0 10px 24px color-mix(in srgb, var(--cab-green) 38%, transparent);
+          transition: transform 0.16s ease, box-shadow 0.16s ease;
+        }
+        .ov-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 30px color-mix(in srgb, var(--cab-green) 44%, transparent); }
+        .ov-cta--off { opacity: 0.45; pointer-events: none; box-shadow: none; cursor: default; }
+
+        @media (max-width: 360px) {
+          .ov-bento { grid-template-columns: 1fr; }
+        }
+
+        @media (min-width: 1024px) {
+          .ov-bento { grid-template-columns: repeat(3, 1fr); }
+          .ov-cta { align-self: start; padding-left: 28px; padding-right: 28px; }
         }
       `}</style>
     </div>

@@ -2,20 +2,24 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
 
-const PUBLIC_ROUTES = ["/login"];
+const PUBLIC_ROUTES = ["/login", "/tg"];
 const ADMIN_ONLY_PREFIXES = ["/orders/new"];
+const CLIENT_SESSION_COOKIE = "client-session";
 
 const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { nextUrl, auth: session } = req;
   const isLoggedIn = !!session;
-  const isPublicRoute = PUBLIC_ROUTES.includes(nextUrl.pathname);
+  const isPublicRoute =
+    PUBLIC_ROUTES.includes(nextUrl.pathname) || nextUrl.pathname.startsWith("/tg/");
+  // Клиент, вошедший через Telegram (наличие cookie; подпись проверяется на странице)
+  const hasClientSession = Boolean(req.cookies.get(CLIENT_SESSION_COOKIE)?.value);
   const isAdminOnlyRoute = ADMIN_ONLY_PREFIXES.some((prefix) =>
     nextUrl.pathname === prefix || nextUrl.pathname.startsWith(`${prefix}/`)
   );
 
-  if (!isLoggedIn && !isPublicRoute) {
+  if (!isLoggedIn && !isPublicRoute && !hasClientSession) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
@@ -35,5 +39,7 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|uploads).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|brand|uploads).*)",
+  ],
 };

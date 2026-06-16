@@ -7,6 +7,7 @@ import { enterClientCabinet } from "@/actions/client-cabinet";
 import { prisma } from "@/lib/prisma";
 import { formatCny, formatDateTime } from "@/lib/utils";
 import { ParcelStatusBadge } from "@/components/ui/status-badge";
+import SetPasswordButton from "@/components/clients/set-password-button";
 
 export const metadata: Metadata = { title: "Карточка клиента" };
 
@@ -152,11 +153,14 @@ export default async function ClientDetailPage({
           </h1>
         </div>
         {isAdmin && client.code && (
-          <form action={enterClientCabinet.bind(null, client.id)}>
-            <button type="submit" className="btn-primary">
-              Войти как клиент
-            </button>
-          </form>
+          <div className="client-actions">
+            <form action={enterClientCabinet.bind(null, client.id)}>
+              <button type="submit" className="btn-primary">
+                Войти как клиент
+              </button>
+            </form>
+            <SetPasswordButton customerId={client.id} />
+          </div>
         )}
       </div>
 
@@ -279,6 +283,7 @@ export default async function ClientDetailPage({
       <style>{`
         .page { display: flex; flex-direction: column; gap: 24px; }
         .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .client-actions { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
         .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); display: inline-flex; align-items: center; gap: 12px; }
         .page-title-name { font-weight: 600; color: var(--color-text-secondary, var(--color-muted)); font-size: 18px; }
         .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-muted); margin-bottom: 4px; }

@@ -69,6 +69,11 @@ model Customer {
   informationDateText String?
   sourceSheet         String?
   sourceRow           Int?
+  telegramUserId      String?   @unique
+  telegramChatId      String?
+  telegramUsername    String?
+  telegramLinkedAt    DateTime?
+  passwordHash        String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
@@ -115,9 +120,11 @@ model Order {
   deliveryType String?
   comments     String?
   description  String?
-  price        Decimal
-  stock        Int       @default(0)
-  imageUrl     String?
+  price              Decimal
+  stock              Int       @default(0)
+  actualWeightKg     Decimal?
+  volumetricWeightKg Decimal?
+  imageUrl           String?
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -183,6 +190,8 @@ model Parcel {
   packageCount           Int?
   insuranceUsd           Decimal?
   weightKg               Decimal?
+  actualWeightKg         Decimal?
+  volumetricWeightKg     Decimal?
   consolidationUsd       Decimal?
   packagingUsd           Decimal?
   calculationUsd         Decimal?
@@ -236,6 +245,13 @@ model ParcelItem {
   @@index([orderId])
   @@index([productId])
   @@map("OrderItem")
+}
+
+model FinanceSettings {
+  id                    String   @id @default(cuid())
+  exchangeRateCnyPerUsd Decimal  @default(7.1)
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
 }
 
 model ParcelStatusHistory {

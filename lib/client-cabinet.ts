@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getClientSessionCustomerId } from "@/lib/client-session";
 
 export const CLIENT_CABINET_COOKIE_NAME = "client-cabinet-customer-id";
 export const CLIENT_CABINET_ROUTE = "/cabinet";
@@ -21,9 +22,12 @@ export type ClientCabinetClient = Omit<Customer, "code"> & {
   code: string;
 };
 
+export type ClientCabinetMode = "admin" | "client";
+
 export type ClientCabinetContext = {
-  session: ClientCabinetAdminSession;
+  session: ClientCabinetAdminSession | null;
   client: ClientCabinetClient;
+  mode: ClientCabinetMode;
 };
 
 export async function requireClientCabinetAdmin(): Promise<ClientCabinetAdminSession> {
@@ -66,10 +70,37 @@ export async function requireClientCabinetAccess(
   return {
     session,
     client: { ...client, code },
+    mode: "admin",
+  };
+}
+
+/**
+ * Клиентский режим: вход через Telegram (cookie клиентской сессии).
+ * Возвращает контекст без админ-сессии, либо null если сессии нет/клиент невалиден.
+ */
+async function getClientSessionContext(): Promise<ClientCabinetContext | null> {
+  const customerId = await getClientSessionCustomerId();
+  if (!customerId) return null;
+
+  const client = await prisma.customer.findFirst({
+    where: { id: customerId, deletedAt: null, code: { not: null } },
+  });
+  const code = client?.code?.trim();
+  if (!client || !code) return null;
+
+  return {
+    session: null,
+    client: { ...client, code },
+    mode: "client",
   };
 }
 
 export async function getClientCabinetContext(): Promise<ClientCabinetContext> {
+  // 1. Клиент, вошедший через Telegram
+  const clientCtx = await getClientSessionContext();
+  if (clientCtx) return clientCtx;
+
+  // 2. Админский режим «просмотр как клиент»
   const cookieStore = await cookies();
   const clientId = cookieStore.get(CLIENT_CABINET_COOKIE_NAME)?.value;
 

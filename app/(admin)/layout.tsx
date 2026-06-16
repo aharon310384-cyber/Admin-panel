@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import Sidebar from "@/components/layout/sidebar";
+import TopNav from "@/components/layout/topnav";
 
 export default async function AdminLayout({
   children,
@@ -15,7 +15,7 @@ export default async function AdminLayout({
 
   return (
     <div className="admin-layout">
-      <Sidebar
+      <TopNav
         userName={session.user.name ?? "Пользователь"}
         userRole={session.user.role}
       />
@@ -26,6 +26,7 @@ export default async function AdminLayout({
       <style>{`
         .admin-layout {
           display: flex;
+          flex-direction: column;
           min-height: 100dvh;
         }
 
@@ -37,7 +38,9 @@ export default async function AdminLayout({
 
         .admin-content {
           padding: 28px 32px;
-          max-width: 1400px;
+          max-width: 1600px;
+          margin: 0 auto;
+          width: 100%;
         }
 
         @media (max-width: 768px) {

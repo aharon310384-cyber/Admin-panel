@@ -4,6 +4,7 @@ import { useActionState, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
 import { resolveCustomerFromParsedRecipient } from "@/actions/customers";
+import { customerLabel } from "@/lib/customer-label";
 import { formatUsd, slugify } from "@/lib/utils";
 
 type FormState = { error?: Record<string, string[]> };
@@ -93,12 +94,6 @@ const DELIVERY_TYPE_OPTIONS = [
   "DHL",
   "Экспресс",
 ];
-
-function customerLabel(customer: CustomerOption) {
-  const code = customer.clientCode ?? customer.code;
-  const details = [code, customer.email, customer.phone].filter(Boolean).join(", ");
-  return details ? `${customer.name} (${details})` : customer.name;
-}
 
 function numberInputValue(value: number | null | undefined): string {
   return value && Number.isFinite(value) ? String(value) : "";
@@ -924,17 +919,19 @@ export default function OrderForm({ action, product, customers }: Props) {
         <div className="info-blocks">
           <section className="info-block">
             <div className="field track-number-field">
-              <div className="track-actions">
-                <button
-                  type="button"
-                  className="track-add-button"
-                  onClick={addTrackItem}
-                  aria-label="Добавить строку трек номера"
-                  title="Добавить строку трек номера"
-                >
-                  <Plus size={14} aria-hidden="true" />
-                </button>
-              </div>
+              {!product && (
+                <div className="track-actions">
+                  <button
+                    type="button"
+                    className="track-add-button"
+                    onClick={addTrackItem}
+                    aria-label="Добавить строку трек номера"
+                    title="Добавить строку трек номера"
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
               <div className="track-items-wrap">
                 <div className="track-items-table">
                   <div className="track-items-header">
@@ -1204,6 +1201,9 @@ export default function OrderForm({ action, product, customers }: Props) {
 
         .field-error { font-size: 12px; color: var(--color-danger); }
         .field-hint { font-size: 11px; color: var(--color-muted); }
+
+        .weight-field { max-width: 260px; }
+        .weight-input { font-variant-numeric: tabular-nums; }
 
         .track-number-field { min-width: 0; }
         .track-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }

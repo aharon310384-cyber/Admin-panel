@@ -1,15 +1,13 @@
-/* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { formatUsd } from "@/lib/utils";
-import { Plus, Search, PackageCheck } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { auth } from "@/auth";
-import { ProductStatusBadge } from "@/components/ui/status-badge";
-import SortableHeader from "@/components/ui/sortable-header";
 import { Pagination } from "@/components/ui/pagination";
 import { parsePageParam } from "@/lib/list-params";
+import { ORDER_NOT_IN_ACTIVE_PARCEL } from "@/lib/order-filters";
+import OrdersTable, { type OrderRow } from "./orders-table";
 
 export const metadata: Metadata = { title: "Заказы" };
 
@@ -20,6 +18,7 @@ type SearchParams = {
   search?: string;
   active?: string;
   inStock?: string;
+  inParcel?: string;
   sort?: string;
 };
 
@@ -55,6 +54,7 @@ function productsHref(
     search?: string;
     active?: string;
     inStock?: string;
+    inParcel?: string;
     sort?: string;
     page?: string;
   },
@@ -62,6 +62,7 @@ function productsHref(
     search?: string;
     active?: string;
     inStock?: string;
+    inParcel?: string;
     sort?: string;
     page?: string | null;
   }
@@ -92,11 +93,24 @@ export default async function ProductsPage({
   const search = params.search?.trim() ?? "";
   const activeFilter = params.active;
   const inStockFilter = params.inStock;
+  const inParcelFilter = params.inParcel;
   const sort = params.sort ?? "createdAt_desc";
   const [sortField, sortDir] = normalizeSort(sort);
 
+  const parcelFilter: Prisma.OrderWhereInput =
+    inParcelFilter === "true"
+      ? {
+          parcelItems: {
+            some: { parcel: { deletedAt: null, status: { not: "CANCELED" } } },
+          },
+        }
+      : inParcelFilter === "all"
+        ? {}
+        : ORDER_NOT_IN_ACTIVE_PARCEL;
+
   const where = {
     deletedAt: null,
+    ...parcelFilter,
     ...(search
       ? {
           OR: [
@@ -119,12 +133,52 @@ export default async function ProductsPage({
       orderBy: productOrderBy(sortField, sortDir),
       skip: (page - 1) * LIMIT,
       take: LIMIT,
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        comments: true,
+        price: true,
+        stock: true,
+        isActive: true,
+        imageUrl: true,
+        deliveryType: true,
+        customer: { select: { id: true, name: true, code: true } },
+        parcelItems: {
+          where: { parcel: { deletedAt: null, status: { not: "CANCELED" } } },
+          select: {
+            parcel: { select: { id: true, number: true, status: true } },
+          },
+          orderBy: { parcel: { createdAt: "desc" } },
+          take: 1,
+        },
+      },
     }),
     prisma.order.count({ where }),
   ]);
 
+  const ordersForTable: OrderRow[] = products.map((p) => ({
+    id: p.id,
+    sku: p.sku,
+    name: p.name,
+    comments: p.comments,
+    price: Number(p.price),
+    stock: p.stock,
+    isActive: p.isActive,
+    imageUrl: p.imageUrl,
+    deliveryType: p.deliveryType,
+    customer: p.customer,
+    parcel: p.parcelItems[0]?.parcel ?? null,
+  }));
+
   const totalPages = Math.ceil(total / LIMIT);
-  const filterValues = { search, active: activeFilter, inStock: inStockFilter, sort };
+  const filterValues = {
+    search,
+    active: activeFilter,
+    inStock: inStockFilter,
+    inParcel: inParcelFilter,
+    sort,
+  };
   const sortHref = (
     field: ProductSortField,
     defaultDirection: SortDirection = "asc"
@@ -134,19 +188,40 @@ export default async function ProductsPage({
     return productsHref(filterValues, { sort: `${field}_${nextDirection}`, page: null });
   };
 
+  const sortHrefs = {
+    name: sortHref("name"),
+    sku: sortHref("sku"),
+    price: sortHref("price", "desc"),
+    stock: sortHref("stock", "desc"),
+    isActive: sortHref("isActive", "desc"),
+  };
+
   return (
     <div className="page">
       <div className="page-header">
         <div>
           <h1 className="page-title">Заказы</h1>
-          <p className="page-subtitle">{total} заказов всего</p>
+          <p className="page-subtitle">
+            {inParcelFilter === "true"
+              ? `${total} заказов оформлено в посылки`
+              : inParcelFilter === "all"
+                ? `${total} заказов всего`
+                : `${total} заказов в обработке`}
+            {" · оформленные на отправку переходят в "}
+            <Link href="/parcels" className="page-subtitle-link">посылки</Link>
+          </p>
         </div>
-        {isAdmin && (
-          <Link href="/orders/new" className="btn-primary">
-            <Plus size={16} />
-            Добавить заказ
+        <div className="header-actions">
+          <Link href="/parcels/new" className="btn-secondary">
+            + Новая посылка
           </Link>
-        )}
+          {isAdmin && (
+            <Link href="/orders/new" className="btn-primary">
+              <Plus size={16} />
+              Добавить заказ
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="filters">
@@ -156,6 +231,7 @@ export default async function ProductsPage({
             <input type="hidden" name="sort" value={`${sortField}_${sortDir}`} />
             {activeFilter && <input type="hidden" name="active" value={activeFilter} />}
             {inStockFilter && <input type="hidden" name="inStock" value={inStockFilter} />}
+            {inParcelFilter && <input type="hidden" name="inParcel" value={inParcelFilter} />}
             <input
               type="search"
               name="search"
@@ -164,6 +240,26 @@ export default async function ProductsPage({
               className="search-input"
             />
           </form>
+        </div>
+        <div className="filter-chips">
+          <Link
+            href={productsHref(filterValues, { inParcel: undefined, page: null })}
+            className={`filter-chip ${!inParcelFilter ? "filter-chip--active" : ""}`}
+          >
+            В работе
+          </Link>
+          <Link
+            href={productsHref(filterValues, { inParcel: "true", page: null })}
+            className={`filter-chip ${inParcelFilter === "true" ? "filter-chip--active" : ""}`}
+          >
+            В посылках
+          </Link>
+          <Link
+            href={productsHref(filterValues, { inParcel: "all", page: null })}
+            className={`filter-chip ${inParcelFilter === "all" ? "filter-chip--active" : ""}`}
+          >
+            Все
+          </Link>
         </div>
         <div className="filter-chips">
           <Link
@@ -192,114 +288,34 @@ export default async function ProductsPage({
         </div>
       </div>
 
-      <div className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>
-                  <SortableHeader
-                    label="Номер"
-                    href={sortHref("sku")}
-                    active={sortField === "sku"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Трек номер"
-                    href={sortHref("name")}
-                    active={sortField === "name"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>Комментарии</th>
-                <th>
-                  <SortableHeader
-                    label="Итого стоимость $"
-                    href={sortHref("price", "desc")}
-                    active={sortField === "price"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Количество"
-                    href={sortHref("stock", "desc")}
-                    active={sortField === "stock"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Статус"
-                    href={sortHref("isActive", "desc")}
-                    active={sortField === "isActive"}
-                    direction={sortDir}
-                  />
-                </th>
-                {isAdmin && <th></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => (
-                <tr key={product.id}>
-                  <td className="mono order-number">{product.sku}</td>
-                  <td>
-                    <div className="product-cell">
-                      <div className="product-img">
-                        {product.imageUrl ? (
-                          <img src={product.imageUrl} alt={product.name} width={36} height={36} style={{ objectFit: "cover", borderRadius: 6 }} />
-                        ) : (
-                          <PackageCheck size={16} color="var(--color-muted)" />
-                        )}
-                      </div>
-                      <span className="product-name">{product.name}</span>
-                    </div>
-                  </td>
-                  <td className="comments-cell">{product.comments ? product.comments : "—"}</td>
-                  <td className="tabular">{formatUsd(product.price)}</td>
-                  <td className={`tabular ${product.stock === 0 ? "text-danger" : ""}`}>
-                    {product.stock} шт.
-                  </td>
-                  <td>
-                    <ProductStatusBadge active={product.isActive} />
-                  </td>
-                  {isAdmin && (
-                    <td>
-                      <Link href={`/orders/${product.id}/edit`} className="btn-ghost btn-sm">
-                        Редактировать →
-                      </Link>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {products.length === 0 && (
-                <tr>
-                  <td colSpan={isAdmin ? 7 : 6} className="table-empty">
-                    Заказов не найдено
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      <OrdersTable
+        orders={ordersForTable}
+        sortHrefs={sortHrefs}
+        sortField={sortField}
+        sortDir={sortDir}
+        isAdmin={isAdmin}
+        showParcelColumn={inParcelFilter === "true" || inParcelFilter === "all"}
+      />
 
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          hrefForPage={(p) => productsHref(filterValues, { page: String(p) })}
-        />
-      </div>
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        hrefForPage={(p) => productsHref(filterValues, { page: String(p) })}
+      />
 
       <style>{`
         .page { display: flex; flex-direction: column; gap: 20px; }
         .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
         .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
         .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
+        .page-subtitle-link { color: var(--color-accent); text-decoration: none; }
+        .page-subtitle-link:hover { text-decoration: underline; }
 
+        .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: var(--color-accent); color: var(--color-accent-fg); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; font-family: var(--font-sans); transition: background 0.15s; white-space: nowrap; }
         .btn-primary:hover { background: var(--color-accent-hover); }
+        .btn-secondary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--color-text); text-decoration: none; cursor: pointer; font-family: var(--font-sans); transition: background 0.15s; white-space: nowrap; }
+        .btn-secondary:hover { background: var(--color-muted-bg); }
 
         .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
         .search-wrap { position: relative; flex: 1; min-width: 220px; }

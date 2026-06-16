@@ -8,6 +8,7 @@ import type { ParcelStatus } from "@prisma/client";
 import ParcelsFilters from "./parcels-filters";
 import SortableHeader from "@/components/ui/sortable-header";
 import { Pagination } from "@/components/ui/pagination";
+import TableRowLink from "@/components/ui/table-row-link";
 import { parsePageParam } from "@/lib/list-params";
 
 export const metadata: Metadata = { title: "Посылки" };
@@ -58,7 +59,7 @@ function orderOrderBy(
   direction: SortDirection
 ): Prisma.ParcelOrderByWithRelationInput | Prisma.ParcelOrderByWithRelationInput[] {
   if (field === "recipient") {
-    return [{ recipientName: direction }, { customer: { name: direction } }, { createdAt: "desc" }];
+    return [{ customer: { name: direction } }, { createdAt: "desc" }];
   }
 
   return [{ [field]: direction }, { createdAt: "desc" }];
@@ -124,7 +125,6 @@ export default async function OrdersPage({
           OR: [
             { number: { contains: search} },
             { customer: { name: { contains: search} } },
-            { recipientName: { contains: search} },
             { parcelNumber: { contains: search} },
           ],
         }
@@ -176,9 +176,6 @@ export default async function OrdersPage({
           <p className="page-subtitle">{total} посылок всего</p>
         </div>
         <div className="header-actions">
-          <Link href="/parcels/new" className="btn-primary">
-            + Новая посылка
-          </Link>
           <Link href="/api/export/orders" className="btn-secondary">
             Экспорт CSV
           </Link>
@@ -248,19 +245,14 @@ export default async function OrdersPage({
                     direction={sortDir}
                   />
                 </th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {orders.map((order) => (
-                <tr key={order.id}>
+                <TableRowLink key={order.id} href={`/parcels/${order.id}`}>
                   <td className="text-muted">{formatDateTime(order.createdAt)}</td>
-                  <td>
-                    <Link href={`/parcels/${order.id}`} className="link">
-                      {order.number}
-                    </Link>
-                  </td>
-                  <td>{order.recipientName || order.customer.name}</td>
+                  <td className="link">{order.number}</td>
+                  <td>{order.customer.name}</td>
                   <td>
                     <ParcelStatusBadge status={order.status} />
                   </td>
@@ -269,15 +261,7 @@ export default async function OrdersPage({
                   <td className="mono text-muted">
                     {order.parcelNumberLooksValid ? order.parcelNumber : "—"}
                   </td>
-                  <td>
-                    <Link
-                      href={`/parcels/${order.id}`}
-                      className="btn-ghost btn-sm"
-                    >
-                      Подробнее →
-                    </Link>
-                  </td>
-                </tr>
+                </TableRowLink>
               ))}
               {orders.length === 0 && (
                 <tr>
@@ -399,6 +383,8 @@ export default async function OrdersPage({
 
         .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
         .btn-sm { padding: 4px 8px; font-size: 12px; }
+        .row-clickable { cursor: pointer; }
+        .row-clickable:hover td { background: var(--color-muted-bg); }
 
         .table-empty {
           text-align: center;

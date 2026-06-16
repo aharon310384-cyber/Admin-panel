@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import SortableHeader from "@/components/ui/sortable-header";
 import { Pagination } from "@/components/ui/pagination";
+import TableRowLink from "@/components/ui/table-row-link";
 import { parsePageParam } from "@/lib/list-params";
 
 export const metadata: Metadata = { title: "Наименования товаров" };
@@ -175,28 +176,25 @@ export default async function ProductNamesPage({
                     direction={sortDir}
                   />
                 </th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {productNames.map((item) => (
-                <tr key={item.id}>
+                <TableRowLink
+                  key={item.id}
+                  href={`/product-names/${item.id}/edit`}
+                >
                   <td>
                     <span className="code-pill">{item.code}</span>
                   </td>
                   <td>{item.nameRu}</td>
                   <td className="text-muted">{dash(item.nameEn)}</td>
                   <td className="text-muted">{dash(item.nameCn)}</td>
-                  <td>
-                    <Link href={`/product-names/${item.id}/edit`} className="btn-ghost btn-sm">
-                      Редактировать
-                    </Link>
-                  </td>
-                </tr>
+                </TableRowLink>
               ))}
               {productNames.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="table-empty">
+                  <td colSpan={4} className="table-empty">
                     Наименования не найдены
                   </td>
                 </tr>
@@ -237,6 +235,8 @@ export default async function ProductNamesPage({
         .text-muted { color: var(--color-muted); }
         .btn-ghost { display: inline-flex; align-items: center; padding: 5px 10px; background: transparent; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--color-accent); text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
         .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
+        .row-clickable { cursor: pointer; }
+        .row-clickable:hover td { background: var(--color-muted-bg); }
         .btn-sm { padding: 4px 8px; }
         .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
       `}</style>

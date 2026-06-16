@@ -85,7 +85,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
               Заказы
             </Link>
             <span className="breadcrumb-sep">/</span>
-            <span>{product.sku}</span>
+            <span>Редактирование</span>
           </div>
           <h1 className="page-title">Редактирование заказа</h1>
         </div>

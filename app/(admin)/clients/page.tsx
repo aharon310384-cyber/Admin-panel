@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Search } from "lucide-react";
 import { auth } from "@/auth";
 import { enterClientCabinet } from "@/actions/client-cabinet";
 import { prisma } from "@/lib/prisma";
 import SortableHeader from "@/components/ui/sortable-header";
 import { Pagination } from "@/components/ui/pagination";
+import TableRowLink from "@/components/ui/table-row-link";
 import { parsePageParam } from "@/lib/list-params";
 
 export const metadata: Metadata = { title: "Клиенты" };
@@ -285,7 +285,7 @@ export default async function ClientsPage({
             </thead>
             <tbody>
               {clients.map((client) => (
-                <tr key={client.id}>
+                <TableRowLink key={client.id} href={`/clients/${client.id}`}>
                   <td>
                     <span className="code-pill">{client.code}</span>
                   </td>
@@ -298,20 +298,15 @@ export default async function ClientsPage({
                   </td>
                   <td className="tabular">{client.orderCount}</td>
                   <td>
-                    <div className="row-actions">
-                      <Link href={`/clients/${client.id}`} className="btn-ghost btn-sm">
-                        Открыть
-                      </Link>
-                      {isAdmin && (
-                        <form action={enterClientCabinet.bind(null, client.id)}>
-                          <button type="submit" className="btn-ghost btn-sm">
-                            Войти как клиент
-                          </button>
-                        </form>
-                      )}
-                    </div>
+                    {isAdmin && (
+                      <form action={enterClientCabinet.bind(null, client.id)}>
+                        <button type="submit" className="btn-ghost btn-sm">
+                          Войти как клиент
+                        </button>
+                      </form>
+                    )}
                   </td>
-                </tr>
+                </TableRowLink>
               ))}
               {clients.length === 0 && (
                 <tr>
@@ -356,6 +351,8 @@ export default async function ClientsPage({
 
         .btn-ghost { display: inline-flex; align-items: center; padding: 5px 10px; background: transparent; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--color-accent); text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
         .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
+        .row-clickable { cursor: pointer; }
+        .row-clickable:hover td { background: var(--color-muted-bg); }
         .btn-sm { padding: 4px 8px; }
         .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
         .row-actions form { margin: 0; }
