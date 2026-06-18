@@ -1,7 +1,9 @@
 "use client";
 
 import Script from "next/script";
-import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { Send } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 type State = "loading" | "need-link" | "browser-login" | "error";
 
@@ -10,7 +12,6 @@ const BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT_NAME;
 export default function TelegramEntryPage() {
   const [state, setState] = useState<State>("loading");
   const [notice, setNotice] = useState<string | null>(null);
-  const widgetRef = useRef<HTMLDivElement>(null);
 
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
@@ -89,22 +90,6 @@ export default function TelegramEntryPage() {
     auth();
   }, [auth]);
 
-  // Встраиваем Telegram Login Widget при показе браузерного входа
-  useEffect(() => {
-    if (state !== "browser-login" || !widgetRef.current || !BOT) return;
-    if (widgetRef.current.childElementCount > 0) return;
-
-    const s = document.createElement("script");
-    s.src = "https://telegram.org/js/telegram-widget.js?22";
-    s.async = true;
-    s.setAttribute("data-telegram-login", BOT);
-    s.setAttribute("data-size", "large");
-    s.setAttribute("data-radius", "12");
-    s.setAttribute("data-request-access", "write");
-    s.setAttribute("data-auth-url", `${window.location.origin}/api/cabinet/telegram-login`);
-    widgetRef.current.appendChild(s);
-  }, [state]);
-
   return (
     <main className="tg">
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
@@ -119,7 +104,7 @@ export default function TelegramEntryPage() {
 
         {state === "browser-login" && (
           <>
-            <span className="tg-emoji">🦊</span>
+            <Image src="/brand/favicon.png" alt="PostmanFox" width={60} height={60} className="tg-logo" priority />
             <h1 className="tg-title">Вход в кабинет</h1>
             <p className="tg-sub">Войдите по коду клиента и паролю.</p>
             {notice && <p className="tg-notice">{notice}</p>}
@@ -151,10 +136,10 @@ export default function TelegramEntryPage() {
 
             <div className="tg-or"><span>или</span></div>
 
-            <div className="tg-widget" ref={widgetRef} />
             {BOT && (
-              <a className="tg-link" href={`https://t.me/${BOT}`}>
-                Нет доступа? Откройте бота →
+              <a className="tg-tgbtn" href={`https://t.me/${BOT}`}>
+                <Send size={18} />
+                Войти через Telegram
               </a>
             )}
           </>
@@ -204,6 +189,7 @@ export default function TelegramEntryPage() {
           background: #fff; border: 1px solid rgba(29,39,24,0.09); box-shadow: 0 8px 24px rgba(29,39,24,0.08);
         }
         .tg-emoji { font-size: 40px; }
+        .tg-logo { width: 60px; height: 60px; object-fit: contain; }
         .tg-title { margin: 0; font-size: 20px; font-weight: 700; }
         .tg-sub { margin: 0; font-size: 14px; line-height: 1.5; color: #79836f; }
         .tg-notice {
@@ -223,8 +209,13 @@ export default function TelegramEntryPage() {
           color: #79836f; font-size: 12px;
         }
         .tg-or::before, .tg-or::after { content: ''; flex: 1; height: 1px; background: rgba(29,39,24,0.1); }
-        .tg-widget { min-height: 48px; display: flex; align-items: center; justify-content: center; }
-        .tg-link { font-size: 13px; font-weight: 600; color: #4e8a2a; text-decoration: none; }
+        .tg-tgbtn {
+          width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+          padding: 13px; border-radius: 14px; font-size: 15px; font-weight: 700;
+          text-decoration: none; color: #fff; background: #229ED9;
+          transition: background 0.15s;
+        }
+        .tg-tgbtn:hover { background: #1b8ec2; }
         .tg-btn:disabled { opacity: 0.6; cursor: default; }
         .tg-btn {
           width: 100%; margin-top: 6px; padding: 13px; border-radius: 14px; border: none; cursor: pointer;

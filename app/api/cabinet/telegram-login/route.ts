@@ -21,12 +21,12 @@ export async function GET(req: Request) {
 
   const user = verifyLoginWidget(data);
   if (!user) {
-    return to("/tg?e=bad");
+    return to("/entrance?e=bad");
   }
 
   const customer = await findCustomerByTelegramId(String(user.id));
   if (!customer) {
-    return to("/tg?e=notlinked");
+    return to("/entrance?e=notlinked");
   }
 
   await setClientSession(customer.id);

@@ -180,7 +180,7 @@ export function sendCabinetButton(chatId: string | number, text: string): Promis
   }
   return sendTelegramMessage(chatId, text, {
     replyMarkup: {
-      inline_keyboard: [[{ text: "Открыть кабинет", web_app: { url: `${CABINET_URL}/tg` } }]],
+      inline_keyboard: [[{ text: "Открыть кабинет", web_app: { url: `${CABINET_URL}/entrance` } }]],
     },
   });
 }

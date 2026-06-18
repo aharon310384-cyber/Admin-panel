@@ -14,7 +14,8 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { exitClientCabinet } from "@/actions/client-cabinet";
+import { clientLogout, exitClientCabinet } from "@/actions/client-cabinet";
+import type { ClientCabinetMode } from "@/lib/client-cabinet";
 
 type Item = { href: string; label: string; icon: typeof LayoutGrid };
 
@@ -36,8 +37,9 @@ const BOTTOM: Item[] = [
   { href: "/cabinet/profile", label: "Профиль", icon: User },
 ];
 
-export default function CabinetSidebar() {
+export default function CabinetSidebar({ mode }: { mode: ClientCabinetMode }) {
   const pathname = usePathname();
+  const isAdminView = mode === "admin";
   const isActive = (href: string) =>
     href === "/cabinet" ? pathname === "/cabinet" : pathname.startsWith(href);
 
@@ -53,10 +55,12 @@ export default function CabinetSidebar() {
         >
           <Image src="/brand/logo.png" alt="PostmanFox" width={150} height={49} priority className="cs-brand-img" />
         </a>
-        <span className="cs-mode" title="Режим просмотра клиента">
-          <Eye size={12} aria-hidden="true" />
-          Просмотр
-        </span>
+        {isAdminView && (
+          <span className="cs-mode" title="Режим просмотра клиента">
+            <Eye size={12} aria-hidden="true" />
+            Просмотр
+          </span>
+        )}
       </div>
 
       <span className="cs-new cs-new--off" aria-disabled="true" title="Скоро">
@@ -109,10 +113,10 @@ export default function CabinetSidebar() {
         </div>
       </nav>
 
-      <form action={exitClientCabinet} className="cs-exit-form">
+      <form action={isAdminView ? exitClientCabinet : clientLogout} className="cs-exit-form">
         <button type="submit" className="cs-exit">
           <LogOut size={16} />
-          Выйти из просмотра
+          {isAdminView ? "Выйти из просмотра" : "Выйти"}
         </button>
       </form>
 

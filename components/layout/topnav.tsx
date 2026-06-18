@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ClipboardList,
   CircleDollarSign,
+  Database,
   Globe,
   IdCard,
   LayoutDashboard,
@@ -36,7 +37,7 @@ type NavItem = {
 };
 type NavGroup = { title: string; items: NavItem[] };
 
-// Прямая ссылка (без выпадающего меню)
+// Прямая ссылка (рабочий стол), вне панели «Данные»
 const HOME: NavItem = { href: "/dashboard", label: "Операции", icon: LayoutDashboard };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -83,8 +84,8 @@ type TopNavProps = {
 
 export default function TopNav({ userName, userRole }: TopNavProps) {
   const pathname = usePathname();
-  const [open, setOpen] = useState<string | null>(null);
-  const navRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const dataRef = useRef<HTMLDivElement>(null);
 
   const roleLabel = USER_ROLE_LABELS[userRole as UserRole] ?? userRole;
 
@@ -92,15 +93,15 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
     const path = href.split("?")[0];
     return pathname === path || pathname.startsWith(path + "/");
   };
-  const groupActive = (group: NavGroup) => group.items.some((i) => !i.soon && itemActive(i.href));
+  const dataActive = NAV_GROUPS.some((g) => g.items.some((i) => !i.soon && itemActive(i.href)));
 
-  // Закрытие по клику вне меню и по Esc
+  // Закрытие панели «Данные»: клик вне и Esc
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpen(null);
+      if (dataRef.current && !dataRef.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -111,12 +112,12 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
 
   // Закрытие при переходе на новую страницу
   useEffect(() => {
-    setOpen(null);
+    setOpen(false);
   }, [pathname]);
 
   return (
     <header className="topnav">
-      <div className="topnav-inner" ref={navRef}>
+      <div className="topnav-inner">
         <a
           href="https://postmanfox.com/"
           target="_blank"
@@ -136,29 +137,27 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
             <span>{HOME.label}</span>
           </Link>
 
-          {NAV_GROUPS.map((group) => {
-            const isOpen = open === group.title;
-            return (
-              <div key={group.title} className="topnav-group">
-                <button
-                  type="button"
-                  className={cn(
-                    "topnav-link topnav-trigger",
-                    (isOpen || groupActive(group)) && "topnav-link--active"
-                  )}
-                  aria-expanded={isOpen}
-                  onClick={() => setOpen(isOpen ? null : group.title)}
-                >
-                  <span>{group.title}</span>
-                  <ChevronDown
-                    size={14}
-                    className="topnav-caret"
-                    style={{ transform: isOpen ? "rotate(180deg)" : "none" }}
-                  />
-                </button>
+          <div className="topnav-data" ref={dataRef}>
+            <button
+              type="button"
+              className={cn("topnav-link topnav-trigger", (open || dataActive) && "topnav-link--active")}
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
+            >
+              <Database size={16} />
+              <span>Данные</span>
+              <ChevronDown
+                size={14}
+                className="topnav-caret"
+                style={{ transform: open ? "rotate(180deg)" : "none" }}
+              />
+            </button>
 
-                {isOpen && (
-                  <div className="topnav-dropdown" role="menu">
+            {open && (
+              <div className="topnav-panel" role="menu">
+                {NAV_GROUPS.map((group) => (
+                  <div key={group.title} className="topnav-section">
+                    <p className="topnav-section-title">{group.title}</p>
                     {group.items.map(({ href, label, icon: Icon, soon }) =>
                       soon ? (
                         <span key={label} className="topnav-item topnav-item--soon" aria-disabled="true">
@@ -178,10 +177,10 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
                       )
                     )}
                   </div>
-                )}
+                ))}
               </div>
-            );
-          })}
+            )}
+          </div>
         </nav>
 
         <div className="topnav-right">
@@ -245,21 +244,28 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
         .topnav-link:hover { color: var(--color-text); background: var(--color-muted-bg); }
         .topnav-link--active { color: var(--color-accent); background: oklch(52% 0.14 42 / 0.08); }
 
-        .topnav-group { position: relative; }
-        .topnav-trigger { gap: 5px; }
+        .topnav-data { position: relative; }
+        .topnav-trigger { gap: 6px; }
         .topnav-caret { transition: transform 0.18s ease; flex-shrink: 0; }
 
-        .topnav-dropdown {
+        .topnav-panel {
           position: absolute; top: calc(100% + 6px); left: 0;
-          min-width: 220px; padding: 6px;
-          background: var(--color-surface); border: 1px solid var(--color-border);
-          border-radius: var(--radius-md); box-shadow: var(--shadow-card);
-          display: flex; flex-direction: column; gap: 2px;
+          width: 280px; max-height: calc(100dvh - 80px); overflow-y: auto;
+          padding: 8px; background: var(--color-surface);
+          border: 1px solid var(--color-border); border-radius: var(--radius-md);
+          box-shadow: var(--shadow-card);
           animation: topnav-pop 0.14s ease;
         }
         @keyframes topnav-pop {
           from { opacity: 0; transform: translateY(-4px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+
+        .topnav-section { display: flex; flex-direction: column; gap: 1px; }
+        .topnav-section + .topnav-section { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--color-border); }
+        .topnav-section-title {
+          margin: 0; padding: 4px 10px 5px; font-size: 11px; font-weight: 700;
+          text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted);
         }
 
         .topnav-item {
@@ -299,8 +305,6 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
         .topnav-logout:hover { color: var(--color-danger); background: var(--color-danger-bg); }
 
         @media (max-width: 1024px) {
-          .topnav-menu { overflow-x: auto; scrollbar-width: none; }
-          .topnav-menu::-webkit-scrollbar { display: none; }
           .topnav-user-info { display: none; }
         }
       `}</style>

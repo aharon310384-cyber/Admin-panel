@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Script from "next/script";
 import { Eye, LogOut } from "lucide-react";
-import { exitClientCabinet } from "@/actions/client-cabinet";
+import { clientLogout, exitClientCabinet } from "@/actions/client-cabinet";
+import { getClientCabinetContext } from "@/lib/client-cabinet";
 import CabinetNav from "@/components/cabinet/cabinet-nav";
 import CabinetSidebar from "@/components/cabinet/cabinet-sidebar";
 import TelegramInit from "@/components/cabinet/telegram-init";
@@ -11,16 +12,19 @@ export const metadata: Metadata = {
   title: "Кабинет клиента",
 };
 
-export default function ClientCabinetLayout({
+export default async function ClientCabinetLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { mode } = await getClientCabinetContext();
+  const isAdminView = mode === "admin";
+
   return (
     <div className="cab-root">
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       <TelegramInit />
-      <CabinetSidebar />
+      <CabinetSidebar mode={mode} />
 
       <div className="cab-viewport">
         <header className="cab-header">
@@ -41,12 +45,19 @@ export default function ClientCabinetLayout({
             />
           </a>
 
-          <form action={exitClientCabinet} className="cab-exit-form">
-            <span className="cab-mode-pill" title="Режим просмотра клиента">
-              <Eye size={13} aria-hidden="true" />
-              Просмотр
-            </span>
-            <button type="submit" className="cab-exit-btn" aria-label="Выйти из режима просмотра">
+          <form action={isAdminView ? exitClientCabinet : clientLogout} className="cab-exit-form">
+            {isAdminView && (
+              <span className="cab-mode-pill" title="Режим просмотра клиента">
+                <Eye size={13} aria-hidden="true" />
+                Просмотр
+              </span>
+            )}
+            <button
+              type="submit"
+              className="cab-exit-btn"
+              aria-label={isAdminView ? "Выйти из режима просмотра" : "Выйти"}
+              title={isAdminView ? "Выйти из режима просмотра" : "Выйти"}
+            >
               <LogOut size={15} aria-hidden="true" />
             </button>
           </form>

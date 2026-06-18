@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LogOut, Mail, MapPin, Phone, Settings } from "lucide-react";
-import { exitClientCabinet } from "@/actions/client-cabinet";
+import { clientLogout, exitClientCabinet } from "@/actions/client-cabinet";
 import SettingsPanel from "@/components/cabinet/settings-panel";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
 
@@ -19,7 +19,8 @@ function fullName(c: {
 }
 
 export default async function ClientCabinetProfilePage() {
-  const { client } = await getClientCabinetContext();
+  const { client, mode } = await getClientCabinetContext();
+  const isAdminView = mode === "admin";
 
   const name = fullName(client);
   const contacts = [
@@ -64,10 +65,10 @@ export default async function ClientCabinetProfilePage() {
         <SettingsPanel />
       </section>
 
-      <form action={exitClientCabinet}>
+      <form action={isAdminView ? exitClientCabinet : clientLogout}>
         <button type="submit" className="pr-exit">
           <LogOut size={17} />
-          Выйти из режима просмотра
+          {isAdminView ? "Выйти из режима просмотра" : "Выйти"}
         </button>
       </form>
 

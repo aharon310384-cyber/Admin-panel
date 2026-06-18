@@ -153,10 +153,8 @@ export default async function ClientCabinetOverviewPage() {
               <li key={p.id}>
                 <Link href={`/cabinet/parcels/${p.id}`} className="ov-row">
                   <span className="ov-row-num">{p.number}</span>
-                  <span className="ov-row-mid">
-                    <StatusPill status={p.status} />
-                    <span className="ov-row-date">{formatDate(p.createdAt)}</span>
-                  </span>
+                  <span className="ov-row-status"><StatusPill status={p.status} /></span>
+                  <span className="ov-row-date">{formatDate(p.createdAt)}</span>
                   <span className="ov-row-sum">{formatUsd(p.totalUsd)}</span>
                 </Link>
               </li>
@@ -253,7 +251,7 @@ export default async function ClientCabinetOverviewPage() {
 
         .ov-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
         .ov-row {
-          display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
+          display: grid; grid-template-columns: minmax(0, 1fr) 116px 72px 84px; align-items: center; gap: 10px;
           padding: 12px 14px; border-radius: var(--cab-radius-sm);
           background: var(--cab-surface); border: 1px solid var(--cab-border);
           text-decoration: none; color: var(--cab-text); box-shadow: var(--cab-shadow-sm);
@@ -261,9 +259,9 @@ export default async function ClientCabinetOverviewPage() {
         }
         .ov-row:hover { transform: translateY(-1px); }
         .ov-row-num { font-family: var(--font-jetbrains-mono), monospace; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ov-row-mid { display: inline-flex; align-items: center; gap: 8px; }
-        .ov-row-date { font-size: 11.5px; color: var(--cab-muted); white-space: nowrap; }
-        .ov-row-sum { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+        .ov-row-status { display: flex; min-width: 0; }
+        .ov-row-date { font-size: 11.5px; color: var(--cab-muted); white-space: nowrap; text-align: right; }
+        .ov-row-sum { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13.5px; white-space: nowrap; text-align: right; }
 
         .ov-cta {
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;

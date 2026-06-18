@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
 
-const PUBLIC_ROUTES = ["/login", "/tg"];
+const PUBLIC_ROUTES = ["/login", "/entrance"];
 const ADMIN_ONLY_PREFIXES = ["/orders/new"];
 const CLIENT_SESSION_COOKIE = "client-session";
 
@@ -12,7 +12,7 @@ export default auth((req) => {
   const { nextUrl, auth: session } = req;
   const isLoggedIn = !!session;
   const isPublicRoute =
-    PUBLIC_ROUTES.includes(nextUrl.pathname) || nextUrl.pathname.startsWith("/tg/");
+    PUBLIC_ROUTES.includes(nextUrl.pathname) || nextUrl.pathname.startsWith("/entrance/");
   // Клиент, вошедший через Telegram (наличие cookie; подпись проверяется на странице)
   const hasClientSession = Boolean(req.cookies.get(CLIENT_SESSION_COOKIE)?.value);
   const isAdminOnlyRoute = ADMIN_ONLY_PREFIXES.some((prefix) =>

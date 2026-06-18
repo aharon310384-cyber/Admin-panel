@@ -8,6 +8,7 @@ import {
   requireClientCabinetAccess,
   requireClientCabinetAdmin,
 } from "@/lib/client-cabinet";
+import { clearClientSession } from "@/lib/client-session";
 
 const clientCabinetCookieOptions = {
   httpOnly: true,
@@ -41,4 +42,10 @@ export async function exitClientCabinet(): Promise<never> {
   });
 
   redirect("/clients");
+}
+
+/** Выход клиента, вошедшего через Telegram/пароль (чистит клиентскую сессию). */
+export async function clientLogout(): Promise<never> {
+  await clearClientSession();
+  redirect("/entrance");
 }
