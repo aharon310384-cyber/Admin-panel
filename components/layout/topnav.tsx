@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  PackageCheck,
   Receipt,
   Settings,
   Sparkles,
@@ -45,6 +46,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Документы",
     items: [
       { href: "/orders", label: "Заказы", icon: ClipboardList },
+      { href: "/receiving", label: "Приёмка (АРМ)", icon: PackageCheck },
       { href: "/parcels", label: "Посылки", icon: Package },
     ],
   },
@@ -155,29 +157,33 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
 
             {open && (
               <div className="topnav-panel" role="menu">
-                {NAV_GROUPS.map((group) => (
-                  <div key={group.title} className="topnav-section">
-                    <p className="topnav-section-title">{group.title}</p>
-                    {group.items.map(({ href, label, icon: Icon, soon }) =>
-                      soon ? (
-                        <span key={label} className="topnav-item topnav-item--soon" aria-disabled="true">
-                          <Icon size={16} />
-                          <span>{label}</span>
-                        </span>
-                      ) : (
-                        <Link
-                          key={href}
-                          href={href}
-                          role="menuitem"
-                          className={cn("topnav-item", itemActive(href) && "topnav-item--active")}
-                        >
-                          <Icon size={16} />
-                          <span>{label}</span>
-                        </Link>
-                      )
-                    )}
-                  </div>
-                ))}
+                <div className="topnav-panel-inner">
+                  {NAV_GROUPS.map((group) => (
+                    <div key={group.title} className="topnav-section">
+                      <p className="topnav-section-title">{group.title}</p>
+                      <div className="topnav-section-items">
+                        {group.items.map(({ href, label, icon: Icon, soon }) =>
+                          soon ? (
+                            <span key={label} className="topnav-item topnav-item--soon" aria-disabled="true">
+                              <Icon size={16} />
+                              <span>{label}</span>
+                            </span>
+                          ) : (
+                            <Link
+                              key={href}
+                              href={href}
+                              role="menuitem"
+                              className={cn("topnav-item", itemActive(href) && "topnav-item--active")}
+                            >
+                              <Icon size={16} />
+                              <span>{label}</span>
+                            </Link>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -249,23 +255,35 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
         .topnav-caret { transition: transform 0.18s ease; flex-shrink: 0; }
 
         .topnav-panel {
-          position: absolute; top: calc(100% + 6px); left: 0;
-          width: 280px; max-height: calc(100dvh - 80px); overflow-y: auto;
-          padding: 8px; background: var(--color-surface);
-          border: 1px solid var(--color-border); border-radius: var(--radius-md);
-          box-shadow: var(--shadow-card);
+          position: fixed; top: 56px; left: 0; right: 0; z-index: 29;
+          background: #fffcf6;
+          border-bottom: 1px solid var(--color-border);
+          box-shadow: 0 16px 40px rgba(29, 39, 24, 0.16);
+          max-height: calc(100dvh - 56px); overflow-y: auto;
           animation: topnav-pop 0.14s ease;
         }
         @keyframes topnav-pop {
-          from { opacity: 0; transform: translateY(-4px); }
+          from { opacity: 0; transform: translateY(-6px); }
           to { opacity: 1; transform: translateY(0); }
         }
 
-        .topnav-section { display: flex; flex-direction: column; gap: 1px; }
-        .topnav-section + .topnav-section { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--color-border); }
+        .topnav-panel-inner {
+          max-width: 1600px; margin: 0 auto; padding: 22px 20px;
+          display: grid; grid-template-columns: repeat(5, 1fr); gap: 22px; align-items: start;
+        }
+        .topnav-section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .topnav-section-items { display: flex; flex-direction: column; gap: 2px; }
         .topnav-section-title {
-          margin: 0; padding: 4px 10px 5px; font-size: 11px; font-weight: 700;
+          margin: 0; padding: 2px 10px 8px; font-size: 11px; font-weight: 700;
           text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted);
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        @media (max-width: 1024px) {
+          .topnav-panel-inner { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 640px) {
+          .topnav-panel-inner { grid-template-columns: 1fr; gap: 14px; }
         }
 
         .topnav-item {
