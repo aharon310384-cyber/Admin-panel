@@ -1,0 +1,405 @@
+// ЦЕЛЕВАЯ СХЕМА v2 — ЧЕРНОВИК для ревью (на основе опросников 2.0–2.5).
+// НЕ применяется автоматически. После согласования заменит prisma/schema.prisma.
+// Чистые имена таблиц (без исторического маппинга Order↔Product).
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"] // для будущего деплоя на Linux/Timeweb
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── ENUMS ───────────────────────────
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  WAREHOUSE // склад (Фаза 2)
+}
+
+enum DeliveryType {
+  AUTO // авто
+  AIR  // авиа
+  SEA  // море
+  EMS
+}
+
+// Статусы ЗАКАЗА-строки (до оформления в посылку). RETURNED/UTILIZED — сквозные.
+enum OrderStatus {
+  NEW                        // Новый
+  IN_RECEIVING_QUEUE         // В очереди на приём
+  RECEIVED                   // Принят на склад
+  RECEIVED_WITH_DISCREPANCY  // Принят с несоответствием (ветка)
+  FORMED                     // Оформлен на отправку (ушёл в посылку)
+  RETURNED                   // Возвращён (сквозной)
+  UTILIZED                   // Утилизировано (сквозной)
+}
+
+// Статусы ПОСЫЛКИ (после оформления). RETURNED/UTILIZED — сквозные.
+enum ParcelStatus {
+  FORMED         // Оформлена на отправку
+  ASSEMBLED      // Собран
+  PACKED         // Упакован
+  READY_TO_SHIP  // Готова к отправке (формируется квитанция)
+  SHIPPED        // Отправлена
+  DELIVERED      // Доставлена
+  RETURNED       // Возвращён (сквозной)
+  UTILIZED       // Утилизировано (сквозной)
+}
+
+enum ServicePricingType {
+  PER_KG    // за кг (от расчётного веса посылки)
+  PER_ORDER // за заказ-строку (детальная проверка 2$)
+  PERCENT   // % от стоимости товаров (страховка 2–10)
+  MANUAL    // по факту (усиленная упаковка, доставка до склада)
+}
+
+enum PaymentTiming {
+  BEFORE   // оплата до отправки (РФ/EMS/КЗ/БР)
+  FLEXIBLE // до/после (Узб/Укр/Молд)
+}
+
+enum LostItemStatus {
+  LOST        // Потеряшка
+  TRANSFERRED // Передано на приём
+  UTILIZED    // Утилизировано
+}
+
+// ─────────────────────────── СОТРУДНИКИ ───────────────────────────
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      UserRole  @default(MANAGER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  orderStatusChanges  OrderStatusHistory[]
+  parcelStatusChanges ParcelStatusHistory[]
+  localDeliveries     LocalDelivery[]
+  lostItems           LostItem[]
+}
+
+// ─────────────────────────── СПРАВОЧНИКИ ───────────────────────────
+
+model Country {
+  code              String   @id // ISO
+  nameRu            String
+  nameEn            String
+  postalCodeRegex   String?
+  postalCodeExample String?
+  // Фаза 2: таможенные лимиты
+  dutyFreeLimitUsd  Decimal?
+  dutyFreeLimitKg   Decimal?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  recipients Recipient[]
+
+  @@index([nameRu])
+}
+
+model ProductName {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  nameRu    String
+  nameEn    String?
+  nameCn    String?
+  category  String?   // секция (Одежда/Обувь/Сумки) — Фаза 2
+  hsCode    String?   // ТН ВЭД — Фаза 2
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  orders Order[]
+
+  @@index([nameRu])
+  @@index([category])
+}
+
+model ShippingTariff {
+  id             String        @id @default(cuid())
+  direction      String        // страна/направление (Россия, Украина, EMS-группа…)
+  deliveryType   DeliveryType
+  pricePerKgUsd  Decimal       // ставка $/кг
+  handlingFeeUsd Decimal       @default(0) // оформление $
+  minDays        Int?
+  maxDays        Int?
+  paymentTiming  PaymentTiming @default(BEFORE)
+  volumetricDivisor Int?       // Фаза 2 (делитель объёмного веса)
+  minWeightKg    Decimal?      // Фаза 2 (минимальный вес)
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([direction])
+  @@index([deliveryType])
+  @@index([active])
+}
+
+model ServiceTariff {
+  code               String             @id // напр. CONSOLIDATION
+  name               String
+  pricingType        ServicePricingType
+  value              Decimal?           // 0.3 / 0.5 / 1.0 / 2.0 (для MANUAL — null)
+  percentMin         Decimal?           // для PERCENT (страховка 2)
+  percentMax         Decimal?           // для PERCENT (страховка 10)
+  selectableByClient Boolean            @default(false) // true только у «Детальная проверка»
+  active             Boolean            @default(true)
+  sortOrder          Int                @default(0)
+
+  parcelServices ParcelService[]
+}
+
+model FinanceSettings {
+  id                    String   @id @default(cuid())
+  exchangeRateCnyPerUsd Decimal  @default(7.1)
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
+}
+
+// ─────────────────────────── КЛИЕНТЫ / ПОЛУЧАТЕЛИ ───────────────────────────
+
+model Customer {
+  id               String    @id @default(cuid())
+  code             String?   @unique
+  clientCode       String?
+  name             String
+  lastName         String?
+  firstName        String?
+  middleName       String?
+  email            String?   @unique
+  phone            String?
+  country          String?
+  city             String?
+  address          String?
+  // вход в кабинет
+  telegramUserId   String?   @unique
+  telegramChatId   String?
+  telegramUsername String?
+  telegramLinkedAt DateTime?
+  passwordHash     String?
+  // Фаза 2: WeChat
+  wechatOpenId     String?   @unique
+  wechatUnionId    String?
+  wechatLinkedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  recipients      Recipient[]
+  orders          Order[]
+  parcels         Parcel[]
+  localDeliveries LocalDelivery[]
+  lostItems       LostItem[]
+
+  @@index([code])
+  @@index([phone])
+  @@index([telegramUserId])
+}
+
+model Recipient {
+  id          String    @id @default(cuid())
+  customerId  String
+  name        String
+  phone       String?
+  countryCode String?
+  country     String?
+  city        String?
+  address     String?
+  postalCode  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  customer       Customer @relation(fields: [customerId], references: [id])
+  countryRef     Country? @relation(fields: [countryCode], references: [code])
+  orders         Order[]
+  parcels        Parcel[]
+
+  @@index([customerId])
+}
+
+// ─────────────────────────── ЗАКАЗ = СТРОКА = ТОВАР ───────────────────────────
+
+model Order {
+  id           String        @id @default(cuid())
+  customerId   String        // владелец/плательщик
+  recipientId  String?       // куда везём (переносится в посылку при оформлении)
+  deliveryType DeliveryType?
+  // товар
+  productNameId          String?
+  productNameText        String?  // снимок/свободный ввод
+  category               String?
+  hsCode                 String?  // Фаза 2
+  declaredValueUsd       Decimal? // объявленная стоимость = unitPrice × quantity
+  trackNumber            String?  // китайский трек, НЕ уникален
+  quantity               Int      @default(1)
+  unitPriceCny           Decimal?
+  unitPriceUsd           Decimal?
+  // вес на строке (Z5)
+  actualWeightKg         Decimal?
+  volumetricWeightKg     Decimal?
+  // услуга клиента
+  detailedCheckRequested Boolean  @default(false) // «Детальная проверка и фотоотчёт»
+  productUrl             String?
+  imageUrl               String?
+  // процесс
+  status       OrderStatus @default(NEW)
+  parcelId     String?     // заполняется при оформлении
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  customer        Customer             @relation(fields: [customerId], references: [id])
+  recipient       Recipient?           @relation(fields: [recipientId], references: [id])
+  productName     ProductName?         @relation(fields: [productNameId], references: [id])
+  parcel          Parcel?              @relation(fields: [parcelId], references: [id])
+  statusHistory   OrderStatusHistory[]
+  localDeliveries LocalDelivery[]
+
+  @@index([customerId])
+  @@index([recipientId])
+  @@index([parcelId])
+  @@index([status])
+  @@index([trackNumber])
+}
+
+// ─────────────────────────── ПОСЫЛКА ───────────────────────────
+
+model Parcel {
+  id           String        @id @default(cuid())
+  number       String        @unique // генерируется при оформлении
+  customerId   String
+  recipientId  String?
+  deliveryType DeliveryType?
+  status       ParcelStatus  @default(FORMED)
+  // веса
+  actualWeightKg     Decimal?
+  volumetricWeightKg Decimal?
+  billableWeightKg   Decimal? // расчётный (фактический по умолчанию, ручной перебор)
+  // расчёт
+  exchangeRateCnyPerUsd Decimal  @default(7.1) // зафиксирован при оплате
+  shippingCostUsd       Decimal? // Отправка = billableWeightKg × ставка
+  discountPercent       Decimal? // скидка % от итога
+  totalUsd              Decimal  @default(0)
+  totalCny              Decimal  @default(0)
+  // оплата
+  isPaid        Boolean       @default(false)
+  paidAt        DateTime?
+  paymentTiming PaymentTiming @default(BEFORE) // из тарифа
+  // отслеживание
+  trackingNumber String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  customer      Customer              @relation(fields: [customerId], references: [id])
+  recipient     Recipient?            @relation(fields: [recipientId], references: [id])
+  orders        Order[]               // строки-заказы внутри
+  services      ParcelService[]
+  statusHistory ParcelStatusHistory[]
+
+  @@index([customerId])
+  @@index([recipientId])
+  @@index([status])
+  @@index([number])
+  @@index([isPaid])
+}
+
+model ParcelService {
+  id          String  @id @default(cuid())
+  parcelId    String
+  serviceCode String
+  name        String  // снимок названия услуги
+  baseValue   Decimal? // от чего считали (вес/кол-во/стоимость)
+  priceUsd    Decimal  @default(0)
+  priceCny    Decimal  @default(0)
+
+  parcel  Parcel        @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  service ServiceTariff @relation(fields: [serviceCode], references: [code])
+
+  @@index([parcelId])
+}
+
+// ─────────────────────────── РЕГИСТРЫ ───────────────────────────
+
+// «Доставка до склада» (локальная). Несколько записей → их сумма одной строкой в расчёт посылки.
+model LocalDelivery {
+  id               String   @id @default(cuid())
+  orderId          String?  // привязка к строке-заказу (по треку Китая)
+  customerId       String?
+  parcelNumber     String?  // номер посылки
+  trackNumberChina String?
+  amountCny        Decimal
+  amountUsd        Decimal
+  exchangeRate     Decimal
+  authorId         String
+  note             String?
+  createdAt        DateTime @default(now())
+
+  order    Order?    @relation(fields: [orderId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  author   User      @relation(fields: [authorId], references: [id])
+
+  @@index([orderId])
+  @@index([parcelNumber])
+}
+
+// Потеряшки (Фаза 2) — заложено заранее.
+model LostItem {
+  id           String         @id @default(cuid())
+  trackNumber  String
+  weightKg     Decimal?
+  customerId   String?
+  parcelNumber String?
+  note         String?
+  photoUrl     String?
+  status       LostItemStatus @default(LOST)
+  authorId     String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+  author   User      @relation(fields: [authorId], references: [id])
+
+  @@index([status])
+  @@index([trackNumber])
+}
+
+// ─────────────────────────── ИСТОРИЯ СТАТУСОВ ───────────────────────────
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  changedBy String
+  note      String?
+  createdAt DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [changedBy], references: [id])
+
+  @@index([orderId])
+}
+
+model ParcelStatusHistory {
+  id        String       @id @default(cuid())
+  parcelId  String
+  status    ParcelStatus
+  changedBy String
+  note      String?
+  createdAt DateTime     @default(now())
+
+  parcel Parcel @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [changedBy], references: [id])
+
+  @@index([parcelId])
+}
