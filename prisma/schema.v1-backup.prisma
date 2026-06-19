@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+}
+
+enum ParcelStatus {
+  NEW
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  CANCELED
+  PAID
+  RETURNED_PAID
+  RETURNED_UNPAID
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      UserRole  @default(MANAGER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  statusChanges ParcelStatusHistory[]
+}
+
+model Country {
+  code              String   @id
+  nameRu            String
+  nameEn            String
+  postalCodeRegex   String?
+  postalCodeExample String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([nameRu])
+  @@index([nameEn])
+}
+
+model Customer {
+  id                  String    @id @default(cuid())
+  code                String?   @unique
+  clientCode          String?
+  name                String
+  lastName            String?
+  firstName           String?
+  middleName          String?
+  email               String?   @unique
+  phone               String?
+  username            String?
+  country             String?
+  countryCode         String?
+  city                String?
+  postalCode          String?
+  address             String?
+  informationDate     DateTime?
+  informationDateText String?
+  sourceSheet         String?
+  sourceRow           Int?
+  telegramUserId      String?   @unique
+  telegramChatId      String?
+  telegramUsername    String?
+  telegramLinkedAt    DateTime?
+  passwordHash        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  parcels Parcel[]
+  orders  Order[]
+
+  @@index([name])
+  @@index([clientCode])
+  @@index([lastName])
+  @@index([firstName])
+  @@index([email])
+  @@index([code])
+  @@index([country])
+  @@index([city])
+  @@index([postalCode])
+  @@index([informationDate])
+  @@index([createdAt])
+}
+
+model ProductName {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  nameRu    String
+  nameEn    String?
+  nameCn    String?
+  sourceRow Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([nameRu])
+  @@index([nameEn])
+  @@index([nameCn])
+  @@index([createdAt])
+}
+
+model Order {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  sku          String    @unique
+  customerId   String?
+  deliveryType String?
+  comments     String?
+  description  String?
+  price              Decimal
+  stock              Int       @default(0)
+  actualWeightKg     Decimal?
+  volumetricWeightKg Decimal?
+  imageUrl           String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  customer    Customer?        @relation(fields: [customerId], references: [id])
+  parcelItems ParcelItem[]
+  trackItems  OrderTrackItem[]
+
+  @@index([name])
+  @@index([sku])
+  @@index([slug])
+  @@index([customerId])
+  @@index([deliveryType])
+  @@index([isActive])
+  @@index([stock])
+  @@map("Product")
+}
+
+model OrderTrackItem {
+  id             String   @id @default(cuid())
+  productId      String
+  trackNumber    String
+  name           String
+  quantity       Int      @default(1)
+  unitPrice      Decimal
+  totalPrice     Decimal
+  productUrl     String?
+  imageUrl       String?
+  photoReport    Boolean  @default(false)
+  photoReportUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  order Order @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([trackNumber])
+  @@index([name])
+  @@map("ProductTrackItem")
+}
+
+model Parcel {
+  id                     String       @id @default(cuid())
+  number                 String       @unique
+  status                 ParcelStatus @default(NEW)
+  total                  Decimal
+  totalUsd               Decimal      @default(0)
+  exchangeRateCnyPerUsd  Decimal      @default(7.1)
+  totalCny               Decimal      @default(0)
+  localDeliveryCny       Decimal?
+  discountCny            Decimal?
+  supplierCostCny        Decimal?
+  profitCny              Decimal?
+  isPaid                 Boolean      @default(false)
+  paymentMark            String?
+  parcelNumber           String?
+  parcelNumberLooksValid Boolean      @default(false)
+  sourceSheet            String?
+  sourceRow              Int?
+  lr                     String?
+  sourceInfo             String?
+  packageCount           Int?
+  insuranceUsd           Decimal?
+  weightKg               Decimal?
+  actualWeightKg         Decimal?
+  volumetricWeightKg     Decimal?
+  consolidationUsd       Decimal?
+  packagingUsd           Decimal?
+  calculationUsd         Decimal?
+  saleDate               DateTime?
+  recipientName          String?
+  recipientAddress       String?
+  recipientPhone         String?
+  routePrefix            String?
+  routeNumber            String?
+  routeCountry           String?
+  notes                  String?
+  customerId             String
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  deletedAt              DateTime?
+
+  customer      Customer              @relation(fields: [customerId], references: [id])
+  items         ParcelItem[]
+  statusHistory ParcelStatusHistory[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([saleDate])
+  @@index([total])
+  @@index([totalUsd])
+  @@index([totalCny])
+  @@index([number])
+  @@index([parcelNumber])
+  @@index([isPaid])
+  @@index([routePrefix])
+  @@index([sourceSheet, sourceRow])
+  @@map("Order")
+}
+
+model ParcelItem {
+  id               String   @id @default(cuid())
+  orderId          String
+  productId        String
+  quantity         Int
+  price            Decimal
+  name             String?
+  sourceInfo       String?
+  declaredValueUsd Decimal?
+  weightKg         Decimal?
+  lineTotalUsd     Decimal?
+
+  parcel Parcel @relation(fields: [orderId], references: [id])
+  order  Order  @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("OrderItem")
+}
+
+model FinanceSettings {
+  id                    String   @id @default(cuid())
+  exchangeRateCnyPerUsd Decimal  @default(7.1)
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
+}
+
+model ParcelStatusHistory {
+  id        String       @id @default(cuid())
+  orderId   String
+  status    ParcelStatus
+  changedBy String
+  note      String?
+  createdAt DateTime     @default(now())
+
+  parcel Parcel @relation(fields: [orderId], references: [id])
+  user   User   @relation(fields: [changedBy], references: [id])
+
+  @@index([orderId])
+  @@map("OrderStatusHistory")
+}
