@@ -6,6 +6,7 @@ import type { ParcelStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { nextParcelNumber } from "@/lib/parcel-number";
+import { notifyParcelStatusChange, notifyParcelPaid } from "@/lib/notify";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -126,6 +127,7 @@ export async function setParcelStatus(parcelId: string, status: ParcelStatus): P
 
   await prisma.parcel.update({ where: { id: parcelId }, data: { status } });
   await prisma.parcelStatusHistory.create({ data: { parcelId, status, changedBy: session.user.id } });
+  await notifyParcelStatusChange(parcelId, status);
   revalidatePath(`/parcels/${parcelId}`);
   return { ok: true };
 }
@@ -138,5 +140,6 @@ export async function setParcelPaid(parcelId: string, paid: boolean): Promise<vo
     where: { id: parcelId },
     data: { isPaid: paid, paidAt: paid ? new Date() : null },
   });
+  if (paid) await notifyParcelPaid(parcelId);
   revalidatePath(`/parcels/${parcelId}`);
 }

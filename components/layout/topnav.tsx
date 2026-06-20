@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   BadgeDollarSign,
-  BarChart3,
   ChevronDown,
   ClipboardList,
   CircleDollarSign,
@@ -21,7 +20,6 @@ import {
   Sparkles,
   Tags,
   Users,
-  Wrench,
   Workflow,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -69,14 +67,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/finance?tab=payments", label: "Расчёт и оплата", icon: Receipt },
     ],
   },
-  {
-    title: "Обработки",
-    items: [{ href: "#", label: "Скоро", icon: Wrench, soon: true }],
-  },
-  {
-    title: "Отчёты",
-    items: [{ href: "#", label: "Скоро", icon: BarChart3, soon: true }],
-  },
 ];
 
 type TopNavProps = {
@@ -86,14 +76,27 @@ type TopNavProps = {
 
 export default function TopNav({ userName, userRole }: TopNavProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab");
   const [open, setOpen] = useState(false);
   const dataRef = useRef<HTMLDivElement>(null);
 
   const roleLabel = USER_ROLE_LABELS[userRole as UserRole] ?? userRole;
 
   const itemActive = (href: string) => {
-    const path = href.split("?")[0];
-    return pathname === path || pathname.startsWith(path + "/");
+    const [path, query] = href.split("?");
+    const pathMatch = pathname === path || pathname.startsWith(path + "/");
+    if (!pathMatch) return false;
+
+    const itemTab = query ? new URLSearchParams(query).get("tab") : null;
+    if (itemTab !== null) return currentTab === itemTab; // пункт с конкретным табом
+
+    // пункт без таба: не подсвечивать, если текущий таб принадлежит соседнему пункту того же пути
+    const siblingTabs = NAV_GROUPS.flatMap((g) => g.items)
+      .filter((i) => !i.soon && i.href.includes("?") && i.href.split("?")[0] === path)
+      .map((i) => new URLSearchParams(i.href.split("?")[1]).get("tab"));
+    if (currentTab && siblingTabs.includes(currentTab)) return false;
+    return true;
   };
   const dataActive = NAV_GROUPS.some((g) => g.items.some((i) => !i.soon && itemActive(i.href)));
 
@@ -269,7 +272,7 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
 
         .topnav-panel-inner {
           max-width: 1600px; margin: 0 auto; padding: 22px 20px;
-          display: grid; grid-template-columns: repeat(5, 1fr); gap: 22px; align-items: start;
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; align-items: start;
         }
         .topnav-section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
         .topnav-section-items { display: flex; flex-direction: column; gap: 2px; }
