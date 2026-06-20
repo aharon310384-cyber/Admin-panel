@@ -1,397 +1,95 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { Prisma } from "@prisma/client";
+import { PackagePlus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { formatCny, formatDateTime, formatUsd } from "@/lib/utils";
-import { ParcelStatusBadge } from "@/components/ui/status-badge";
-import type { ParcelStatus } from "@prisma/client";
-import ParcelsFilters from "./parcels-filters";
-import SortableHeader from "@/components/ui/sortable-header";
-import { Pagination } from "@/components/ui/pagination";
-import TableRowLink from "@/components/ui/table-row-link";
-import { parsePageParam } from "@/lib/list-params";
+import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
+import { parcelStatusLabel, deliveryTypeLabel } from "@/lib/statuses";
 
 export const metadata: Metadata = { title: "Посылки" };
 
-const LIMIT = 20;
-
-type SearchParams = {
-  page?: string;
-  search?: string;
-  status?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  amountMin?: string;
-  amountMax?: string;
-  sort?: string;
-};
-
-type SortDirection = "asc" | "desc";
-type OrderSortField =
-  | "number"
-  | "recipient"
-  | "status"
-  | "totalUsd"
-  | "totalCny"
-  | "parcelNumber"
-  | "createdAt";
-
-function normalizeSort(sort: string | undefined): [OrderSortField, SortDirection] {
-  const [field, direction] = (sort ?? "createdAt_desc").split("_");
-  const fields = new Set<OrderSortField>([
-    "number",
-    "recipient",
-    "status",
-    "totalUsd",
-    "totalCny",
-    "parcelNumber",
-    "createdAt",
-  ]);
-
-  return [
-    fields.has(field as OrderSortField) ? (field as OrderSortField) : "createdAt",
-    direction === "asc" ? "asc" : "desc",
-  ];
-}
-
-function orderOrderBy(
-  field: OrderSortField,
-  direction: SortDirection
-): Prisma.ParcelOrderByWithRelationInput | Prisma.ParcelOrderByWithRelationInput[] {
-  if (field === "recipient") {
-    return [{ customer: { name: direction } }, { createdAt: "desc" }];
-  }
-
-  return [{ [field]: direction }, { createdAt: "desc" }];
-}
-
-function ordersHref(
-  values: {
-    search?: string;
-    status?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    amountMin?: string;
-    amountMax?: string;
-    sort?: string;
-    page?: string;
-  },
-  overrides: {
-    search?: string;
-    status?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    amountMin?: string;
-    amountMax?: string;
-    sort?: string;
-    page?: string | null;
-  }
-): string {
-  const query = new URLSearchParams();
-  const next = { ...values, ...overrides };
-
-  for (const [key, value] of Object.entries(next)) {
-    if (value) {
-      query.set(key, value);
-    }
-  }
-
-  const params = query.toString();
-  return params ? `/parcels?${params}` : "/parcels";
-}
-
-export default async function OrdersPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const params = await searchParams;
-  const page = parsePageParam(params.page);
-  const search = params.search?.trim() ?? "";
-  const statusFilter = params.status as ParcelStatus | undefined;
-  const dateFrom = params.dateFrom ? new Date(params.dateFrom) : undefined;
-  const dateTo = params.dateTo
-    ? new Date(new Date(params.dateTo).setHours(23, 59, 59, 999))
-    : undefined;
-  const amountMin = params.amountMin ? parseFloat(params.amountMin) : undefined;
-  const amountMax = params.amountMax ? parseFloat(params.amountMax) : undefined;
-  const sort = params.sort ?? "createdAt_desc";
-  const [sortField, sortDir] = normalizeSort(sort);
-
-  const where = {
-    deletedAt: null,
-    ...(search
-      ? {
-          OR: [
-            { number: { contains: search} },
-            { customer: { name: { contains: search} } },
-            { parcelNumber: { contains: search} },
-          ],
-        }
-      : {}),
-    ...(statusFilter ? { status: statusFilter } : {}),
-    ...(dateFrom || dateTo
-      ? { createdAt: { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) } }
-      : {}),
-    ...(amountMin !== undefined || amountMax !== undefined
-      ? { total: { ...(amountMin !== undefined ? { gte: amountMin } : {}), ...(amountMax !== undefined ? { lte: amountMax } : {}) } }
-      : {}),
-  };
-
-  const [orders, total] = await Promise.all([
-    prisma.parcel.findMany({
-      where,
-      include: { customer: true },
-      orderBy: orderOrderBy(sortField, sortDir),
-      skip: (page - 1) * LIMIT,
-      take: LIMIT,
-    }),
-    prisma.parcel.count({ where }),
-  ]);
-
-  const totalPages = Math.ceil(total / LIMIT);
-  const filterValues = {
-    search,
-    status: statusFilter,
-    dateFrom: params.dateFrom,
-    dateTo: params.dateTo,
-    amountMin: params.amountMin,
-    amountMax: params.amountMax,
-    sort,
-  };
-  const sortHref = (
-    field: OrderSortField,
-    defaultDirection: SortDirection = "asc"
-  ) => {
-    const nextDirection =
-      sortField === field ? (sortDir === "asc" ? "desc" : "asc") : defaultDirection;
-    return ordersHref(filterValues, { sort: `${field}_${nextDirection}`, page: null });
-  };
+export default async function ParcelsPage() {
+  const parcels = await prisma.parcel.findMany({
+    where: { deletedAt: null },
+    include: { customer: { select: { name: true, code: true } }, recipient: { select: { name: true } }, _count: { select: { orders: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
           <h1 className="page-title">Посылки</h1>
-          <p className="page-subtitle">{total} посылок всего</p>
+          <p className="page-subtitle">{parcels.length} посылок</p>
         </div>
-        <div className="header-actions">
-          <Link href="/api/export/orders" className="btn-secondary">
-            Экспорт CSV
-          </Link>
-        </div>
+        <Link href="/parcels/from-orders" className="btn-add">
+          <PackagePlus size={16} />
+          Оформить посылку
+        </Link>
       </div>
-
-      <ParcelsFilters />
 
       <div className="card">
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
-                <th>
-                  <SortableHeader
-                    label="Дата"
-                    href={sortHref("createdAt", "desc")}
-                    active={sortField === "createdAt"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Номер"
-                    href={sortHref("number")}
-                    active={sortField === "number"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Получатель"
-                    href={sortHref("recipient")}
-                    active={sortField === "recipient"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Статус"
-                    href={sortHref("status")}
-                    active={sortField === "status"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Расчет $"
-                    href={sortHref("totalUsd", "desc")}
-                    active={sortField === "totalUsd"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="К оплате ¥"
-                    href={sortHref("totalCny", "desc")}
-                    active={sortField === "totalCny"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Посылка"
-                    href={sortHref("parcelNumber")}
-                    active={sortField === "parcelNumber"}
-                    direction={sortDir}
-                  />
-                </th>
+                <th>Номер</th>
+                <th>Статус</th>
+                <th>Клиент</th>
+                <th>Получатель</th>
+                <th>Доставка</th>
+                <th>Заказов</th>
+                <th>Вес кг</th>
+                <th>Итог $</th>
+                <th>Оплата</th>
+                <th>Создана</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
-                <TableRowLink key={order.id} href={`/parcels/${order.id}`}>
-                  <td className="text-muted">{formatDateTime(order.createdAt)}</td>
-                  <td className="link">{order.number}</td>
-                  <td>{order.customer.name}</td>
-                  <td>
-                    <ParcelStatusBadge status={order.status} />
-                  </td>
-                  <td className="tabular">{formatUsd(order.totalUsd || order.total)}</td>
-                  <td className="tabular">{formatCny(order.totalCny)}</td>
-                  <td className="mono text-muted">
-                    {order.parcelNumberLooksValid ? order.parcelNumber : "—"}
-                  </td>
-                </TableRowLink>
-              ))}
-              {orders.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="table-empty">
-                    Посылок не найдено
-                  </td>
+              {parcels.map((p) => (
+                <tr key={p.id}>
+                  <td><Link href={`/parcels/${p.id}`} className="num">{p.number}</Link></td>
+                  <td><span className="st">{parcelStatusLabel(p.status)}</span></td>
+                  <td><span className="code-pill">{p.customer.code ?? "—"}</span> {p.customer.name}</td>
+                  <td className="text-muted">{p.recipient?.name ?? "—"}</td>
+                  <td className="text-muted">{deliveryTypeLabel(p.deliveryType)}</td>
+                  <td className="tabular">{p._count.orders}</td>
+                  <td className="tabular">{formatNumber(Number(p.billableWeightKg ?? 0))}</td>
+                  <td className="tabular strong">{formatUsd(Number(p.totalUsd))}</td>
+                  <td>{p.isPaid ? <span className="paid">Оплачено</span> : <span className="text-muted">—</span>}</td>
+                  <td className="text-muted">{formatDateTime(p.createdAt)}</td>
                 </tr>
+              ))}
+              {parcels.length === 0 && (
+                <tr><td colSpan={10} className="table-empty">Посылок пока нет</td></tr>
               )}
             </tbody>
           </table>
         </div>
-
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          hrefForPage={(p) => ordersHref(filterValues, { page: String(p) })}
-        />
       </div>
 
       <style>{`
         .page { display: flex; flex-direction: column; gap: 20px; }
-        .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: var(--color-accent); color: var(--color-accent-fg); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
-        .btn-primary:hover { background: var(--color-accent-hover); }
-
-        .page-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
+        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
         .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
         .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
-
-        .btn-secondary {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 9px 16px;
-          background: transparent;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--color-text);
-          text-decoration: none;
-          cursor: pointer;
-          transition: background 0.15s, border-color 0.15s;
-          white-space: nowrap;
-        }
-
-        .btn-secondary:hover {
-          background: var(--color-muted-bg);
-          border-color: var(--color-border-strong);
-        }
-
-        .card {
-          background: var(--color-surface);
-          backdrop-filter: blur(16px) saturate(1.4);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          box-shadow: var(--shadow-card);
-          overflow: hidden;
-        }
-
+        .btn-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; background: var(--color-accent); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; color: #fff; text-decoration: none; white-space: nowrap; }
+        .btn-add:hover { opacity: 0.9; }
+        .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }
         .table-wrap { overflow-x: auto; }
-
-        .table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 13.5px;
-        }
-
-        .table th {
-          text-align: left;
-          padding: 10px 16px;
-          font-size: 11px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--color-muted);
-          border-bottom: 1px solid var(--color-border);
-          white-space: nowrap;
-        }
-
-        .table td {
-          padding: 12px 16px;
-          border-bottom: 1px solid var(--color-border);
-          color: var(--color-text);
-        }
-
+        .table { min-width: 1000px; width: 100%; border-collapse: collapse; font-size: 13.5px; }
+        .table th { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+        .table td { padding: 11px 14px; border-bottom: 1px solid var(--color-border); color: var(--color-text); white-space: nowrap; }
         .table tbody tr:last-child td { border-bottom: none; }
         .table tbody tr:hover td { background: var(--color-muted-bg); }
-
-        .link { color: var(--color-accent); text-decoration: none; font-weight: 500; }
-        .link:hover { text-decoration: underline; }
-
+        .num { font-family: var(--font-mono); font-weight: 600; color: var(--color-accent); text-decoration: none; }
+        .st { display: inline-flex; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: var(--color-accent); background: oklch(52% 0.14 42 / 0.08); }
+        .strong { font-weight: 700; }
         .tabular { font-variant-numeric: tabular-nums; }
-        .mono { font-family: var(--font-mono); font-size: 12px; }
         .text-muted { color: var(--color-muted); }
-
-        .btn-ghost {
-          display: inline-flex;
-          align-items: center;
-          padding: 5px 10px;
-          background: transparent;
-          border: none;
-          border-radius: var(--radius-sm);
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--color-accent);
-          text-decoration: none;
-          cursor: pointer;
-          transition: background 0.15s;
-          white-space: nowrap;
-        }
-
-        .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
-        .btn-sm { padding: 4px 8px; font-size: 12px; }
-        .row-clickable { cursor: pointer; }
-        .row-clickable:hover td { background: var(--color-muted-bg); }
-
-        .table-empty {
-          text-align: center;
-          padding: 40px 16px !important;
-          color: var(--color-muted);
-        }
-
+        .paid { color: var(--color-status-completed); font-weight: 600; }
+        .code-pill { display: inline-flex; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); }
+        .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
       `}</style>
     </div>
   );
