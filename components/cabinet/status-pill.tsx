@@ -3,14 +3,14 @@ import type { ParcelStatus } from "@prisma/client";
 type Meta = { label: string; color: string };
 
 const STATUS_META: Record<ParcelStatus, Meta> = {
-  NEW: { label: "Новая", color: "var(--cab-blue)" },
-  PROCESSING: { label: "В обработке", color: "var(--cab-orange)" },
+  FORMED: { label: "Оформлена", color: "var(--cab-blue)" },
+  ASSEMBLED: { label: "Собрана", color: "var(--cab-orange)" },
+  PACKED: { label: "Упакована", color: "var(--cab-orange)" },
+  READY_TO_SHIP: { label: "Готова к отправке", color: "var(--cab-mint)" },
   SHIPPED: { label: "Отправлена", color: "var(--cab-mint)" },
-  COMPLETED: { label: "Доставлена", color: "var(--cab-green)" },
-  PAID: { label: "Оплачена", color: "var(--cab-green-deep)" },
-  CANCELED: { label: "Отменена", color: "var(--cab-danger)" },
-  RETURNED_PAID: { label: "Возврат (опл.)", color: "var(--cab-muted)" },
-  RETURNED_UNPAID: { label: "Возврат", color: "var(--cab-muted)" },
+  DELIVERED: { label: "Доставлена", color: "var(--cab-green)" },
+  RETURNED: { label: "Возврат", color: "var(--cab-muted)" },
+  UTILIZED: { label: "Утилизирована", color: "var(--cab-danger)" },
 };
 
 export function statusLabel(status: ParcelStatus): string {

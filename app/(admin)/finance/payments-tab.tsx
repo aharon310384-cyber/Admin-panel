@@ -64,26 +64,6 @@ export default function PaymentsTab({ data, filter }: Props) {
             {formatUsd(summary.sumPaidUsd + summary.sumUnpaidUsd)}
           </div>
         </div>
-        <div className="summary-card summary-card--cost">
-          <div className="summary-head">
-            <Wallet size={14} aria-hidden="true" />
-            <span>Стоимость</span>
-          </div>
-          <div className="summary-amount summary-amount--big tabular">
-            {formatCny(summary.sumCostCny)}
-          </div>
-          <div className="summary-meta">Закуп / себестоимость, ¥</div>
-        </div>
-        <div className="summary-card summary-card--profit">
-          <div className="summary-head">
-            <TrendingUp size={14} aria-hidden="true" />
-            <span>Выручка</span>
-          </div>
-          <div className="summary-amount summary-amount--big tabular">
-            {formatCny(summary.sumProfitCny)}
-          </div>
-          <div className="summary-meta">Маржа после стоимости, ¥</div>
-        </div>
       </section>
 
       <div className="filter-bar">
@@ -114,8 +94,6 @@ export default function PaymentsTab({ data, filter }: Props) {
                 <th className="num">Расчёт $</th>
                 <th className="num">Курс</th>
                 <th className="num">К оплате ¥</th>
-                <th className="num">Стоимость ¥</th>
-                <th className="num">Выручка ¥</th>
                 <th>Оплата</th>
               </tr>
             </thead>
@@ -133,29 +111,11 @@ export default function PaymentsTab({ data, filter }: Props) {
                     {row.exchangeRateCnyPerUsd.toFixed(4)}
                   </td>
                   <td className="num tabular">{formatCny(row.totalCny)}</td>
-                  <td className="num tabular">
-                    {row.supplierCostCny != null ? (
-                      formatCny(row.supplierCostCny)
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                  <td
-                    className={`num tabular ${
-                      row.profitCny != null && row.profitCny < 0 ? "negative" : ""
-                    }`}
-                  >
-                    {row.profitCny != null ? (
-                      formatCny(row.profitCny)
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
                   <td>
                     {row.isPaid ? (
                       <span className="pay-badge pay-badge--paid">
                         <Check size={11} aria-hidden="true" />
-                        {row.paymentMark || "Оплачен"}
+                        Оплачен
                       </span>
                     ) : (
                       <span className="pay-badge pay-badge--unpaid">
@@ -168,7 +128,7 @@ export default function PaymentsTab({ data, filter }: Props) {
               ))}
               {data.rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="table-empty">
+                  <td colSpan={8} className="table-empty">
                     Посылок не найдено
                   </td>
                 </tr>

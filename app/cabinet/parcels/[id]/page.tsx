@@ -10,7 +10,7 @@ import { formatUsd, formatDate, formatNumber } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Посылка" };
 
-const TIMELINE: ParcelStatus[] = ["NEW", "PROCESSING", "SHIPPED", "COMPLETED"];
+const TIMELINE: ParcelStatus[] = ["FORMED", "PACKED", "SHIPPED", "DELIVERED"];
 
 export default async function ClientCabinetParcelDetailPage({
   params,
@@ -27,29 +27,27 @@ export default async function ClientCabinetParcelDetailPage({
     where: {
       id,
       deletedAt: null,
-      routePrefix: { in: codeVariants },
+      customer: {
+        OR: [{ clientCode: { in: codeVariants } }, { code: { in: codeVariants } }],
+      },
     },
     select: {
       id: true,
       number: true,
-      parcelNumber: true,
+      trackingNumber: true,
       status: true,
       totalUsd: true,
       isPaid: true,
-      weightKg: true,
       actualWeightKg: true,
-      packageCount: true,
+      billableWeightKg: true,
       createdAt: true,
-      recipientName: true,
-      recipientAddress: true,
-      recipientPhone: true,
-      items: {
+      recipient: { select: { name: true, address: true, phone: true } },
+      orders: {
         select: {
           id: true,
-          name: true,
+          productNameText: true,
           quantity: true,
-          lineTotalUsd: true,
-          weightKg: true,
+          declaredValueUsd: true,
         },
       },
     },
@@ -58,9 +56,9 @@ export default async function ClientCabinetParcelDetailPage({
   if (!parcel) notFound();
 
   const step = TIMELINE.indexOf(parcel.status);
-  const recipient = [parcel.recipientName, parcel.recipientAddress, parcel.recipientPhone]
-    .some(Boolean);
-  const weight = parcel.actualWeightKg ?? parcel.weightKg;
+  const recipient = !!parcel.recipient &&
+    [parcel.recipient.name, parcel.recipient.address, parcel.recipient.phone].some(Boolean);
+  const weight = parcel.billableWeightKg ?? parcel.actualWeightKg;
 
   return (
     <div className="pd">
@@ -76,8 +74,8 @@ export default async function ClientCabinetParcelDetailPage({
         </div>
         <span className="pd-hero-label">Посылка</span>
         <h1 className="pd-num">{parcel.number}</h1>
-        {parcel.parcelNumber && (
-          <span className="pd-track">Трек: {parcel.parcelNumber}</span>
+        {parcel.trackingNumber && (
+          <span className="pd-track">Трек: {parcel.trackingNumber}</span>
         )}
       </header>
 
@@ -125,12 +123,10 @@ export default async function ClientCabinetParcelDetailPage({
               <span className="pd-fact-val">{formatNumber(Number(weight))} кг</span>
             </li>
           )}
-          {parcel.packageCount != null && (
-            <li className="pd-fact">
-              <span className="pd-fact-label">Количество шт</span>
-              <span className="pd-fact-val">{parcel.packageCount}</span>
-            </li>
-          )}
+          <li className="pd-fact">
+            <span className="pd-fact-label">Позиций</span>
+            <span className="pd-fact-val">{parcel.orders.length}</span>
+          </li>
           <li className="pd-fact">
             <span className="pd-fact-label">Создана</span>
             <span className="pd-fact-val">{formatDate(parcel.createdAt)}</span>
@@ -142,39 +138,39 @@ export default async function ClientCabinetParcelDetailPage({
         <section className="pd-card">
           <h2 className="pd-card-title">Получатель</h2>
           <ul className="pd-contacts">
-            {parcel.recipientName && (
+            {parcel.recipient?.name && (
               <li className="pd-contact">
                 <span className="pd-contact-icon"><User size={15} /></span>
-                <span className="pd-contact-val">{parcel.recipientName}</span>
+                <span className="pd-contact-val">{parcel.recipient.name}</span>
               </li>
             )}
-            {parcel.recipientAddress && (
+            {parcel.recipient?.address && (
               <li className="pd-contact">
                 <span className="pd-contact-icon"><MapPin size={15} /></span>
-                <span className="pd-contact-val">{parcel.recipientAddress}</span>
+                <span className="pd-contact-val">{parcel.recipient.address}</span>
               </li>
             )}
-            {parcel.recipientPhone && (
+            {parcel.recipient?.phone && (
               <li className="pd-contact">
                 <span className="pd-contact-icon"><Phone size={15} /></span>
-                <span className="pd-contact-val">{parcel.recipientPhone}</span>
+                <span className="pd-contact-val">{parcel.recipient.phone}</span>
               </li>
             )}
           </ul>
         </section>
       )}
 
-      {parcel.items.length > 0 && (
+      {parcel.orders.length > 0 && (
         <section className="pd-card">
-          <h2 className="pd-card-title">Состав ({parcel.items.length})</h2>
+          <h2 className="pd-card-title">Состав ({parcel.orders.length})</h2>
           <ul className="pd-items">
-            {parcel.items.map((it) => (
+            {parcel.orders.map((it) => (
               <li key={it.id} className="pd-item">
-                <span className="pd-item-name">{it.name ?? "Товар"}</span>
+                <span className="pd-item-name">{it.productNameText ?? "Товар"}</span>
                 <span className="pd-item-meta">
                   <span className="pd-item-qty">× {it.quantity}</span>
-                  {it.lineTotalUsd != null && (
-                    <span className="pd-item-sum">{formatUsd(it.lineTotalUsd)}</span>
+                  {it.declaredValueUsd != null && (
+                    <span className="pd-item-sum">{formatUsd(it.declaredValueUsd)}</span>
                   )}
                 </span>
               </li>

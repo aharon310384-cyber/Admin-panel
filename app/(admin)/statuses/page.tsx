@@ -11,31 +11,30 @@ type StatusNode = {
   count: number;
 };
 
-// Mock-данные для макета. На шаге 4-5 будет читаться из БД.
+// Справочник статусов посылки (модель v2). Счётчики — иллюстративные.
 const MAIN_FLOW: StatusNode[] = [
-  { code: "NEW", description: "Создана, ожидает оплаты от клиента", count: 124 },
-  { code: "PROCESSING", description: "Принята на склад, готовится к отправке", count: 38 },
-  { code: "PAID", description: "Оплачена клиентом, ждёт отгрузки", count: 12 },
-  { code: "SHIPPED", description: "Передана курьеру, в пути", count: 47 },
-  { code: "COMPLETED", description: "Доставлена получателю", count: 880 },
+  { code: "FORMED", description: "Оформлена на отправку из принятых заказов", count: 0 },
+  { code: "ASSEMBLED", description: "Заказы собраны вместе", count: 0 },
+  { code: "PACKED", description: "Упакована к отправке", count: 0 },
+  { code: "READY_TO_SHIP", description: "Готова к отправке, формируется квитанция", count: 0 },
+  { code: "SHIPPED", description: "Отправлена, в пути", count: 0 },
+  { code: "DELIVERED", description: "Доставлена получателю", count: 0 },
 ];
 
 const SIDE_FLOW: StatusNode[] = [
-  { code: "CANCELED", description: "Отменена до отправки", count: 5 },
-  { code: "RETURNED_PAID", description: "Возврат с компенсацией клиенту", count: 2 },
-  { code: "RETURNED_UNPAID", description: "Возврат без компенсации", count: 1 },
+  { code: "RETURNED", description: "Возврат (самовывоз / возврат клиенту)", count: 0 },
+  { code: "UTILIZED", description: "Утилизирована", count: 0 },
 ];
 
 const TRANSITIONS: Array<{ from: ParcelStatus; to: ParcelStatus }> = [
-  { from: "NEW", to: "PROCESSING" },
-  { from: "NEW", to: "CANCELED" },
-  { from: "PROCESSING", to: "PAID" },
-  { from: "PROCESSING", to: "CANCELED" },
-  { from: "PAID", to: "SHIPPED" },
-  { from: "SHIPPED", to: "COMPLETED" },
-  { from: "SHIPPED", to: "RETURNED_PAID" },
-  { from: "SHIPPED", to: "RETURNED_UNPAID" },
-  { from: "COMPLETED", to: "RETURNED_PAID" },
+  { from: "FORMED", to: "ASSEMBLED" },
+  { from: "ASSEMBLED", to: "PACKED" },
+  { from: "PACKED", to: "READY_TO_SHIP" },
+  { from: "READY_TO_SHIP", to: "SHIPPED" },
+  { from: "READY_TO_SHIP", to: "UTILIZED" },
+  { from: "SHIPPED", to: "DELIVERED" },
+  { from: "SHIPPED", to: "RETURNED" },
+  { from: "FORMED", to: "RETURNED" },
 ];
 
 function StatusCard({ node }: { node: StatusNode }) {

@@ -15,19 +15,9 @@ const customerSchema = z.object({
   middleName: z.string().optional(),
   email: z.string().email("Некорректный email").optional().or(z.literal("")),
   phone: z.string().optional(),
-  username: z.string().optional(),
   country: z.string().optional(),
-  countryCode: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{2}$/, "Код страны — 2 латинские буквы")
-    .optional()
-    .or(z.literal("")),
   city: z.string().optional(),
-  postalCode: z.string().optional(),
   address: z.string().optional(),
-  informationDateText: z.string().optional(),
 });
 
 const parsedRecipientSchema = z.object({
@@ -68,7 +58,6 @@ const customerResolveSelect = {
   clientCode: true,
   country: true,
   city: true,
-  postalCode: true,
   address: true,
 } satisfies Prisma.CustomerSelect;
 
@@ -134,7 +123,7 @@ function customerNameText(customer: CustomerResolveRecord): string {
 }
 
 function customerAddressText(customer: CustomerResolveRecord): string {
-  return [customer.address, customer.city, customer.postalCode, customer.country]
+  return [customer.address, customer.city, customer.country]
     .filter(Boolean)
     .join(" ");
 }
@@ -162,15 +151,6 @@ function scoreCustomerMatch(
   if (nameScore >= 18) {
     score += nameScore;
     reasons.push("имени");
-  }
-
-  if (
-    recipient.postalCode &&
-    customer.postalCode &&
-    normalizePostalCode(recipient.postalCode) === normalizePostalCode(customer.postalCode)
-  ) {
-    score += 24;
-    reasons.push("индексу");
   }
 
   if (
@@ -258,13 +238,9 @@ export async function updateCustomer(id: string, formData: FormData) {
     middleName: formData.get("middleName") || undefined,
     email: formData.get("email"),
     phone: formData.get("phone") || undefined,
-    username: formData.get("username") || undefined,
     country: formData.get("country") || undefined,
-    countryCode: formData.get("countryCode") || undefined,
     city: formData.get("city") || undefined,
-    postalCode: formData.get("postalCode") || undefined,
     address: formData.get("address") || undefined,
-    informationDateText: formData.get("informationDateText") || undefined,
   };
 
   const parsed = customerSchema.safeParse(raw);
@@ -280,37 +256,10 @@ export async function updateCustomer(id: string, formData: FormData) {
     middleName,
     email,
     phone,
-    username,
     country,
-    countryCode,
     city,
-    postalCode,
     address,
-    informationDateText,
   } = parsed.data;
-
-  let resolvedCountryCode = countryCode || null;
-
-  const countryFromDirectory = await findCountryByInput(country);
-
-  if (!resolvedCountryCode && countryFromDirectory) {
-    resolvedCountryCode = countryFromDirectory.code;
-  }
-
-  if (postalCode && countryFromDirectory?.postalCodeRegex) {
-    const regex = new RegExp(countryFromDirectory.postalCodeRegex, "i");
-    if (!regex.test(postalCode.trim())) {
-      return {
-        error: {
-          postalCode: [
-            `Формат не подходит для ${countryFromDirectory.nameRu}. Пример: ${
-              countryFromDirectory.postalCodeExample ?? "—"
-            }`,
-          ],
-        },
-      };
-    }
-  }
 
   await prisma.customer.update({
     where: { id },
@@ -322,13 +271,9 @@ export async function updateCustomer(id: string, formData: FormData) {
       middleName: middleName ?? null,
       email: email || null,
       phone: phone ?? null,
-      username: username ?? null,
       country: country ?? null,
-      countryCode: resolvedCountryCode,
       city: city ?? null,
-      postalCode: postalCode ?? null,
       address: address ?? null,
-      informationDateText: informationDateText ?? null,
     },
   });
 
@@ -357,13 +302,9 @@ export async function createCustomer(formData: FormData) {
     middleName: formData.get("middleName") || undefined,
     email: formData.get("email"),
     phone: formData.get("phone") || undefined,
-    username: formData.get("username") || undefined,
     country: formData.get("country") || undefined,
-    countryCode: formData.get("countryCode") || undefined,
     city: formData.get("city") || undefined,
-    postalCode: formData.get("postalCode") || undefined,
     address: formData.get("address") || undefined,
-    informationDateText: formData.get("informationDateText") || undefined,
   };
 
   const parsed = customerSchema.safeParse(raw);
@@ -379,36 +320,10 @@ export async function createCustomer(formData: FormData) {
     middleName,
     email,
     phone,
-    username,
     country,
-    countryCode,
     city,
-    postalCode,
     address,
-    informationDateText,
   } = parsed.data;
-
-  let resolvedCountryCode = countryCode || null;
-  const countryFromDirectory = await findCountryByInput(country);
-
-  if (!resolvedCountryCode && countryFromDirectory) {
-    resolvedCountryCode = countryFromDirectory.code;
-  }
-
-  if (postalCode && countryFromDirectory?.postalCodeRegex) {
-    const regex = new RegExp(countryFromDirectory.postalCodeRegex, "i");
-    if (!regex.test(postalCode.trim())) {
-      return {
-        error: {
-          postalCode: [
-            `Формат не подходит для ${countryFromDirectory.nameRu}. Пример: ${
-              countryFromDirectory.postalCodeExample ?? "—"
-            }`,
-          ],
-        },
-      };
-    }
-  }
 
   const customer = await prisma.customer.create({
     data: {
@@ -419,13 +334,9 @@ export async function createCustomer(formData: FormData) {
       middleName: middleName ?? null,
       email: email || null,
       phone: phone ?? null,
-      username: username ?? null,
       country: country ?? null,
-      countryCode: resolvedCountryCode,
       city: city ?? null,
-      postalCode: postalCode ?? null,
       address: address ?? null,
-      informationDateText: informationDateText ?? null,
     },
   });
 
@@ -483,7 +394,6 @@ export async function resolveCustomerFromParsedRecipient(input: unknown): Promis
       phone: recipient.phone,
       country: recipient.country,
       city: recipient.city,
-      postalCode: recipient.postalCode,
       address: recipient.address,
     },
     select: customerResolveSelect,

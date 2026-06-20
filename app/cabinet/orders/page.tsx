@@ -17,7 +17,9 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ];
 
 function filterWhere(key: FilterKey): Prisma.OrderWhereInput {
-  return key === "active" ? { isActive: true } : {};
+  return key === "active"
+    ? { status: { notIn: ["FORMED", "RETURNED", "UTILIZED"] } }
+    : {};
 }
 
 export default async function ClientCabinetOrdersPage({
@@ -37,11 +39,10 @@ export default async function ClientCabinetOrdersPage({
     },
     select: {
       id: true,
-      name: true,
-      sku: true,
-      price: true,
-      stock: true,
-      isActive: true,
+      productNameText: true,
+      trackNumber: true,
+      unitPriceUsd: true,
+      quantity: true,
       imageUrl: true,
     },
     orderBy: { createdAt: "desc" },
@@ -85,13 +86,13 @@ export default async function ClientCabinetOrdersPage({
                 )}
               </span>
               <span className="or-info">
-                <span className="or-name">{p.name}</span>
-                <span className="or-sku">{p.sku}</span>
+                <span className="or-name">{p.productNameText ?? "—"}</span>
+                <span className="or-sku">{p.trackNumber ?? ""}</span>
               </span>
               <span className="or-right">
-                <span className="or-price">{formatUsd(p.price)}</span>
-                <span className={`or-stock ${p.stock > 0 ? "or-stock--ok" : "or-stock--out"}`}>
-                  {p.stock > 0 ? `${p.stock} шт.` : "Нет"}
+                <span className="or-price">{p.unitPriceUsd != null ? formatUsd(p.unitPriceUsd) : "—"}</span>
+                <span className={`or-stock ${p.quantity > 0 ? "or-stock--ok" : "or-stock--out"}`}>
+                  {p.quantity > 0 ? `${p.quantity} шт.` : "Нет"}
                 </span>
               </span>
             </li>
@@ -172,7 +173,7 @@ export default async function ClientCabinetOrdersPage({
         .or-cta--off { opacity: 0.45; pointer-events: none; box-shadow: none; cursor: default; }
 
         @media (min-width: 1024px) {
-          .or-cta { align-self: start; padding-left: 28px; padding-right: 28px; }
+          .or-cta { display: none; }
         }
       `}</style>
     </div>

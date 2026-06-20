@@ -12,13 +12,13 @@ export async function GET() {
 
   const orders = await prisma.parcel.findMany({
     where: { deletedAt: null },
-    include: { customer: true },
+    include: { customer: true, recipient: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });
 
   const rows = [
     [
-    "Номер посылки",
+      "Номер посылки",
       "Получатель",
       "Email",
       "Статус",
@@ -26,19 +26,17 @@ export async function GET() {
       "Курс USD/CNY",
       "К оплате CNY",
       "Оплата",
-      "Номер посылки",
       "Дата",
     ],
     ...orders.map((o) => [
       o.number,
-      o.recipientName || o.customer.name,
+      o.recipient?.name || o.customer.name,
       o.customer.email ?? "",
       PARCEL_STATUS_LABELS[o.status],
-      Number(o.totalUsd || o.total).toFixed(2),
+      Number(o.totalUsd ?? 0).toFixed(2),
       Number(o.exchangeRateCnyPerUsd).toFixed(4),
       Number(o.totalCny).toFixed(2),
       o.isPaid ? "Да" : "Нет",
-      o.parcelNumber ?? "",
       format(o.createdAt, "dd.MM.yyyy HH:mm", { locale: ru }),
     ]),
   ];

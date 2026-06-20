@@ -6,16 +6,36 @@ import { createOrder } from "@/actions/order-create";
 type CustomerOpt = { id: string; code: string | null; name: string };
 type RecipientOpt = { id: string; customerId: string; name: string };
 
+export type OrderInitial = {
+  customerId: string;
+  recipientId: string | null;
+  deliveryType: string | null;
+  productNameText: string;
+  trackNumber: string | null;
+  quantity: number;
+  unitPriceUsd: number | null;
+  actualWeightKg: number | null;
+  detailedCheckRequested: boolean;
+};
+
 export default function OrderForm({
   customers,
   recipients,
+  action = createOrder,
+  initial,
+  submitLabel = "Создать заказ",
 }: {
   customers: CustomerOpt[];
   recipients: RecipientOpt[];
+  action?: (formData: FormData) => Promise<void>;
+  initial?: OrderInitial;
+  submitLabel?: string;
 }) {
-  const [customerId, setCustomerId] = useState("");
-  const [qty, setQty] = useState("1");
-  const [price, setPrice] = useState("");
+  const [customerId, setCustomerId] = useState(initial?.customerId ?? "");
+  const [qty, setQty] = useState(initial ? String(initial.quantity) : "1");
+  const [price, setPrice] = useState(
+    initial?.unitPriceUsd != null ? String(initial.unitPriceUsd) : ""
+  );
 
   const customerRecipients = useMemo(
     () => recipients.filter((r) => r.customerId === customerId),
@@ -24,7 +44,7 @@ export default function OrderForm({
   const declared = (Number(qty) || 0) * (Number(price) || 0);
 
   return (
-    <form action={createOrder} className="of">
+    <form action={action} className="of">
       <div className="of-grid">
         <label className="of-field">
           <span className="of-label">Клиент *</span>
@@ -38,7 +58,7 @@ export default function OrderForm({
 
         <label className="of-field">
           <span className="of-label">Получатель</span>
-          <select name="recipientId" className="of-input" disabled={!customerId}>
+          <select name="recipientId" className="of-input" disabled={!customerId} defaultValue={initial?.recipientId ?? ""}>
             <option value="">— не выбран —</option>
             {customerRecipients.map((r) => (
               <option key={r.id} value={r.id}>{r.name}</option>
@@ -48,7 +68,7 @@ export default function OrderForm({
 
         <label className="of-field">
           <span className="of-label">Вид доставки</span>
-          <select name="deliveryType" className="of-input">
+          <select name="deliveryType" className="of-input" defaultValue={initial?.deliveryType ?? ""}>
             <option value="">—</option>
             <option value="AUTO">Авто</option>
             <option value="AIR">Авиа</option>
@@ -59,12 +79,12 @@ export default function OrderForm({
 
         <label className="of-field of-field--wide">
           <span className="of-label">Наименование *</span>
-          <input name="productNameText" required className="of-input" placeholder="Напр. Кроссовки" />
+          <input name="productNameText" required className="of-input" placeholder="Напр. Кроссовки" defaultValue={initial?.productNameText ?? ""} />
         </label>
 
         <label className="of-field">
           <span className="of-label">Трек-номер (Китай)</span>
-          <input name="trackNumber" className="of-input" placeholder="YT…CN" />
+          <input name="trackNumber" className="of-input" placeholder="YT…CN" defaultValue={initial?.trackNumber ?? ""} />
         </label>
 
         <label className="of-field">
@@ -84,17 +104,17 @@ export default function OrderForm({
 
         <label className="of-field">
           <span className="of-label">Вес, кг</span>
-          <input name="actualWeightKg" type="number" min="0" step="0.01" className="of-input" placeholder="0.00" />
+          <input name="actualWeightKg" type="number" min="0" step="0.01" className="of-input" placeholder="0.00" defaultValue={initial?.actualWeightKg != null ? String(initial.actualWeightKg) : ""} />
         </label>
 
         <label className="of-check">
-          <input name="detailedCheckRequested" type="checkbox" />
+          <input name="detailedCheckRequested" type="checkbox" defaultChecked={initial?.detailedCheckRequested ?? false} />
           <span>Детальная проверка и фотоотчёт</span>
         </label>
       </div>
 
       <div className="of-actions">
-        <button type="submit" className="of-submit">Создать заказ</button>
+        <button type="submit" className="of-submit">{submitLabel}</button>
       </div>
 
       <style>{`

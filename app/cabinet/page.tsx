@@ -9,8 +9,8 @@ import { formatUsd, formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Обзор" };
 
-const ACTIVE_STATUSES: ParcelStatus[] = ["NEW", "PROCESSING", "SHIPPED", "PAID"];
-const TIMELINE: ParcelStatus[] = ["NEW", "PROCESSING", "SHIPPED", "COMPLETED"];
+const ACTIVE_STATUSES: ParcelStatus[] = ["FORMED", "ASSEMBLED", "PACKED", "READY_TO_SHIP", "SHIPPED"];
+const TIMELINE: ParcelStatus[] = ["FORMED", "PACKED", "SHIPPED", "DELIVERED"];
 
 function greetingName(client: {
   firstName: string | null;
@@ -32,7 +32,9 @@ export default async function ClientCabinetOverviewPage() {
 
   const base: Prisma.ParcelWhereInput = {
     deletedAt: null,
-    routePrefix: { in: codeVariants },
+    customer: {
+      OR: [{ clientCode: { in: codeVariants } }, { code: { in: codeVariants } }],
+    },
   };
 
   const [parcels, totalCount, activeCount, inTransitCount, toPayAgg] =
@@ -55,7 +57,7 @@ export default async function ClientCabinetOverviewPage() {
       prisma.parcel.count({ where: { ...base, status: "SHIPPED" } }),
       prisma.parcel.aggregate({
         _sum: { totalUsd: true },
-        where: { ...base, isPaid: false, status: { not: "CANCELED" } },
+        where: { ...base, isPaid: false, status: { notIn: ["RETURNED", "UTILIZED"] } },
       }),
     ]);
 
@@ -280,7 +282,7 @@ export default async function ClientCabinetOverviewPage() {
 
         @media (min-width: 1024px) {
           .ov-bento { grid-template-columns: repeat(3, 1fr); }
-          .ov-cta { align-self: start; padding-left: 28px; padding-right: 28px; }
+          .ov-cta { display: none; }
         }
       `}</style>
     </div>

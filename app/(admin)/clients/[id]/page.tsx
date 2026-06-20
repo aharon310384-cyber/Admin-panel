@@ -24,10 +24,6 @@ function normalizeIdentity(value: string | null | undefined): string {
     .trim();
 }
 
-function normalizePostalCode(value: string | null | undefined): string {
-  return normalizeIdentity(value).replace(/[\s-]/g, "");
-}
-
 function normalizePhone(value: string | null | undefined): string {
   return (value ?? "").replace(/\D/g, "");
 }
@@ -41,7 +37,6 @@ function recipientKey(customer: Customer): string {
     normalizeIdentity(customer.middleName),
     normalizeIdentity(customer.country),
     normalizeIdentity(customer.city),
-    normalizePostalCode(customer.postalCode),
     normalizePhone(customer.phone),
   ].join("|");
 }
@@ -57,8 +52,8 @@ function dedupeRecipients(customers: Customer[]): Customer[] {
       continue;
     }
 
-    const existingScore = existing.informationDate?.getTime() ?? 0;
-    const candidateScore = customer.informationDate?.getTime() ?? 0;
+    const existingScore = existing.createdAt.getTime();
+    const candidateScore = customer.createdAt.getTime();
     if (candidateScore > existingScore) {
       byKey.set(key, customer);
     }
@@ -95,45 +90,36 @@ export default async function ClientDetailPage({
 
   const codeVariants = code ? Array.from(new Set([code, code.toUpperCase(), code.toLowerCase()])) : [];
 
-  const [recipientRecords, orderGroup, recentOrders] = await Promise.all([
-    codeVariants.length
-      ? prisma.customer.findMany({
-          where: {
-            deletedAt: null,
-            id: { not: client.id },
-            clientCode: { in: codeVariants },
-          },
-        })
-      : Promise.resolve<Customer[]>([]),
-    codeVariants.length
-      ? prisma.parcel.count({
-          where: {
-            deletedAt: null,
-            routePrefix: { in: codeVariants },
-          },
-        })
-      : Promise.resolve(0),
-    codeVariants.length
-      ? prisma.parcel.findMany({
-          where: {
-            deletedAt: null,
-            routePrefix: { in: codeVariants },
-          },
-          orderBy: { createdAt: "desc" },
-          take: 10,
-        })
-      : Promise.resolve([]),
+  const recipientRecords = codeVariants.length
+    ? await prisma.customer.findMany({
+        where: {
+          deletedAt: null,
+          id: { not: client.id },
+          clientCode: { in: codeVariants },
+        },
+      })
+    : [];
+
+  const customerIds = [client.id, ...recipientRecords.map((r) => r.id)];
+
+  const [orderCount, recentOrders] = await Promise.all([
+    prisma.parcel.count({
+      where: { deletedAt: null, customerId: { in: customerIds } },
+    }),
+    prisma.parcel.findMany({
+      where: { deletedAt: null, customerId: { in: customerIds } },
+      include: { recipient: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
   ]);
 
-  const recipients = dedupeRecipients(recipientRecords).sort((a, b) => {
-    return (
-      (b.informationDate?.getTime() ?? 0) - (a.informationDate?.getTime() ?? 0)
-    );
-  });
+  const recipients = dedupeRecipients(recipientRecords).sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
 
-  const orderCount = orderGroup;
   const totalCny = recentOrders
-    .filter((o) => o.status !== "CANCELED")
+    .filter((o) => o.status !== "RETURNED" && o.status !== "UTILIZED")
     .reduce((sum, o) => sum + Number(o.totalCny), 0);
 
   return (
@@ -173,7 +159,7 @@ export default async function ClientDetailPage({
             <div className="info-row"><dt>Имя</dt><dd>{dash(client.firstName)}</dd></div>
             <div className="info-row"><dt>Отчество</dt><dd>{dash(client.middleName)}</dd></div>
             <div className="info-row"><dt>Email</dt><dd>{dash(client.email)}</dd></div>
-            <div className="info-row"><dt>Telegram</dt><dd>{dash(client.username)}</dd></div>
+            <div className="info-row"><dt>Telegram</dt><dd>{dash(client.telegramUsername)}</dd></div>
             <div className="info-row"><dt>Телефон</dt><dd>{dash(client.phone)}</dd></div>
             <div className="info-row"><dt>Страна</dt><dd>{dash(client.country)}</dd></div>
             <div className="info-row"><dt>Город</dt><dd>{dash(client.city)}</dd></div>
@@ -211,7 +197,6 @@ export default async function ClientDetailPage({
                   <th>Имя</th>
                   <th>Отчество</th>
                   <th>Страна / город</th>
-                  <th>Почтовый код</th>
                   <th>Адрес</th>
                   <th>Телефон</th>
                   <th></th>
@@ -226,7 +211,6 @@ export default async function ClientDetailPage({
                     <td className="text-muted">
                       {[r.country, r.city].filter(Boolean).join(" / ") || "—"}
                     </td>
-                    <td className="mono text-muted">{dash(r.postalCode)}</td>
                     <td className="address-cell">{dash(r.address)}</td>
                     <td className="text-muted">{dash(r.phone)}</td>
                     <td>
@@ -237,7 +221,7 @@ export default async function ClientDetailPage({
                   </tr>
                 ))}
                 {recipients.length === 0 && (
-                  <tr><td colSpan={8} className="table-empty">Получатели не найдены</td></tr>
+                  <tr><td colSpan={7} className="table-empty">Получатели не найдены</td></tr>
                 )}
               </tbody>
             </table>
@@ -266,7 +250,7 @@ export default async function ClientDetailPage({
                         {order.number}
                       </Link>
                     </td>
-                    <td>{dash(order.recipientName)}</td>
+                    <td>{dash(order.recipient?.name)}</td>
                     <td><ParcelStatusBadge status={order.status} /></td>
                     <td className="tabular">{formatCny(order.totalCny)}</td>
                   </tr>

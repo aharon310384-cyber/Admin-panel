@@ -55,25 +55,6 @@ export default function CustomerEditForm({
     {}
   );
 
-  const [country, setCountry] = useState(customer.country ?? "");
-  const [countryCode, setCountryCode] = useState(customer.countryCode ?? "");
-
-  const selectedCountry = useMemo(
-    () => findCountry(countries, country),
-    [countries, country]
-  );
-
-  function handleCountryChange(value: string) {
-    setCountry(value);
-    const match = findCountry(countries, value);
-    if (match) {
-      setCountryCode(match.code);
-    }
-  }
-
-  const postalExample = selectedCountry?.postalCodeExample ?? "";
-  const postalRegex = selectedCountry?.postalCodeRegex ?? null;
-
   const errors = state?.error;
 
   return (
@@ -150,9 +131,10 @@ export default function CustomerEditForm({
             <input
               type="text"
               name="username"
-              defaultValue={customer.username ?? ""}
+              defaultValue={customer.telegramUsername ?? ""}
               className="field-input"
               placeholder="@username"
+              disabled
             />
           </div>
 
@@ -172,8 +154,7 @@ export default function CustomerEditForm({
             <input
               type="text"
               name="country"
-              value={country}
-              onChange={(e) => handleCountryChange(e.target.value)}
+              defaultValue={customer.country ?? ""}
               list="country-options"
               className="field-input"
               placeholder="Spain"
@@ -189,22 +170,6 @@ export default function CustomerEditForm({
           </div>
 
           <div className="field">
-            <label className="field-label">Код страны</label>
-            <input
-              type="text"
-              name="countryCode"
-              value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
-              className={`field-input ${errors?.countryCode ? "field-input--error" : ""}`}
-              placeholder="ES"
-              maxLength={2}
-              style={{ textTransform: "uppercase" }}
-              autoComplete="off"
-            />
-            {errors?.countryCode && <p className="field-error">{errors.countryCode[0]}</p>}
-          </div>
-
-          <div className="field">
             <label className="field-label">Населенный пункт</label>
             <input
               type="text"
@@ -212,40 +177,6 @@ export default function CustomerEditForm({
               defaultValue={customer.city ?? ""}
               className="field-input"
               placeholder="Варшава"
-            />
-          </div>
-
-          <div className="field">
-            <label className="field-label">
-              Почтовый код
-              {postalExample && (
-                <span className="field-hint"> (пример: {postalExample})</span>
-              )}
-            </label>
-            <input
-              type="text"
-              name="postalCode"
-              defaultValue={customer.postalCode ?? ""}
-              className={`field-input ${errors?.postalCode ? "field-input--error" : ""}`}
-              placeholder={postalExample || "100037"}
-              pattern={postalRegex ?? undefined}
-              title={
-                postalRegex
-                  ? `Формат для ${selectedCountry?.nameRu ?? selectedCountry?.nameEn}`
-                  : undefined
-              }
-            />
-            {errors?.postalCode && <p className="field-error">{errors.postalCode[0]}</p>}
-          </div>
-
-          <div className="field">
-            <label className="field-label">Дата внесения</label>
-            <input
-              type="text"
-              name="informationDateText"
-              defaultValue={customer.informationDateText ?? ""}
-              className="field-input"
-              placeholder="2026.04.xx"
             />
           </div>
 

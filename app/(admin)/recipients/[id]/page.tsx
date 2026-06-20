@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { formatDateTime } from "@/lib/utils";
 import { cleanAddressLine } from "@/lib/customer-label";
 import { deleteCustomer } from "@/actions/customers";
 import DeleteCustomerButton from "./delete-customer-button";
@@ -12,14 +11,6 @@ export const metadata: Metadata = { title: "Карточка получател�
 
 function dash(value: string | null | undefined): string {
   return value?.trim() || "—";
-}
-
-function formatInformationDate(date: Date | null, text: string | null): string {
-  if (date) {
-    return formatDateTime(date);
-  }
-
-  return dash(text);
 }
 
 export default async function CustomerDetailPage({
@@ -62,7 +53,6 @@ export default async function CustomerDetailPage({
         <h2 className="card-title">Контактные данные</h2>
         <dl className="info-list">
           <div className="info-row"><dt>КОД_КЛИЕНТА</dt><dd>{dash(customer.clientCode ?? customer.code)}</dd></div>
-          <div className="info-row"><dt>Дата внесения</dt><dd>{formatInformationDate(customer.informationDate, customer.informationDateText)}</dd></div>
         </dl>
 
         <hr className="info-divider" />
@@ -72,7 +62,7 @@ export default async function CustomerDetailPage({
           <div className="info-row"><dt>Имя</dt><dd>{dash(customer.firstName)}</dd></div>
           <div className="info-row"><dt>Отчество</dt><dd>{dash(customer.middleName)}</dd></div>
           <div className="info-row"><dt>Email</dt><dd>{customer.email ?? "—"}</dd></div>
-          <div className="info-row"><dt>Telegram</dt><dd>{customer.username ?? "—"}</dd></div>
+          <div className="info-row"><dt>Telegram</dt><dd>{customer.telegramUsername ?? "—"}</dd></div>
           <div className="info-row"><dt>Телефон</dt><dd>{customer.phone ?? "—"}</dd></div>
         </dl>
 
@@ -80,10 +70,8 @@ export default async function CustomerDetailPage({
 
         <dl className="info-list info-list--address">
           <div className="info-row"><dt>Страна</dt><dd>{customer.country ?? "—"}</dd></div>
-          <div className="info-row"><dt>Код страны</dt><dd>{customer.countryCode ?? "—"}</dd></div>
           <div className="info-row"><dt>Населённый пункт</dt><dd>{customer.city ?? "—"}</dd></div>
-          <div className="info-row"><dt>Почтовый код</dt><dd>{customer.postalCode ?? "—"}</dd></div>
-          <div className="info-row"><dt>Улица, дом, квартира</dt><dd>{dash(cleanAddressLine(customer.address, [customer.country, customer.countryCode, customer.city, customer.postalCode]))}</dd></div>
+          <div className="info-row"><dt>Улица, дом, квартира</dt><dd>{dash(cleanAddressLine(customer.address, [customer.country, customer.city]))}</dd></div>
         </dl>
       </div>
 

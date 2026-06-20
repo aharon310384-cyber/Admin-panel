@@ -9,7 +9,7 @@ import { formatUsd, formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Посылки" };
 
-const TIMELINE: ParcelStatus[] = ["NEW", "PROCESSING", "SHIPPED", "COMPLETED"];
+const TIMELINE: ParcelStatus[] = ["FORMED", "PACKED", "SHIPPED", "DELIVERED"];
 
 type FilterKey = "all" | "active" | "done";
 
@@ -20,8 +20,8 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ];
 
 function filterWhere(key: FilterKey): Prisma.ParcelWhereInput {
-  if (key === "active") return { status: { in: ["NEW", "PROCESSING", "SHIPPED", "PAID"] } };
-  if (key === "done") return { status: { in: ["COMPLETED", "RETURNED_PAID", "RETURNED_UNPAID", "CANCELED"] } };
+  if (key === "active") return { status: { in: ["FORMED", "ASSEMBLED", "PACKED", "READY_TO_SHIP", "SHIPPED"] } };
+  if (key === "done") return { status: { in: ["DELIVERED", "RETURNED", "UTILIZED"] } };
   return {};
 }
 
@@ -42,7 +42,9 @@ export default async function ClientCabinetParcelsPage({
   const parcels = await prisma.parcel.findMany({
     where: {
       deletedAt: null,
-      routePrefix: { in: codeVariants },
+      customer: {
+        OR: [{ clientCode: { in: codeVariants } }, { code: { in: codeVariants } }],
+      },
       ...filterWhere(active),
     },
     select: {
@@ -51,9 +53,8 @@ export default async function ClientCabinetParcelsPage({
       status: true,
       totalUsd: true,
       isPaid: true,
-      weightKg: true,
       createdAt: true,
-      _count: { select: { items: true } },
+      _count: { select: { orders: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -95,7 +96,7 @@ export default async function ClientCabinetParcelsPage({
                   <div className="pc-card-id">
                     <span className="pc-num">{p.number}</span>
                     <span className="pc-meta">
-                      {p._count.items} поз. · {formatDate(p.createdAt)}
+                      {p._count.orders} поз. · {formatDate(p.createdAt)}
                     </span>
                   </div>
                   <StatusPill status={p.status} />
@@ -223,7 +224,7 @@ export default async function ClientCabinetParcelsPage({
         .pc-cta--off { opacity: 0.45; pointer-events: none; box-shadow: none; cursor: default; }
 
         @media (min-width: 1024px) {
-          .pc-cta { align-self: start; padding-left: 28px; padding-right: 28px; }
+          .pc-cta { display: none; }
         }
       `}</style>
     </div>

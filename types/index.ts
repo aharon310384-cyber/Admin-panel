@@ -2,41 +2,35 @@ import type { ParcelStatus, UserRole } from "@prisma/client";
 
 export type { ParcelStatus, UserRole };
 
-export const PARCEL_STATUS_LABELS: Record<ParcelStatus, string> = {
-  NEW: "Ожидает оплаты",
-  PROCESSING: "На складе",
-  SHIPPED: "Отправлено",
-  COMPLETED: "Доставлено",
-  CANCELED: "Отменено",
-  PAID: "Оплачен",
-  RETURNED_PAID: "Возврат оплачен",
-  RETURNED_UNPAID: "Возврат не оплачен",
-};
+// Метки статусов посылки — единый источник в lib/statuses.ts (модель v2).
+export { PARCEL_STATUS_LABELS } from "@/lib/statuses";
 
 export const PARCEL_STATUS_FLOW: ParcelStatus[] = [
-  "NEW",
-  "PROCESSING",
-  "PAID",
+  "FORMED",
+  "ASSEMBLED",
+  "PACKED",
+  "READY_TO_SHIP",
   "SHIPPED",
-  "COMPLETED",
-  "RETURNED_PAID",
-  "RETURNED_UNPAID",
+  "DELIVERED",
+  "RETURNED",
+  "UTILIZED",
 ];
 
 export const PARCEL_STATUS_TONE: Record<ParcelStatus, string> = {
-  NEW: "new",
-  PROCESSING: "processing",
+  FORMED: "new",
+  ASSEMBLED: "processing",
+  PACKED: "processing",
+  READY_TO_SHIP: "shipped",
   SHIPPED: "shipped",
-  COMPLETED: "completed",
-  CANCELED: "canceled",
-  PAID: "completed",
-  RETURNED_PAID: "returned-paid",
-  RETURNED_UNPAID: "returned-unpaid",
+  DELIVERED: "completed",
+  RETURNED: "canceled",
+  UTILIZED: "canceled",
 };
 
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "Администратор",
   MANAGER: "Менеджер",
+  WAREHOUSE: "Склад",
 };
 
 export type PaginationParams = {

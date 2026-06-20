@@ -63,10 +63,7 @@ export type PaymentRow = {
   totalUsd: number;
   exchangeRateCnyPerUsd: number;
   totalCny: number;
-  supplierCostCny: number | null;
-  profitCny: number | null;
   isPaid: boolean;
-  paymentMark: string | null;
   status: ParcelStatus;
 };
 
@@ -82,8 +79,6 @@ export type PaymentsRegistry = {
     sumUnpaidCny: number;
     sumPaidUsd: number;
     sumUnpaidUsd: number;
-    sumCostCny: number;
-    sumProfitCny: number;
   };
 };
 
@@ -104,7 +99,7 @@ export async function getPaymentsRegistry({
     ...(filter === "unpaid" ? { isPaid: false } : {}),
   };
 
-  const [rows, total, paidAgg, unpaidAgg, totalsAgg] = await Promise.all([
+  const [rows, total, paidAgg, unpaidAgg] = await Promise.all([
     prisma.parcel.findMany({
       where,
       include: { customer: true },
@@ -123,10 +118,6 @@ export async function getPaymentsRegistry({
       _sum: { totalCny: true, totalUsd: true },
       _count: true,
     }),
-    prisma.parcel.aggregate({
-      where: { deletedAt: null },
-      _sum: { supplierCostCny: true, profitCny: true },
-    }),
   ]);
 
   return {
@@ -138,10 +129,7 @@ export async function getPaymentsRegistry({
       totalUsd: Number(row.totalUsd ?? 0),
       exchangeRateCnyPerUsd: Number(row.exchangeRateCnyPerUsd ?? 0),
       totalCny: Number(row.totalCny ?? 0),
-      supplierCostCny: row.supplierCostCny != null ? Number(row.supplierCostCny) : null,
-      profitCny: row.profitCny != null ? Number(row.profitCny) : null,
       isPaid: row.isPaid,
-      paymentMark: row.paymentMark,
       status: row.status,
     })),
     total,
@@ -150,8 +138,6 @@ export async function getPaymentsRegistry({
     summary: {
       countPaid: paidAgg._count,
       countUnpaid: unpaidAgg._count,
-      sumCostCny: Number(totalsAgg._sum.supplierCostCny ?? 0),
-      sumProfitCny: Number(totalsAgg._sum.profitCny ?? 0),
       sumPaidCny: Number(paidAgg._sum.totalCny ?? 0),
       sumUnpaidCny: Number(unpaidAgg._sum.totalCny ?? 0),
       sumPaidUsd: Number(paidAgg._sum.totalUsd ?? 0),

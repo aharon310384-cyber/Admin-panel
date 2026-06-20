@@ -34,7 +34,7 @@ async function getDashboardData() {
       where: {
         createdAt: { gte: weekStart },
         deletedAt: null,
-        status: { not: "CANCELED" },
+        status: { notIn: ["RETURNED", "UTILIZED"] },
       },
       _sum: { totalCny: true },
     }),
@@ -50,8 +50,9 @@ async function getDashboardData() {
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
-    prisma.parcelItem.groupBy({
-      by: ["productId"],
+    prisma.order.groupBy({
+      by: ["productNameText"],
+      where: { deletedAt: null, productNameText: { not: null } },
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 5,
@@ -73,23 +74,12 @@ async function getDashboardData() {
     ),
   ]);
 
-  const productIds = topProducts.map((p) => p.productId);
-  const products = await prisma.order.findMany({
-    where: { id: { in: productIds } },
-    select: { id: true, name: true, price: true },
-  });
-
-  const topProductsWithNames = topProducts.map((tp) => ({
-    ...tp,
-    product: products.find((p) => p.id === tp.productId),
-  }));
-
   return {
     ordersToday,
     weekRevenue: Number(weekRevenue._sum.totalCny ?? 0),
     activeCustomers,
     recentOrders,
-    topProductsWithNames,
+    topProducts,
     weeklyOrders,
   };
 }
@@ -150,18 +140,18 @@ export default async function DashboardPage() {
         <div className="card">
           <h2 className="card-title">Топ-5 заказов</h2>
           <div className="top-products">
-            {data.topProductsWithNames.map((item, i) => (
-              <div key={item.productId} className="top-product-row">
+            {data.topProducts.map((item, i) => (
+              <div key={item.productNameText ?? i} className="top-product-row">
                 <span className="top-product-rank">#{i + 1}</span>
                 <span className="top-product-name">
-                  {item.product?.name ?? "—"}
+                  {item.productNameText ?? "—"}
                 </span>
                 <span className="top-product-qty">
-                  {item._sum.quantity} шт.
+                  {item._sum.quantity ?? 0} шт.
                 </span>
               </div>
             ))}
-            {data.topProductsWithNames.length === 0 && (
+            {data.topProducts.length === 0 && (
               <p className="empty-text">Нет данных по заказам</p>
             )}
           </div>

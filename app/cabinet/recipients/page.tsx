@@ -11,26 +11,27 @@ export default async function ClientCabinetRecipientsPage() {
     new Set([client.code, client.code.toUpperCase(), client.code.toLowerCase()])
   );
 
-  const parcels = await prisma.parcel.findMany({
+  const recipientRows = await prisma.recipient.findMany({
     where: {
       deletedAt: null,
-      routePrefix: { in: codeVariants },
-      recipientName: { not: null },
+      customer: {
+        OR: [{ clientCode: { in: codeVariants } }, { code: { in: codeVariants } }],
+      },
     },
-    select: { recipientName: true, recipientAddress: true, recipientPhone: true },
+    select: { name: true, address: true, phone: true },
     orderBy: { createdAt: "desc" },
     take: 120,
   });
 
   const seen = new Set<string>();
   const recipients: { name: string; address: string | null; phone: string | null }[] = [];
-  for (const p of parcels) {
-    const name = p.recipientName?.trim();
+  for (const r of recipientRows) {
+    const name = r.name?.trim();
     if (!name) continue;
-    const key = `${name}|${p.recipientAddress ?? ""}`.toLowerCase();
+    const key = `${name}|${r.address ?? ""}`.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    recipients.push({ name, address: p.recipientAddress, phone: p.recipientPhone });
+    recipients.push({ name, address: r.address, phone: r.phone });
   }
 
   return (
