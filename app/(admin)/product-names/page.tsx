@@ -20,7 +20,7 @@ type SearchParams = {
 };
 
 type SortDirection = "asc" | "desc";
-type ProductNameSortField = "code" | "nameRu" | "nameEn" | "nameCn" | "createdAt";
+type ProductNameSortField = "code" | "nameRu" | "nameEn" | "nameCn" | "category" | "hsCode" | "createdAt";
 
 function dash(value: string | null | undefined): string {
   return value?.trim() || "—";
@@ -33,6 +33,8 @@ function normalizeSort(sort: string | undefined): [ProductNameSortField, SortDir
     "nameRu",
     "nameEn",
     "nameCn",
+    "category",
+    "hsCode",
     "createdAt",
   ]);
 
@@ -88,6 +90,8 @@ export default async function ProductNamesPage({
             { nameRu: { contains: search } },
             { nameEn: { contains: search } },
             { nameCn: { contains: search } },
+            { category: { contains: search } },
+            { hsCode: { contains: search } },
           ],
         }
       : {}),
@@ -132,7 +136,7 @@ export default async function ProductNamesPage({
           <input
             type="search"
             name="search"
-            placeholder="Поиск по коду или наименованию RU / EN / CN..."
+            placeholder="Поиск по коду, наименованию, секции или HS-коду..."
             defaultValue={search}
             className="search-input"
           />
@@ -176,6 +180,22 @@ export default async function ProductNamesPage({
                     direction={sortDir}
                   />
                 </th>
+                <th>
+                  <SortableHeader
+                    label="Секция"
+                    href={sortHref("category")}
+                    active={sortField === "category"}
+                    direction={sortDir}
+                  />
+                </th>
+                <th>
+                  <SortableHeader
+                    label="HS-код"
+                    href={sortHref("hsCode")}
+                    active={sortField === "hsCode"}
+                    direction={sortDir}
+                  />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -190,11 +210,19 @@ export default async function ProductNamesPage({
                   <td>{item.nameRu}</td>
                   <td className="text-muted">{dash(item.nameEn)}</td>
                   <td className="text-muted">{dash(item.nameCn)}</td>
+                  <td className="text-muted">{dash(item.category)}</td>
+                  <td>
+                    {item.hsCode?.trim() ? (
+                      <span className="code-pill">{item.hsCode}</span>
+                    ) : (
+                      <span className="hs-missing" title="HS-код не указан">—</span>
+                    )}
+                  </td>
                 </TableRowLink>
               ))}
               {productNames.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="table-empty">
+                  <td colSpan={6} className="table-empty">
                     Наименования не найдены
                   </td>
                 </tr>
@@ -233,6 +261,7 @@ export default async function ProductNamesPage({
 
         .code-pill { display: inline-flex; align-items: center; justify-content: center; padding: 3px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--color-text); background: var(--color-muted-bg); white-space: nowrap; }
         .text-muted { color: var(--color-muted); }
+        .hs-missing { color: var(--color-danger); font-weight: 600; }
         .btn-ghost { display: inline-flex; align-items: center; padding: 5px 10px; background: transparent; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--color-accent); text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
         .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
         .row-clickable { cursor: pointer; }

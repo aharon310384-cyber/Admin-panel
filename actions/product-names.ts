@@ -11,6 +11,12 @@ const productNameSchema = z.object({
   nameRu: z.string().trim().min(1, "Наименование RU обязательно"),
   nameEn: z.string().trim().optional(),
   nameCn: z.string().trim().optional(),
+  category: z.string().trim().optional(),
+  hsCode: z
+    .string()
+    .trim()
+    .regex(/^[0-9 .]*$/, "HS-код: только цифры, пробелы и точки")
+    .optional(),
 });
 
 function productNamePayload(formData: FormData) {
@@ -19,6 +25,8 @@ function productNamePayload(formData: FormData) {
     nameRu: String(formData.get("nameRu") ?? "").trim(),
     nameEn: String(formData.get("nameEn") ?? "").trim(),
     nameCn: String(formData.get("nameCn") ?? "").trim(),
+    category: String(formData.get("category") ?? "").trim(),
+    hsCode: String(formData.get("hsCode") ?? "").trim(),
   };
 }
 
@@ -39,7 +47,7 @@ export async function createProductName(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const { code, nameRu, nameEn, nameCn } = parsed.data;
+  const { code, nameRu, nameEn, nameCn, category, hsCode } = parsed.data;
   if (await codeExists(code)) {
     return { error: { code: ["Такой код уже есть в регистре"] } };
   }
@@ -50,6 +58,8 @@ export async function createProductName(formData: FormData) {
       nameRu,
       nameEn: nameEn || null,
       nameCn: nameCn || null,
+      category: category || null,
+      hsCode: hsCode || null,
     },
   });
 
@@ -65,7 +75,7 @@ export async function updateProductName(id: string, formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const { code, nameRu, nameEn, nameCn } = parsed.data;
+  const { code, nameRu, nameEn, nameCn, category, hsCode } = parsed.data;
   if (await codeExists(code, id)) {
     return { error: { code: ["Такой код уже есть в регистре"] } };
   }
@@ -77,6 +87,8 @@ export async function updateProductName(id: string, formData: FormData) {
       nameRu,
       nameEn: nameEn || null,
       nameCn: nameCn || null,
+      category: category || null,
+      hsCode: hsCode || null,
       deletedAt: null,
     },
   });

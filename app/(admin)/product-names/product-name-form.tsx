@@ -12,6 +12,8 @@ type ProductNameForForm = {
   nameRu: string;
   nameEn: string | null;
   nameCn: string | null;
+  category: string | null;
+  hsCode: string | null;
 };
 
 type Props = {
@@ -80,6 +82,30 @@ export default function ProductNameForm({ action, productName }: Props) {
               placeholder="衣服"
             />
           </div>
+
+          <div className="field">
+            <label className="field-label">Секция</label>
+            <input
+              type="text"
+              name="category"
+              defaultValue={productName?.category ?? ""}
+              className="field-input"
+              placeholder="Одежда / Обувь / Электроника"
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label">HS-код (ТН ВЭД)</label>
+            <input
+              type="text"
+              name="hsCode"
+              defaultValue={productName?.hsCode ?? ""}
+              className={`field-input mono ${errors?.hsCode ? "field-input--error" : ""}`}
+              placeholder="6109 10"
+            />
+            {errors?.hsCode && <p className="field-error">{errors.hsCode[0]}</p>}
+            <p className="field-hint">Тарифная классификация для таможни ЕС (€3 за позицию)</p>
+          </div>
         </div>
       </div>
 
@@ -113,6 +139,7 @@ export default function ProductNameForm({ action, productName }: Props) {
         .field-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px oklch(52% 0.14 42 / 0.1); }
         .field-input--error { border-color: var(--color-danger); }
         .field-error { font-size: 12px; color: var(--color-danger); }
+        .field-hint { font-size: 12px; color: var(--color-muted); margin: 2px 0 0; }
         .mono { font-family: var(--font-mono); }
         .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
         .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; background: var(--color-accent); color: var(--color-accent-fg); border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: background 0.15s; }
