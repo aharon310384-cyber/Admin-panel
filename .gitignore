@@ -32,6 +32,11 @@ Downloads/
 .recovery/
 start-dev-hidden.vbs
 
+# Локальные артефакты (после реорганизации): исходные данные/картинки и
+# серверные скрипты деплоя (srv-02-env.sh содержит токен бота — не пушить!)
+assets/
+scripts/server/
+
 # User uploads (runtime-generated)
 public/uploads/*
 !public/uploads/.gitkeep
