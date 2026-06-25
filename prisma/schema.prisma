@@ -94,6 +94,7 @@ model Country {
   nameEn            String
   postalCodeRegex   String?
   postalCodeExample String?
+  isEu              Boolean  @default(false) // член ЕС — для таможенной пошлины ЕС €3/позиция
   // Фаза 2: таможенные лимиты
   dutyFreeLimitUsd  Decimal?
   dutyFreeLimitKg   Decimal?
@@ -160,6 +161,10 @@ model ServiceTariff {
 model FinanceSettings {
   id                    String   @id @default(cuid())
   exchangeRateCnyPerUsd Decimal  @default(7.1)
+  // Таможенная пошлина ЕС (Council Reg. (EU) 2026/382, €3/позиция до 01.07.2028)
+  exchangeRateUsdPerEur Decimal  @default(1.08)  // курс EUR — пошлина фиксирована в евро
+  euDutyEnabled         Boolean  @default(true)  // мастер-выключатель меры
+  euDutyPassToClient    Boolean  @default(true)  // включать ли пошлину в счёт клиента
   updatedAt             DateTime @updatedAt
   updatedBy             String?
 }
@@ -288,6 +293,10 @@ model Parcel {
   exchangeRateCnyPerUsd Decimal  @default(7.1) // зафиксирован при оплате
   shippingCostUsd       Decimal? // Отправка = billableWeightKg × ставка
   discountPercent       Decimal? // скидка % от итога
+  // Таможенная пошлина ЕС — НЕ услуга Postmanfox, не попадает под скидку
+  customsDutyEur        Decimal? // €3 × число тарифных позиций (если применимо)
+  customsDutyUsd        Decimal? // конвертация пошлины в $ по курсу EUR
+  customsDutyLineCount  Int?     // сколько тарифных позиций учтено
   totalUsd              Decimal  @default(0)
   totalCny              Decimal  @default(0)
   // оплата

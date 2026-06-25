@@ -23,14 +23,18 @@ const COUNTRIES: CountrySeed[] = [
   { code: "DE", nameRu: "Германия", nameEn: "Germany", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "10115" },
   { code: "DK", nameRu: "Дания", nameEn: "Denmark", postalCodeRegex: "^[0-9]{4}$", postalCodeExample: "1050" },
   { code: "DM", nameRu: "Доминика", nameEn: "Dominica", postalCodeRegex: null, postalCodeExample: null },
+  { code: "EE", nameRu: "Эстония", nameEn: "Estonia", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "10111" },
   { code: "ES", nameRu: "Испания", nameEn: "Spain", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "28013" },
   { code: "ET", nameRu: "Эфиопия", nameEn: "Ethiopia", postalCodeRegex: "^[0-9]{4}$", postalCodeExample: "1000" },
+  { code: "FI", nameRu: "Финляндия", nameEn: "Finland", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "00100" },
   { code: "FR", nameRu: "Франция", nameEn: "France", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "75001" },
   { code: "GB", nameRu: "Великобритания", nameEn: "United Kingdom", postalCodeRegex: "^[A-Z]{1,2}[0-9][A-Z0-9]? ?[0-9][A-Z]{2}$", postalCodeExample: "SW1A 1AA" },
   { code: "GE", nameRu: "Грузия", nameEn: "Georgia", postalCodeRegex: "^[0-9]{4}$", postalCodeExample: "0100" },
   { code: "GR", nameRu: "Греция", nameEn: "Greece", postalCodeRegex: "^[0-9]{3} ?[0-9]{2}$", postalCodeExample: "104 31" },
+  { code: "HR", nameRu: "Хорватия", nameEn: "Croatia", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "10000" },
   { code: "HU", nameRu: "Венгрия", nameEn: "Hungary", postalCodeRegex: "^[0-9]{4}$", postalCodeExample: "1011" },
   { code: "ID", nameRu: "Индонезия", nameEn: "Indonesia", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "10110" },
+  { code: "IE", nameRu: "Ирландия", nameEn: "Ireland", postalCodeRegex: null, postalCodeExample: "D02 AF30" },
   { code: "IR", nameRu: "Иран", nameEn: "Iran", postalCodeRegex: "^[0-9]{10}$", postalCodeExample: "1111111111" },
   { code: "IS", nameRu: "Исландия", nameEn: "Iceland", postalCodeRegex: "^[0-9]{3}$", postalCodeExample: "101" },
   { code: "IT", nameRu: "Италия", nameEn: "Italy", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "00100" },
@@ -58,6 +62,7 @@ const COUNTRIES: CountrySeed[] = [
   { code: "SE", nameRu: "Швеция", nameEn: "Sweden", postalCodeRegex: "^[0-9]{3} ?[0-9]{2}$", postalCodeExample: "111 20" },
   { code: "SG", nameRu: "Сингапур", nameEn: "Singapore", postalCodeRegex: "^[0-9]{6}$", postalCodeExample: "238858" },
   { code: "SI", nameRu: "Словения", nameEn: "Slovenia", postalCodeRegex: "^[0-9]{4}$", postalCodeExample: "1000" },
+  { code: "SK", nameRu: "Словакия", nameEn: "Slovakia", postalCodeRegex: "^[0-9]{3} ?[0-9]{2}$", postalCodeExample: "811 01" },
   { code: "TL", nameRu: "Восточный Тимор", nameEn: "Timor-Leste", postalCodeRegex: null, postalCodeExample: null },
   { code: "TR", nameRu: "Турция", nameEn: "Turkey", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "34000" },
   { code: "UA", nameRu: "Украина", nameEn: "Ukraine", postalCodeRegex: "^[0-9]{5}$", postalCodeExample: "01001" },
@@ -66,11 +71,19 @@ const COUNTRIES: CountrySeed[] = [
   { code: "VT", nameRu: "США (Вермонт)", nameEn: "USA (Vermont)", postalCodeRegex: "^05[0-9]{3}$", postalCodeExample: "05001" },
 ];
 
+// ЕС-27 (без Великобритании; Швейцария/Норвегия/Исландия — EEA, не ЕС).
+const EU_CODES = new Set<string>([
+  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
+  "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
+  "PL", "PT", "RO", "SK", "SI", "ES", "SE",
+]);
+
 async function main() {
   let created = 0;
   let updated = 0;
 
-  for (const seed of COUNTRIES) {
+  for (const base of COUNTRIES) {
+    const seed = { ...base, isEu: EU_CODES.has(base.code) };
     const existing = await prisma.country.findUnique({ where: { code: seed.code } });
     await prisma.country.upsert({
       where: { code: seed.code },

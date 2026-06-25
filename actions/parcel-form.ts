@@ -7,8 +7,42 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { nextParcelNumber } from "@/lib/parcel-number";
 import { notifyParcelStatusChange, notifyParcelPaid } from "@/lib/notify";
+import { computeEuCustomsDuty, type DutyOrderLine, type DutyResult } from "@/lib/eu-customs";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+type DutySettings = { euDutyEnabled: boolean; euDutyPassToClient: boolean; exchangeRateUsdPerEur: number };
+
+/** Рассчитать пошлину ЕС для набора строк и страны получателя. */
+async function calcDutyFor(
+  recipientId: string | null | undefined,
+  orders: (DutyOrderLine & { declaredValueUsd?: unknown })[],
+): Promise<{ duty: DutyResult; passToClient: boolean }> {
+  const settings = (await prisma.financeSettings.findFirst()) as DutySettings | null;
+  let destinationIsEu = false;
+  if (recipientId) {
+    const recipient = await prisma.recipient.findUnique({
+      where: { id: recipientId },
+      select: { countryCode: true },
+    });
+    if (recipient?.countryCode) {
+      const country = await prisma.country.findUnique({
+        where: { code: recipient.countryCode },
+        select: { isEu: true },
+      });
+      destinationIsEu = country?.isEu ?? false;
+    }
+  }
+  const declaredValueUsd = orders.reduce((s, o) => s + Number(o.declaredValueUsd ?? 0), 0);
+  const duty = computeEuCustomsDuty({
+    enabled: settings?.euDutyEnabled ?? true,
+    destinationIsEu,
+    declaredValueUsd,
+    exchangeRateUsdPerEur: Number(settings?.exchangeRateUsdPerEur ?? 1.08),
+    orders,
+  });
+  return { duty, passToClient: settings?.euDutyPassToClient ?? true };
+}
 
 /** Оформление: собрать принятые заказы одного клиента в новую посылку. */
 export async function createParcelFromOrders(orderIds: string[]): Promise<void> {
@@ -30,6 +64,10 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<void> 
     : null;
   const shippingCostUsd = tariff ? round2(billable * Number(tariff.pricePerKgUsd) + Number(tariff.handlingFeeUsd)) : 0;
 
+  const { duty, passToClient } = await calcDutyFor(first.recipientId, orders);
+  const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
+  const totalUsd = round2(shippingCostUsd + dutyInTotal);
+
   const parcel = await prisma.parcel.create({
     data: {
       number,
@@ -42,8 +80,11 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<void> 
       exchangeRateCnyPerUsd: rate,
       paymentTiming: tariff?.paymentTiming ?? "BEFORE",
       shippingCostUsd,
-      totalUsd: shippingCostUsd,
-      totalCny: round2(shippingCostUsd * rate),
+      customsDutyEur: duty.applies ? duty.dutyEur : null,
+      customsDutyUsd: duty.applies ? duty.dutyUsd : null,
+      customsDutyLineCount: duty.applies ? duty.lineCount : null,
+      totalUsd,
+      totalCny: round2(totalUsd * rate),
     },
   });
   await prisma.order.updateMany({
@@ -78,6 +119,9 @@ export async function applyParcelServices(parcelId: string, opts: ServiceOpts): 
   });
   if (!parcel) return;
 
+  const { duty, passToClient } = await calcDutyFor(parcel.recipientId, parcel.orders);
+  const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
+
   const billable = Number(parcel.billableWeightKg ?? parcel.actualWeightKg ?? 0);
   const rate = Number(parcel.exchangeRateCnyPerUsd);
   const shipping = Number(parcel.shippingCostUsd ?? 0);
@@ -104,11 +148,20 @@ export async function applyParcelServices(parcelId: string, opts: ServiceOpts): 
   const servicesTotal = services.reduce((s, x) => s + x.priceUsd, 0);
   const subtotal = round2(shipping + servicesTotal);
   const discountPercent = opts.discountPercent ?? 0;
-  const totalUsd = round2(subtotal - subtotal * (discountPercent / 100));
+  // скидка — только на услуги Postmanfox; пошлина ЕС добавляется отдельно, после скидки
+  const afterDiscount = round2(subtotal - subtotal * (discountPercent / 100));
+  const totalUsd = round2(afterDiscount + dutyInTotal);
 
   await prisma.parcel.update({
     where: { id: parcelId },
-    data: { discountPercent, totalUsd, totalCny: round2(totalUsd * rate) },
+    data: {
+      discountPercent,
+      customsDutyEur: duty.applies ? duty.dutyEur : null,
+      customsDutyUsd: duty.applies ? duty.dutyUsd : null,
+      customsDutyLineCount: duty.applies ? duty.lineCount : null,
+      totalUsd,
+      totalCny: round2(totalUsd * rate),
+    },
   });
   revalidatePath(`/parcels/${parcelId}`);
 }

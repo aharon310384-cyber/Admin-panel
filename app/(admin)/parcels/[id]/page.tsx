@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getFinanceSettings } from "@/lib/finance";
 import { formatUsd, formatNumber } from "@/lib/utils";
 import { parcelStatusLabel, orderStatusLabel, deliveryTypeLabel } from "@/lib/statuses";
 import ParcelControls from "@/components/parcels/parcel-controls";
@@ -32,6 +33,13 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
 
   const rate = Number(parcel.exchangeRateCnyPerUsd);
   const shipping = Number(parcel.shippingCostUsd ?? 0);
+
+  // Таможенная пошлина ЕС: в счёт включается только при euDutyPassToClient
+  const { euDutyPassToClient } = await getFinanceSettings();
+  const dutyUsd = parcel.customsDutyUsd != null ? Number(parcel.customsDutyUsd) : 0;
+  const dutyEur = parcel.customsDutyEur != null ? Number(parcel.customsDutyEur) : 0;
+  const dutyLines = parcel.customsDutyLineCount ?? 0;
+  const hasDuty = dutyUsd > 0;
 
   return (
     <div className="page">
@@ -82,6 +90,13 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                 {parcel.discountPercent && Number(parcel.discountPercent) > 0 ? (
                   <tr className="disc"><td>Скидка {Number(parcel.discountPercent)}%</td><td className="r" colSpan={2}>−</td></tr>
                 ) : null}
+                {hasDuty && euDutyPassToClient ? (
+                  <tr>
+                    <td>Таможенная пошлина ЕС (€3 × {dutyLines})</td>
+                    <td className="r">{formatUsd(dutyUsd)}</td>
+                    <td className="r muted">€{dutyEur.toFixed(2)}</td>
+                  </tr>
+                ) : null}
                 <tr className="total">
                   <td>ИТОГО</td>
                   <td className="r">{formatUsd(Number(parcel.totalUsd))}</td>
@@ -90,6 +105,9 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
               </tbody>
             </table>
             <p className="rate">Курс: {rate} ¥/$</p>
+            {hasDuty && !euDutyPassToClient ? (
+              <p className="rate">Таможенная пошлина ЕС €{dutyEur.toFixed(2)} ({dutyLines} поз.) оплачивается отправителем — не включена в счёт.</p>
+            ) : null}
           </section>
         </div>
 

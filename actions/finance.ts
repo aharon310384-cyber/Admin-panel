@@ -9,6 +9,11 @@ const financeSchema = z.object({
   exchangeRateCnyPerUsd: z.coerce
     .number()
     .positive("Курс должен быть больше 0"),
+  exchangeRateUsdPerEur: z.coerce
+    .number()
+    .positive("Курс EUR должен быть больше 0"),
+  euDutyEnabled: z.coerce.boolean(),
+  euDutyPassToClient: z.coerce.boolean(),
 });
 
 export async function updateFinanceSettings(formData: FormData) {
@@ -16,6 +21,9 @@ export async function updateFinanceSettings(formData: FormData) {
 
   const parsed = financeSchema.safeParse({
     exchangeRateCnyPerUsd: formData.get("exchangeRateCnyPerUsd"),
+    exchangeRateUsdPerEur: formData.get("exchangeRateUsdPerEur"),
+    euDutyEnabled: formData.get("euDutyEnabled") === "on",
+    euDutyPassToClient: formData.get("euDutyPassToClient") === "on",
   });
 
   if (!parsed.success) {

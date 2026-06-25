@@ -15,6 +15,9 @@ export default function FinanceForm({
   isAdmin: boolean;
 }) {
   const [exchangeRate, setExchangeRate] = useState(settings.exchangeRateCnyPerUsd);
+  const [eurRate, setEurRate] = useState(settings.exchangeRateUsdPerEur);
+  const [euDutyEnabled, setEuDutyEnabled] = useState(settings.euDutyEnabled);
+  const [euDutyPassToClient, setEuDutyPassToClient] = useState(settings.euDutyPassToClient);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [isPending, startTransition] = useTransition();
 
@@ -60,6 +63,58 @@ export default function FinanceForm({
             задаются индивидуально в карточке посылки.
           </p>
         </div>
+
+        <div className="field">
+          <label className="field-label" htmlFor="exchangeRateUsdPerEur">
+            Курс USD / EUR <span className="required">*</span>
+          </label>
+          <input
+            id="exchangeRateUsdPerEur"
+            name="exchangeRateUsdPerEur"
+            type="number"
+            min={0}
+            step={0.0001}
+            value={eurRate}
+            onChange={(e) => setEurRate(Number(e.target.value))}
+            disabled={!isAdmin}
+            className={`field-input ${errors.exchangeRateUsdPerEur ? "field-input--error" : ""}`}
+          />
+          {errors.exchangeRateUsdPerEur && (
+            <p className="field-error">{errors.exchangeRateUsdPerEur[0]}</p>
+          )}
+          <p className="field-hint">
+            Сколько $ за €1. Нужен для таможенной пошлины ЕС (€3 за позицию).
+          </p>
+        </div>
+      </div>
+
+      <div className="duty">
+        <h3 className="duty-h">Таможенная пошлина ЕС</h3>
+        <p className="field-hint">
+          С 01.07.2026 — €3 за каждую тарифную позицию для посылок в ЕС
+          стоимостью до €150 (Council Reg. (EU) 2026/382, до 01.07.2028).
+        </p>
+        {/* hidden-поля гарантируют отправку "off", когда чекбокс снят */}
+        <label className="duty-row">
+          <input
+            type="checkbox"
+            name="euDutyEnabled"
+            checked={euDutyEnabled}
+            onChange={(e) => setEuDutyEnabled(e.target.checked)}
+            disabled={!isAdmin}
+          />
+          Начислять пошлину ЕС
+        </label>
+        <label className="duty-row">
+          <input
+            type="checkbox"
+            name="euDutyPassToClient"
+            checked={euDutyPassToClient}
+            onChange={(e) => setEuDutyPassToClient(e.target.checked)}
+            disabled={!isAdmin}
+          />
+          Включать пошлину в счёт клиента (декларант — Postmanfox)
+        </label>
       </div>
 
       <p className="meta">
@@ -91,6 +146,9 @@ export default function FinanceForm({
         .field-input:disabled { color: var(--color-muted); background: var(--color-muted-bg); }
         .field-error { font-size: 12px; color: var(--color-danger); margin: 0; }
         .field-hint { font-size: 12px; color: var(--color-muted); margin: 4px 0 0; line-height: 1.45; }
+        .duty { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-muted-bg); }
+        .duty-h { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--color-text); }
+        .duty-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text); }
         .meta { font-size: 12px; color: var(--color-muted); margin: 0; }
         .actions { display: flex; justify-content: flex-end; }
         .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; background: var(--color-accent); color: var(--color-accent-fg); border: none; border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: background 0.15s; }
