@@ -69,7 +69,9 @@ export async function setClientSession(customerId: string): Promise<void> {
   const store = await cookies();
   store.set(CLIENT_SESSION_COOKIE, createClientSessionToken(customerId), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // secure отслеживает реальный протокол (как NextAuth), а не NODE_ENV:
+    // на проде с HTTPS — true, на HTTP-тесте — false, иначе браузер не сохранит cookie.
+    secure: (process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").startsWith("https://"),
     sameSite: "lax",
     path: "/",
     maxAge: MAX_AGE_SECONDS,

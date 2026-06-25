@@ -12,7 +12,8 @@ import { clearClientSession } from "@/lib/client-session";
 
 const clientCabinetCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  // secure отслеживает реальный протокол (как NextAuth): HTTPS → true, HTTP-тест → false.
+  secure: (process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").startsWith("https://"),
   sameSite: "lax" as const,
   path: CLIENT_CABINET_ROUTE,
 };
