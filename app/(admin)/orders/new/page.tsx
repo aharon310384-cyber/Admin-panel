@@ -7,7 +7,7 @@ import OrderForm from "@/components/orders/order-form";
 export const metadata: Metadata = { title: "Новый заказ" };
 
 export default async function NewOrderPage() {
-  const [customers, recipients] = await Promise.all([
+  const [customers, recipients, productNames] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       select: { id: true, code: true, name: true },
@@ -17,6 +17,11 @@ export default async function NewOrderPage() {
       where: { deletedAt: null },
       select: { id: true, customerId: true, name: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.productName.findMany({
+      where: { deletedAt: null },
+      select: { id: true, code: true, nameRu: true, category: true, hsCode: true },
+      orderBy: { nameRu: "asc" },
     }),
   ]);
 
@@ -30,7 +35,7 @@ export default async function NewOrderPage() {
       <p className="page-subtitle">Один заказ = один товар + один трек-номер</p>
 
       <div className="card">
-        <OrderForm customers={customers} recipients={recipients} />
+        <OrderForm customers={customers} recipients={recipients} productNames={productNames} />
       </div>
 
       <style>{`

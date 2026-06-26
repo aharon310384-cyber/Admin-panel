@@ -22,7 +22,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
 
   if (!order) notFound();
 
-  const [customers, recipients] = await Promise.all([
+  const [customers, recipients, productNames] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       select: { id: true, code: true, name: true },
@@ -32,6 +32,11 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
       where: { deletedAt: null },
       select: { id: true, customerId: true, name: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.productName.findMany({
+      where: { deletedAt: null },
+      select: { id: true, code: true, nameRu: true, category: true, hsCode: true },
+      orderBy: { nameRu: "asc" },
     }),
   ]);
 
@@ -55,6 +60,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
         <OrderForm
           customers={customers}
           recipients={recipients}
+          productNames={productNames}
           action={update}
           submitLabel="Сохранить изменения"
           initial={{

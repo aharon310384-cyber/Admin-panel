@@ -5,11 +5,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { resolveProductCatalog } from "@/lib/products";
 
 const schema = z.object({
   customerId: z.string().min(1, "Выберите клиента"),
   recipientId: z.string().optional(),
   deliveryType: z.enum(["AUTO", "AIR", "SEA", "EMS"]).optional(),
+  productNameId: z.string().optional(),
   productNameText: z.string().trim().min(1, "Укажите наименование"),
   trackNumber: z.string().trim().optional(),
   quantity: z.coerce.number().int().min(1),
@@ -30,13 +32,17 @@ export async function createOrder(formData: FormData): Promise<void> {
 
   const unit = data.unitPriceUsd ?? 0;
   const declaredValueUsd = unit * data.quantity;
+  const catalog = await resolveProductCatalog(data.productNameId);
 
   await prisma.order.create({
     data: {
       customerId: data.customerId,
       recipientId: data.recipientId || null,
       deliveryType: data.deliveryType ?? null,
-      productNameText: data.productNameText,
+      productNameId: catalog?.id ?? null,
+      productNameText: catalog?.nameRu ?? data.productNameText,
+      category: catalog?.category ?? null,
+      hsCode: catalog?.hsCode ?? null,
       trackNumber: data.trackNumber || null,
       quantity: data.quantity,
       unitPriceUsd: data.unitPriceUsd ?? null,

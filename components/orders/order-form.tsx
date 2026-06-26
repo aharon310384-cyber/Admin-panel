@@ -5,6 +5,7 @@ import { createOrder } from "@/actions/order-create";
 
 type CustomerOpt = { id: string; code: string | null; name: string };
 type RecipientOpt = { id: string; customerId: string; name: string };
+type ProductNameOpt = { id: string; code: string; nameRu: string; category: string | null; hsCode: string | null };
 
 export type OrderInitial = {
   customerId: string;
@@ -21,12 +22,14 @@ export type OrderInitial = {
 export default function OrderForm({
   customers,
   recipients,
+  productNames = [],
   action = createOrder,
   initial,
   submitLabel = "Создать заказ",
 }: {
   customers: CustomerOpt[];
   recipients: RecipientOpt[];
+  productNames?: ProductNameOpt[];
   action?: (formData: FormData) => Promise<void>;
   initial?: OrderInitial;
   submitLabel?: string;
@@ -36,12 +39,19 @@ export default function OrderForm({
   const [price, setPrice] = useState(
     initial?.unitPriceUsd != null ? String(initial.unitPriceUsd) : ""
   );
+  const [productText, setProductText] = useState(initial?.productNameText ?? "");
 
   const customerRecipients = useMemo(
     () => recipients.filter((r) => r.customerId === customerId),
     [recipients, customerId]
   );
   const declared = (Number(qty) || 0) * (Number(price) || 0);
+
+  // Связь со справочником: точное совпадение по наименованию RU
+  const matched = useMemo(() => {
+    const t = productText.trim().toLowerCase();
+    return t ? productNames.find((p) => p.nameRu.toLowerCase() === t) ?? null : null;
+  }, [productNames, productText]);
 
   return (
     <form action={action} className="of">
@@ -79,7 +89,37 @@ export default function OrderForm({
 
         <label className="of-field of-field--wide">
           <span className="of-label">Наименование *</span>
-          <input name="productNameText" required className="of-input" placeholder="Напр. Кроссовки" defaultValue={initial?.productNameText ?? ""} />
+          <input
+            name="productNameText"
+            required
+            className="of-input"
+            placeholder="Начните вводить — выбор из справочника"
+            list="pn-list"
+            value={productText}
+            onChange={(e) => setProductText(e.target.value)}
+            autoComplete="off"
+          />
+          <input type="hidden" name="productNameId" value={matched?.id ?? ""} />
+          <datalist id="pn-list">
+            {productNames.map((p) => (
+              <option key={p.id} value={p.nameRu}>
+                {p.code}{p.hsCode ? ` · HS ${p.hsCode}` : ""}
+              </option>
+            ))}
+          </datalist>
+          {matched ? (
+            matched.hsCode?.trim() ? (
+              <span className="of-hint of-hint--ok">
+                Из справочника · {matched.category ?? "без секции"} · HS {matched.hsCode}
+              </span>
+            ) : (
+              <span className="of-hint of-hint--warn">
+                Из справочника, но HS-код не указан — заполните в справочнике для пошлины ЕС
+              </span>
+            )
+          ) : productText.trim() ? (
+            <span className="of-hint of-hint--muted">Свободный ввод (нет в справочнике, без HS-кода)</span>
+          ) : null}
         </label>
 
         <label className="of-field">
@@ -126,6 +166,10 @@ export default function OrderForm({
         .of-input { padding: 9px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13.5px; color: var(--color-text); background: var(--color-surface); outline: none; transition: border-color 0.15s; }
         .of-input:focus { border-color: var(--color-accent); }
         .of-input--ro { background: var(--color-muted-bg); color: var(--color-muted); }
+        .of-hint { font-size: 12px; margin-top: 1px; }
+        .of-hint--ok { color: var(--color-status-completed); }
+        .of-hint--warn { color: var(--color-danger); }
+        .of-hint--muted { color: var(--color-muted); }
         .of-check { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--color-text); }
         .of-actions { display: flex; justify-content: flex-end; }
         .of-submit { padding: 10px 20px; background: var(--color-accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
