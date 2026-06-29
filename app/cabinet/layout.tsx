@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Script from "next/script";
-import { Eye, LogOut } from "lucide-react";
-import { clientLogout, exitClientCabinet } from "@/actions/client-cabinet";
+import { Eye } from "lucide-react";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
 import CabinetNav from "@/components/cabinet/cabinet-nav";
 import CabinetSidebar from "@/components/cabinet/cabinet-sidebar";
@@ -45,25 +44,12 @@ export default async function ClientCabinetLayout({
             />
           </a>
 
-          <form
-            action={isAdminView ? exitClientCabinet : clientLogout}
-            className={`cab-exit-form${isAdminView ? " cab-admin" : ""}`}
-          >
-            {isAdminView && (
-              <span className="cab-mode-pill" title="Режим просмотра клиента">
-                <Eye size={13} aria-hidden="true" />
-                Просмотр
-              </span>
-            )}
-            <button
-              type="submit"
-              className="cab-exit-btn"
-              aria-label={isAdminView ? "Выйти из режима просмотра" : "Выйти"}
-              title={isAdminView ? "Выйти из режима просмотра" : "Выйти"}
-            >
-              <LogOut size={15} aria-hidden="true" />
-            </button>
-          </form>
+          {isAdminView && (
+            <span className="cab-mode-pill" title="Режим просмотра клиента">
+              <Eye size={13} aria-hidden="true" />
+              Просмотр
+            </span>
+          )}
         </header>
 
         <main className="cab-main">{children}</main>
@@ -133,11 +119,6 @@ export default async function ClientCabinetLayout({
         .cab-brand { display: inline-flex; }
         .cab-brand-img { height: 34px; width: auto; }
 
-        .cab-exit-form { display: inline-flex; align-items: center; gap: 8px; }
-        /* В Telegram Mini App есть нативная кнопка «Закрыть» — прячем дублирующую
-           кнопку выхода. В admin-режиме «Просмотр» оставляем: нативная кнопка не
-           возвращает админа из просмотра клиента обратно в админку. */
-        html[data-telegram="1"] .cab-exit-form:not(.cab-admin) { display: none; }
         .cab-mode-pill {
           display: inline-flex;
           align-items: center;
@@ -150,28 +131,13 @@ export default async function ClientCabinetLayout({
           background: color-mix(in srgb, var(--cab-orange) 12%, var(--cab-surface));
           border: 1px solid color-mix(in srgb, var(--cab-orange) 22%, transparent);
         }
-        .cab-exit-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          border-radius: 10px;
-          border: 1px solid var(--cab-border);
-          background: var(--cab-surface);
-          color: var(--cab-muted);
-          cursor: pointer;
-          transition: color 0.15s, border-color 0.15s;
-        }
-        .cab-exit-btn:hover { color: var(--cab-danger); border-color: color-mix(in srgb, var(--cab-danger) 40%, transparent); }
 
         .cab-main {
           flex: 1;
           padding: 6px 18px 8px;
         }
 
-        .cab-brand:focus-visible,
-        .cab-exit-btn:focus-visible {
+        .cab-brand:focus-visible {
           outline: 2px solid var(--cab-green);
           outline-offset: 2px;
         }
