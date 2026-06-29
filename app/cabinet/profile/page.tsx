@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { LogOut, Mail, MapPin, Phone, Settings } from "lucide-react";
-import { clientLogout, exitClientCabinet } from "@/actions/client-cabinet";
+import { Mail, MapPin, Phone, Settings } from "lucide-react";
 import SettingsPanel from "@/components/cabinet/settings-panel";
+import CabinetCloseButton from "@/components/cabinet/cabinet-close-button";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
 
 export const metadata: Metadata = { title: "Профиль" };
@@ -68,12 +68,7 @@ export default async function ClientCabinetProfilePage() {
         <SettingsPanel />
       </section>
 
-      <form action={isAdminView ? exitClientCabinet : clientLogout}>
-        <button type="submit" className="pr-exit">
-          <LogOut size={17} />
-          {isAdminView ? "Выйти из режима просмотра" : "Выйти"}
-        </button>
-      </form>
+      <CabinetCloseButton isAdminView={isAdminView} />
 
       <style>{`
         .pr { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
