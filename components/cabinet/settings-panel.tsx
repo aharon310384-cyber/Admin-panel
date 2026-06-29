@@ -1,20 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, Globe, MessageCircle, Moon, ShieldCheck } from "lucide-react";
+import { Bell, Globe, Moon, ShieldCheck } from "lucide-react";
 
 type Toggle = {
   key: string;
   icon: typeof Bell;
   title: string;
   desc: string;
-  defaultOn: boolean;
+  on: boolean;
 };
 
+// Раздел в разработке — контролы пассивны (disabled), показывают планируемое состояние.
 const TOGGLES: Toggle[] = [
-  { key: "push", icon: Bell, title: "Уведомления о статусах", desc: "Сообщать об изменении статуса посылки", defaultOn: true },
-  { key: "pay", icon: ShieldCheck, title: "Напоминания об оплате", desc: "Предупреждать о посылках к оплате", defaultOn: true },
-  { key: "dark", icon: Moon, title: "Тёмная тема", desc: "Скоро будет доступна", defaultOn: false },
+  { key: "push", icon: Bell, title: "Уведомления о статусах", desc: "Сообщать об изменении статуса посылки", on: true },
+  { key: "pay", icon: ShieldCheck, title: "Напоминания об оплате", desc: "Предупреждать о посылках к оплате", on: true },
+  { key: "dark", icon: Moon, title: "Тёмная тема", desc: "Скоро будет доступна", on: false },
 ];
 
 const LANGS = [
@@ -25,13 +25,7 @@ const LANGS = [
 ];
 
 export default function SettingsPanel() {
-  const [toggles, setToggles] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(TOGGLES.map((t) => [t.key, t.defaultOn]))
-  );
-  const [lang, setLang] = useState("ru");
-  const [tgLinked, setTgLinked] = useState(false);
-
-  const flip = (key: string) => setToggles((p) => ({ ...p, [key]: !p[key] }));
+  const activeLang = "ru";
 
   return (
     <div className="sp">
@@ -45,16 +39,15 @@ export default function SettingsPanel() {
                 <span className="sp-toggle-title">{t.title}</span>
                 <span className="sp-toggle-desc">{t.desc}</span>
               </span>
-              <button
-                type="button"
+              <span
                 role="switch"
-                aria-checked={toggles[t.key]}
+                aria-checked={t.on}
+                aria-disabled="true"
                 aria-label={t.title}
-                className={`sp-switch ${toggles[t.key] ? "sp-switch--on" : ""}`}
-                onClick={() => flip(t.key)}
+                className={`sp-switch ${t.on ? "sp-switch--on" : ""}`}
               >
                 <span className="sp-knob" />
-              </button>
+              </span>
             </li>
           ))}
         </ul>
@@ -67,41 +60,21 @@ export default function SettingsPanel() {
         </div>
         <div className="sp-langs">
           {LANGS.map((l) => (
-            <button
+            <span
               key={l.code}
-              type="button"
-              className={`sp-lang ${lang === l.code ? "sp-lang--on" : ""}`}
-              onClick={() => setLang(l.code)}
+              aria-disabled="true"
+              className={`sp-lang ${activeLang === l.code ? "sp-lang--on" : ""}`}
             >
               {l.label}
-            </button>
+            </span>
           ))}
         </div>
       </div>
 
-      <div className="sp-card">
-        <div className="sp-tg">
-          <span className="sp-tg-icon"><MessageCircle size={18} /></span>
-          <div className="sp-tg-body">
-            <h3 className="sp-card-title">Telegram</h3>
-            <span className="sp-toggle-desc">
-              {tgLinked ? "Аккаунт привязан — уведомления в чат" : "Привяжите чат, чтобы получать уведомления"}
-            </span>
-          </div>
-          <button
-            type="button"
-            className={`sp-tg-btn ${tgLinked ? "sp-tg-btn--linked" : ""}`}
-            onClick={() => setTgLinked((v) => !v)}
-          >
-            {tgLinked ? "Отвязать" : "Привязать"}
-          </button>
-        </div>
-      </div>
-
-      <p className="sp-note">Изменения пока не сохраняются — раздел в разработке.</p>
+      <p className="sp-note">Раздел в разработке — настройки пока недоступны.</p>
 
       <style>{`
-        .sp { display: flex; flex-direction: column; gap: 12px; }
+        .sp { display: flex; flex-direction: column; gap: 12px; opacity: 0.85; }
         .sp-card {
           display: flex; flex-direction: column; gap: 14px; padding: 16px;
           border-radius: var(--cab-radius-md); background: var(--cab-surface);
@@ -122,45 +95,25 @@ export default function SettingsPanel() {
         .sp-toggle-desc { font-size: 11.5px; color: var(--cab-muted); line-height: 1.35; }
 
         .sp-switch {
-          flex-shrink: 0; width: 44px; height: 26px; border-radius: 999px; border: none; cursor: pointer;
-          background: var(--cab-border-strong); position: relative; transition: background 0.2s;
+          flex-shrink: 0; width: 44px; height: 26px; border-radius: 999px; border: none; cursor: not-allowed;
+          background: var(--cab-border-strong); position: relative; display: inline-block;
         }
-        .sp-switch--on { background: var(--cab-green); }
+        .sp-switch--on { background: color-mix(in srgb, var(--cab-green) 55%, var(--cab-border-strong)); }
         .sp-knob {
           position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
-          background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s;
+          background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         .sp-switch--on .sp-knob { transform: translateX(18px); }
 
         .sp-langs { display: flex; gap: 8px; flex-wrap: wrap; }
         .sp-lang {
-          padding: 9px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer;
+          padding: 9px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: not-allowed;
           color: var(--cab-text-soft); background: color-mix(in srgb, var(--cab-bg) 55%, var(--cab-surface));
-          border: 1px solid var(--cab-border); transition: all 0.15s;
+          border: 1px solid var(--cab-border);
         }
-        .sp-lang:hover { border-color: var(--cab-border-strong); }
         .sp-lang--on {
           color: #fff; border-color: transparent;
           background: linear-gradient(150deg, var(--cab-green), var(--cab-green-deep));
-        }
-
-        .sp-tg { display: flex; align-items: center; gap: 12px; }
-        .sp-tg-icon {
-          display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-          width: 40px; height: 40px; border-radius: 12px; color: #fff;
-          background: linear-gradient(150deg, #37aee2, #1e96c8);
-        }
-        .sp-tg-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-        .sp-tg-btn {
-          flex-shrink: 0; padding: 9px 16px; border-radius: 11px; font-size: 13px; font-weight: 600; cursor: pointer;
-          color: #fff; border: none;
-          background: linear-gradient(150deg, var(--cab-green), var(--cab-green-deep));
-          transition: opacity 0.15s;
-        }
-        .sp-tg-btn:hover { opacity: 0.92; }
-        .sp-tg-btn--linked {
-          color: var(--cab-danger); background: var(--cab-surface);
-          border: 1px solid color-mix(in srgb, var(--cab-danger) 30%, var(--cab-border));
         }
 
         .sp-note { margin: 0; font-size: 12px; color: var(--cab-muted); text-align: center; }

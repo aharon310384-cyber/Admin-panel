@@ -71,7 +71,10 @@ export default async function ClientCabinetOverviewPage() {
       <header className="ov-greet">
         <p className="ov-hello">Здравствуйте,</p>
         <h1 className="ov-name">{name}</h1>
-        <span className="ov-code">{client.code}</span>
+        <span className="ov-code">
+          <span className="ov-code-label">User ID</span>
+          {client.code}
+        </span>
       </header>
 
       <div className="ov-bento">
@@ -180,11 +183,18 @@ export default async function ClientCabinetOverviewPage() {
           font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: var(--cab-text);
         }
         .ov-code {
-          display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px;
-          font-family: var(--font-jetbrains-mono), monospace; font-size: 12px; font-weight: 500;
+          display: inline-flex; align-items: center; gap: 7px;
+          margin-top: 8px; padding: 4px 11px; border-radius: 999px;
+          font-family: var(--font-jetbrains-mono), monospace; font-size: 12.5px; font-weight: 600;
           color: var(--cab-green-deep);
           background: color-mix(in srgb, var(--cab-green) 13%, transparent);
           border: 1px solid color-mix(in srgb, var(--cab-green) 24%, transparent);
+        }
+        .ov-code-label {
+          font-family: var(--font-inter), system-ui, sans-serif;
+          font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+          color: var(--cab-muted);
+          padding-right: 7px; border-right: 1px solid color-mix(in srgb, var(--cab-green) 28%, transparent);
         }
 
         .ov-bento { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

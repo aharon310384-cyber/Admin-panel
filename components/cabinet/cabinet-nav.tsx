@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, LayoutGrid, Package, Plus, User } from "lucide-react";
+import { ClipboardList, LayoutGrid, MoreHorizontal, Package, Plus } from "lucide-react";
 
 type Tab = { href: string; label: string; icon: typeof LayoutGrid };
 
@@ -13,14 +13,21 @@ const TABS_LEFT: Tab[] = [
 
 const TABS_RIGHT: Tab[] = [
   { href: "/cabinet/parcels", label: "Посылки", icon: Package },
-  { href: "/cabinet/profile", label: "Профиль", icon: User },
+  { href: "/cabinet/more", label: "Ещё", icon: MoreHorizontal },
 ];
+
+// Пути, относящиеся к разделу «Ещё» (подсветка пункта меню)
+const MORE_PATHS = ["/cabinet/more", "/cabinet/recipients", "/cabinet/tariffs", "/cabinet/profile"];
 
 export default function CabinetNav() {
   const pathname = usePathname();
 
-  const isActive = (href: string) =>
-    href === "/cabinet" ? pathname === "/cabinet" : pathname.startsWith(href);
+  const isActive = (href: string) => {
+    if (href === "/cabinet/more") {
+      return MORE_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    }
+    return href === "/cabinet" ? pathname === "/cabinet" : pathname.startsWith(href);
+  };
 
   const renderTab = ({ href, label, icon: Icon }: Tab) => (
     <Link

@@ -37,7 +37,10 @@ export default async function ClientCabinetProfilePage() {
     <div className="pr">
       <header className="pr-hero">
         <h1 className="pr-name">{name}</h1>
-        <span className="pr-code">{client.code}</span>
+        <span className="pr-code">
+          <span className="pr-code-label">User ID</span>
+          {client.code}
+        </span>
       </header>
 
       {contacts.length > 0 && (
@@ -86,10 +89,17 @@ export default async function ClientCabinetProfilePage() {
         }
         .pr-name { margin: 0; font-family: var(--font-space-grotesk), sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; text-align: center; }
         .pr-code {
-          padding: 3px 12px; border-radius: 999px; font-family: var(--font-jetbrains-mono), monospace;
-          font-size: 12px; font-weight: 500; color: var(--cab-green-deep);
+          display: inline-flex; align-items: center; gap: 7px;
+          padding: 4px 12px; border-radius: 999px; font-family: var(--font-jetbrains-mono), monospace;
+          font-size: 13px; font-weight: 600; color: var(--cab-green-deep);
           background: color-mix(in srgb, var(--cab-green) 13%, transparent);
           border: 1px solid color-mix(in srgb, var(--cab-green) 24%, transparent);
+        }
+        .pr-code-label {
+          font-family: var(--font-inter), system-ui, sans-serif;
+          font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+          color: var(--cab-muted);
+          padding-right: 7px; border-right: 1px solid color-mix(in srgb, var(--cab-green) 28%, transparent);
         }
 
         .pr-card {
