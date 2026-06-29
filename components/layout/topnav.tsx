@@ -21,6 +21,7 @@ import {
   Tags,
   Users,
   Workflow,
+  BarChart3,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -44,7 +45,6 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Документы",
     items: [
       { href: "/orders", label: "Заказы", icon: ClipboardList },
-      { href: "/receiving", label: "Приёмка (АРМ)", icon: PackageCheck },
       { href: "/parcels", label: "Посылки", icon: Package },
     ],
   },
@@ -64,8 +64,18 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Регистры",
     items: [
       { href: "/finance", label: "Курс", icon: CircleDollarSign },
-      { href: "/finance?tab=payments", label: "Расчёт и оплата", icon: Receipt },
+      { href: "/payments", label: "Расчёт и оплата", icon: Receipt },
     ],
+  },
+  {
+    title: "Обработки",
+    items: [
+      { href: "/receiving", label: "АРМ приём заказа", icon: PackageCheck },
+    ],
+  },
+  {
+    title: "Отчёты",
+    items: [{ href: "#", label: "Скоро", icon: BarChart3, soon: true }],
   },
 ];
 
@@ -272,7 +282,7 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
 
         .topnav-panel-inner {
           max-width: 1600px; margin: 0 auto; padding: 22px 20px;
-          display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; align-items: start;
+          display: grid; grid-template-columns: repeat(5, 1fr); gap: 22px; align-items: start;
         }
         .topnav-section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
         .topnav-section-items { display: flex; flex-direction: column; gap: 2px; }
@@ -282,8 +292,8 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
           border-bottom: 1px solid var(--color-border);
         }
 
-        @media (max-width: 1024px) {
-          .topnav-panel-inner { grid-template-columns: repeat(3, 1fr); }
+        @media (max-width: 900px) {
+          .topnav-panel-inner { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 640px) {
           .topnav-panel-inner { grid-template-columns: 1fr; gap: 14px; }

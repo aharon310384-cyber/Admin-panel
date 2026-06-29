@@ -73,6 +73,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
             unitPriceUsd: order.unitPriceUsd != null ? Number(order.unitPriceUsd) : null,
             actualWeightKg: order.actualWeightKg != null ? Number(order.actualWeightKg) : null,
             detailedCheckRequested: order.detailedCheckRequested,
+            keepOriginalPackaging: order.keepOriginalPackaging,
           }}
         />
       </div>

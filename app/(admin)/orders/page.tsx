@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { orderStatusLabel, deliveryTypeLabel, ORDER_STATUS_COLOR } from "@/lib/statuses";
+import ClickableRow from "@/components/ui/clickable-row";
 
 export const metadata: Metadata = { title: "Заказы" };
 
@@ -52,7 +53,7 @@ export default async function OrdersPage() {
             </thead>
             <tbody>
               {orders.map((o) => (
-                <tr key={o.id}>
+                <ClickableRow key={o.id} href={`/orders/${o.id}/edit`}>
                   <td className="strong">{dash(o.productNameText)}</td>
                   <td className="mono text-muted">{dash(o.trackNumber)}</td>
                   <td className="tabular">{o.quantity}</td>
@@ -68,7 +69,7 @@ export default async function OrdersPage() {
                     <span className={`st st--${ORDER_STATUS_COLOR[o.status]}`}>{orderStatusLabel(o.status)}</span>
                   </td>
                   <td className="text-muted">{formatDateTime(o.createdAt)}</td>
-                </tr>
+                </ClickableRow>
               ))}
               {orders.length === 0 && (
                 <tr>

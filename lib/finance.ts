@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 export type FinanceSettingsView = {
   id: string;
   exchangeRateCnyPerUsd: number;
-  exchangeRateUsdPerEur: number;
+  exchangeRateCnyPerEur: number;
   euDutyEnabled: boolean;
   euDutyPassToClient: boolean;
   updatedAt: Date;
@@ -20,7 +20,7 @@ export async function getFinanceSettings(): Promise<FinanceSettingsView> {
   return {
     id: settings.id,
     exchangeRateCnyPerUsd: Number(settings.exchangeRateCnyPerUsd),
-    exchangeRateUsdPerEur: Number(settings.exchangeRateUsdPerEur),
+    exchangeRateCnyPerEur: Number(settings.exchangeRateCnyPerEur),
     euDutyEnabled: settings.euDutyEnabled,
     euDutyPassToClient: settings.euDutyPassToClient,
     updatedAt: settings.updatedAt,

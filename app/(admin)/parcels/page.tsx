@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PackagePlus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, deliveryTypeLabel } from "@/lib/statuses";
@@ -22,10 +21,6 @@ export default async function ParcelsPage() {
           <h1 className="page-title">Посылки</h1>
           <p className="page-subtitle">{parcels.length} посылок</p>
         </div>
-        <Link href="/parcels/from-orders" className="btn-add">
-          <PackagePlus size={16} />
-          Оформить посылку
-        </Link>
       </div>
 
       <div className="card">

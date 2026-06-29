@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
+import ClickableRow from "@/components/ui/clickable-row";
 
 export const metadata: Metadata = { title: "Клиенты" };
 
@@ -45,7 +46,7 @@ export default async function ClientsPage() {
             </thead>
             <tbody>
               {clients.map((c) => (
-                <tr key={c.id}>
+                <ClickableRow key={c.id} href={`/clients/${c.id}`}>
                   <td><span className="code-pill">{dash(c.code)}</span></td>
                   <td className="strong">{c.name}</td>
                   <td className="mono text-muted">{dash(c.phone)}</td>
@@ -55,7 +56,7 @@ export default async function ClientsPage() {
                   <td className="tabular">{c._count.orders}</td>
                   <td className="tabular">{c._count.parcels}</td>
                   <td className="text-muted">{formatDateTime(c.createdAt)}</td>
-                </tr>
+                </ClickableRow>
               ))}
               {clients.length === 0 && (
                 <tr><td colSpan={9} className="table-empty">Клиентов пока нет</td></tr>
@@ -81,7 +82,7 @@ export default async function ClientsPage() {
         .mono { font-family: var(--font-mono); font-size: 12px; }
         .tabular { font-variant-numeric: tabular-nums; }
         .text-muted { color: var(--color-muted); }
-        .code-pill { display: inline-flex; min-width: 36px; justify-content: center; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); }
+        .code-pill { display: inline-flex; min-width: 36px; justify-content: center; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); color: var(--color-text); }
         .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
       `}</style>
     </div>

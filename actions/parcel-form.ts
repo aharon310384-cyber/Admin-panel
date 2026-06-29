@@ -11,7 +11,7 @@ import { computeEuCustomsDuty, type DutyOrderLine, type DutyResult } from "@/lib
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-type DutySettings = { euDutyEnabled: boolean; euDutyPassToClient: boolean; exchangeRateUsdPerEur: number };
+type DutySettings = { euDutyEnabled: boolean; euDutyPassToClient: boolean; exchangeRateCnyPerEur: number; exchangeRateCnyPerUsd: number };
 
 /** Рассчитать пошлину ЕС для набора строк и страны получателя. */
 async function calcDutyFor(
@@ -38,7 +38,8 @@ async function calcDutyFor(
     enabled: settings?.euDutyEnabled ?? true,
     destinationIsEu,
     declaredValueUsd,
-    exchangeRateUsdPerEur: Number(settings?.exchangeRateUsdPerEur ?? 1.08),
+    exchangeRateCnyPerEur: Number(settings?.exchangeRateCnyPerEur ?? 8),
+    exchangeRateCnyPerUsd: Number(settings?.exchangeRateCnyPerUsd ?? 7.1),
     orders,
   });
   return { duty, passToClient: settings?.euDutyPassToClient ?? true };

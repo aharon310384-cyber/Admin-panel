@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { orderStatusLabel } from "@/lib/statuses";
 import ReceivingArm from "@/components/receiving/receiving-arm";
 
-export const metadata: Metadata = { title: "Приёмка" };
+export const metadata: Metadata = { title: "АРМ приём заказа" };
 
 export default async function ReceivingPage({
   searchParams,
@@ -38,7 +38,7 @@ export default async function ReceivingPage({
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Приёмка (АРМ)</h1>
+          <h1 className="page-title">АРМ приём заказа</h1>
           <p className="page-subtitle">Заказы, ожидающие приёма на склад — {rows.length}</p>
         </div>
       </div>

@@ -18,6 +18,7 @@ const schema = z.object({
   unitPriceUsd: z.coerce.number().min(0).optional(),
   actualWeightKg: z.coerce.number().min(0).optional(),
   detailedCheckRequested: z.boolean().optional(),
+  keepOriginalPackaging: z.boolean().optional(),
 });
 
 export async function updateOrder(id: string, formData: FormData): Promise<void> {
@@ -27,6 +28,7 @@ export async function updateOrder(id: string, formData: FormData): Promise<void>
   const data = schema.parse({
     ...raw,
     detailedCheckRequested: raw.detailedCheckRequested === "on",
+    keepOriginalPackaging: raw.keepOriginalPackaging === "on",
   });
 
   const unit = data.unitPriceUsd ?? 0;
@@ -49,6 +51,7 @@ export async function updateOrder(id: string, formData: FormData): Promise<void>
       declaredValueUsd: data.unitPriceUsd ? declaredValueUsd : null,
       actualWeightKg: data.actualWeightKg ?? null,
       detailedCheckRequested: !!data.detailedCheckRequested,
+      keepOriginalPackaging: !!data.keepOriginalPackaging,
     },
   });
 

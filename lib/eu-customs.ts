@@ -49,7 +49,8 @@ export type DutyInput = {
   enabled: boolean; // мастер-выключатель меры (FinanceSettings)
   destinationIsEu: boolean; // страна получателя входит в ЕС
   declaredValueUsd: number; // сумма объявленных стоимостей строк, $
-  exchangeRateUsdPerEur: number; // курс EUR ($ за €)
+  exchangeRateCnyPerEur: number; // курс EUR в юанях (¥ за €)
+  exchangeRateCnyPerUsd: number; // основной курс (¥ за $) — для пересчёта € ↔ $
   orders: DutyOrderLine[];
   now?: Date; // момент расчёта (по умолчанию текущий) — прокси даты отправки
 };
@@ -64,7 +65,7 @@ export type DutyResult = {
 
 /** Рассчитать таможенную пошлину ЕС для посылки. */
 export function computeEuCustomsDuty(input: DutyInput): DutyResult {
-  const { enabled, destinationIsEu, declaredValueUsd, exchangeRateUsdPerEur, orders } = input;
+  const { enabled, destinationIsEu, declaredValueUsd, exchangeRateCnyPerEur, exchangeRateCnyPerUsd, orders } = input;
   const now = input.now ?? new Date();
   const none = (reason: DutyResult["reason"]): DutyResult => ({
     applies: false, lineCount: 0, dutyEur: 0, dutyUsd: 0, reason,
@@ -75,8 +76,11 @@ export function computeEuCustomsDuty(input: DutyInput): DutyResult {
   if (now < EU_DUTY_START || now >= EU_DUTY_END) return none("out-of-window");
   if (orders.length === 0) return none("no-orders");
 
+  // курс $ за € выводим из юаневых курсов: (¥/€) ÷ (¥/$) = $/€
+  const cnyPerEur = exchangeRateCnyPerEur > 0 ? exchangeRateCnyPerEur : 1;
+  const cnyPerUsd = exchangeRateCnyPerUsd > 0 ? exchangeRateCnyPerUsd : 1;
+  const rate = cnyPerEur / cnyPerUsd; // $ за €
   // порог €150: переводим объявленную стоимость из $ в €
-  const rate = exchangeRateUsdPerEur > 0 ? exchangeRateUsdPerEur : 1;
   const declaredEur = declaredValueUsd / rate;
   // > €150 — режим обычных пошлин, фиксированный €3 не применяется
   if (declaredEur > EU_DUTY_VALUE_CAP_EUR) return none("over-cap");

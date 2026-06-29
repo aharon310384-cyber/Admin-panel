@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import OrderForm from "@/components/orders/order-form";
+import OrderBulkImport from "@/components/orders/order-bulk-import";
 
 export const metadata: Metadata = { title: "Новый заказ" };
 
@@ -37,6 +38,8 @@ export default async function NewOrderPage() {
       <div className="card">
         <OrderForm customers={customers} recipients={recipients} productNames={productNames} />
       </div>
+
+      <OrderBulkImport customers={customers} recipients={recipients} />
 
       <style>{`
         .page { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }

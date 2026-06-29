@@ -15,7 +15,7 @@ export default function FinanceForm({
   isAdmin: boolean;
 }) {
   const [exchangeRate, setExchangeRate] = useState(settings.exchangeRateCnyPerUsd);
-  const [eurRate, setEurRate] = useState(settings.exchangeRateUsdPerEur);
+  const [eurRate, setEurRate] = useState(settings.exchangeRateCnyPerEur);
   const [euDutyEnabled, setEuDutyEnabled] = useState(settings.euDutyEnabled);
   const [euDutyPassToClient, setEuDutyPassToClient] = useState(settings.euDutyPassToClient);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -65,25 +65,25 @@ export default function FinanceForm({
         </div>
 
         <div className="field">
-          <label className="field-label" htmlFor="exchangeRateUsdPerEur">
-            Курс USD / EUR <span className="required">*</span>
+          <label className="field-label" htmlFor="exchangeRateCnyPerEur">
+            Курс CNY / EUR <span className="required">*</span>
           </label>
           <input
-            id="exchangeRateUsdPerEur"
-            name="exchangeRateUsdPerEur"
+            id="exchangeRateCnyPerEur"
+            name="exchangeRateCnyPerEur"
             type="number"
             min={0}
             step={0.0001}
             value={eurRate}
             onChange={(e) => setEurRate(Number(e.target.value))}
             disabled={!isAdmin}
-            className={`field-input ${errors.exchangeRateUsdPerEur ? "field-input--error" : ""}`}
+            className={`field-input ${errors.exchangeRateCnyPerEur ? "field-input--error" : ""}`}
           />
-          {errors.exchangeRateUsdPerEur && (
-            <p className="field-error">{errors.exchangeRateUsdPerEur[0]}</p>
+          {errors.exchangeRateCnyPerEur && (
+            <p className="field-error">{errors.exchangeRateCnyPerEur[0]}</p>
           )}
           <p className="field-hint">
-            Сколько $ за €1. Нужен для таможенной пошлины ЕС (€3 за позицию).
+            Сколько ¥ за €1. Нужен для таможенной пошлины ЕС (€3 за позицию).
           </p>
         </div>
       </div>

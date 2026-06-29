@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
+import ClickableRow from "@/components/ui/clickable-row";
 
 export const metadata: Metadata = { title: "Получатели" };
 
@@ -42,7 +43,7 @@ export default async function RecipientsPage() {
             </thead>
             <tbody>
               {recipients.map((r) => (
-                <tr key={r.id}>
+                <ClickableRow key={r.id} href={`/recipients/${r.id}`}>
                   <td className="strong">{dash(r.name)}</td>
                   <td className="mono text-muted">{dash(r.phone)}</td>
                   <td className="text-muted">{dash(r.country)}</td>
@@ -51,7 +52,7 @@ export default async function RecipientsPage() {
                   <td className="mono text-muted">{dash(r.postalCode)}</td>
                   <td><span className="code-pill">{dash(r.customer.code)}</span> {r.customer.name}</td>
                   <td className="text-muted">{formatDateTime(r.createdAt)}</td>
-                </tr>
+                </ClickableRow>
               ))}
               {recipients.length === 0 && (
                 <tr><td colSpan={8} className="table-empty">Получателей пока нет</td></tr>

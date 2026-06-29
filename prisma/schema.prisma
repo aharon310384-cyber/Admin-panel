@@ -162,7 +162,7 @@ model FinanceSettings {
   id                    String   @id @default(cuid())
   exchangeRateCnyPerUsd Decimal  @default(7.1)
   // Таможенная пошлина ЕС (Council Reg. (EU) 2026/382, €3/позиция до 01.07.2028)
-  exchangeRateUsdPerEur Decimal  @default(1.08)  // курс EUR — пошлина фиксирована в евро
+  exchangeRateCnyPerEur Decimal  @default(8)     // курс EUR в юанях (¥ за €) — для пересчёта пошлины ЕС
   euDutyEnabled         Boolean  @default(true)  // мастер-выключатель меры
   euDutyPassToClient    Boolean  @default(true)  // включать ли пошлину в счёт клиента
   updatedAt             DateTime @updatedAt
@@ -253,6 +253,7 @@ model Order {
   volumetricWeightKg     Decimal?
   // услуга клиента
   detailedCheckRequested Boolean  @default(false) // «Детальная проверка и фотоотчёт»
+  keepOriginalPackaging  Boolean  @default(true)  // «Оставить оригинальную упаковку» (по умолчанию включено)
   productUrl             String?
   imageUrl               String?
   // процесс
