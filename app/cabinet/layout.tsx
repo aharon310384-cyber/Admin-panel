@@ -45,7 +45,10 @@ export default async function ClientCabinetLayout({
             />
           </a>
 
-          <form action={isAdminView ? exitClientCabinet : clientLogout} className="cab-exit-form">
+          <form
+            action={isAdminView ? exitClientCabinet : clientLogout}
+            className={`cab-exit-form${isAdminView ? " cab-admin" : ""}`}
+          >
             {isAdminView && (
               <span className="cab-mode-pill" title="Режим просмотра клиента">
                 <Eye size={13} aria-hidden="true" />
@@ -131,6 +134,10 @@ export default async function ClientCabinetLayout({
         .cab-brand-img { height: 34px; width: auto; }
 
         .cab-exit-form { display: inline-flex; align-items: center; gap: 8px; }
+        /* В Telegram Mini App есть нативная кнопка «Закрыть» — прячем дублирующую
+           кнопку выхода. В admin-режиме «Просмотр» оставляем: нативная кнопка не
+           возвращает админа из просмотра клиента обратно в админку. */
+        html[data-telegram="1"] .cab-exit-form:not(.cab-admin) { display: none; }
         .cab-mode-pill {
           display: inline-flex;
           align-items: center;
