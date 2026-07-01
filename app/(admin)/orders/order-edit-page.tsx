@@ -18,9 +18,19 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
 
   const order = await prisma.order.findFirst({
     where: { id, deletedAt: null },
+    include: { author: { select: { name: true } } },
   });
 
   if (!order) notFound();
+
+  const createdAtLabel = new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(order.createdAt);
+  const authorLabel = order.author?.name ?? "—";
 
   const [customers, recipients, productNames] = await Promise.all([
     prisma.customer.findMany({
@@ -56,6 +66,17 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
         <DeleteOrderButton productId={id} deleteAction={deleteOrder} />
       </div>
 
+      <div className="meta">
+        <div className="meta-item">
+          <span className="meta-label">Дата создания</span>
+          <span className="meta-value">{createdAtLabel}</span>
+        </div>
+        <div className="meta-item">
+          <span className="meta-label">Автор</span>
+          <span className="meta-value">{authorLabel}</span>
+        </div>
+      </div>
+
       <div className="card">
         <OrderForm
           customers={customers}
@@ -85,6 +106,10 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
         .page-title { font-size: 24px; font-weight: 700; margin: 6px 0 0; color: var(--color-text); }
         .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 0; }
         .card { margin-top: 8px; padding: 20px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
+        .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+        .meta-item { display: flex; flex-direction: column; gap: 3px; padding: 8px 14px; background: color-mix(in oklch, var(--color-muted-bg) 40%, var(--color-surface)); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+        .meta-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
+        .meta-value { font-size: 13.5px; font-weight: 600; color: var(--color-text); font-variant-numeric: tabular-nums; }
       `}</style>
     </div>
   );

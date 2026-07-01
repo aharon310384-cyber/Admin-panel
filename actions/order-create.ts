@@ -53,6 +53,7 @@ export async function createOrder(formData: FormData): Promise<void> {
       detailedCheckRequested: !!data.detailedCheckRequested,
       keepOriginalPackaging: !!data.keepOriginalPackaging,
       status: "NEW",
+      authorId: session.user.id,
     },
   });
 
