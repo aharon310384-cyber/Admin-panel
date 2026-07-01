@@ -12,6 +12,7 @@ const productNameSchema = z.object({
   nameEn: z.string().trim().optional(),
   nameCn: z.string().trim().optional(),
   category: z.string().trim().optional(),
+  parentId: z.string().trim().optional(),
   hsCode: z
     .string()
     .trim()
@@ -26,8 +27,18 @@ function productNamePayload(formData: FormData) {
     nameEn: String(formData.get("nameEn") ?? "").trim(),
     nameCn: String(formData.get("nameCn") ?? "").trim(),
     category: String(formData.get("category") ?? "").trim(),
+    parentId: String(formData.get("parentId") ?? "").trim(),
     hsCode: String(formData.get("hsCode") ?? "").trim(),
   };
+}
+
+/** Секция-родитель по id: возвращает саму запись (для авто-category и валидации). */
+async function resolveParentSection(parentId: string | undefined) {
+  if (!parentId) return null;
+  return prisma.productName.findFirst({
+    where: { id: parentId, deletedAt: null },
+    select: { id: true, nameRu: true },
+  });
 }
 
 async function codeExists(code: string, exceptId?: string): Promise<boolean> {
@@ -47,10 +58,12 @@ export async function createProductName(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const { code, nameRu, nameEn, nameCn, category, hsCode } = parsed.data;
+  const { code, nameRu, nameEn, nameCn, category, parentId, hsCode } = parsed.data;
   if (await codeExists(code)) {
     return { error: { code: ["Такой код уже есть в регистре"] } };
   }
+
+  const parent = await resolveParentSection(parentId);
 
   await prisma.productName.create({
     data: {
@@ -58,7 +71,9 @@ export async function createProductName(formData: FormData) {
       nameRu,
       nameEn: nameEn || null,
       nameCn: nameCn || null,
-      category: category || null,
+      // если выбрана секция — category берём из неё, иначе из поля
+      category: parent ? parent.nameRu : category || null,
+      parentId: parent?.id ?? null,
       hsCode: hsCode || null,
     },
   });
@@ -75,10 +90,13 @@ export async function updateProductName(id: string, formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const { code, nameRu, nameEn, nameCn, category, hsCode } = parsed.data;
+  const { code, nameRu, nameEn, nameCn, category, parentId, hsCode } = parsed.data;
   if (await codeExists(code, id)) {
     return { error: { code: ["Такой код уже есть в регистре"] } };
   }
+
+  // защита от зацикливания: секция не может быть родителем самой себя
+  const parent = parentId === id ? null : await resolveParentSection(parentId);
 
   await prisma.productName.update({
     where: { id },
@@ -87,7 +105,8 @@ export async function updateProductName(id: string, formData: FormData) {
       nameRu,
       nameEn: nameEn || null,
       nameCn: nameCn || null,
-      category: category || null,
+      category: parent ? parent.nameRu : category || null,
+      parentId: parent?.id ?? null,
       hsCode: hsCode || null,
       deletedAt: null,
     },

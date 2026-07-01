@@ -18,9 +18,16 @@ export default async function EditProductNamePage({
   const session = await auth();
   if (session?.user.role !== "ADMIN") redirect("/product-names");
 
-  const productName = await prisma.productName.findFirst({
-    where: { id, deletedAt: null },
-  });
+  const [productName, sections] = await Promise.all([
+    prisma.productName.findFirst({
+      where: { id, deletedAt: null },
+    }),
+    prisma.productName.findMany({
+      where: { deletedAt: null, parentId: null },
+      select: { id: true, code: true, nameRu: true },
+      orderBy: { code: "asc" },
+    }),
+  ]);
 
   if (!productName) notFound();
 
@@ -42,7 +49,7 @@ export default async function EditProductNamePage({
         <DeleteProductNameButton productNameId={id} deleteAction={deleteProductName} />
       </div>
 
-      <ProductNameForm action={action} productName={productName} />
+      <ProductNameForm action={action} productName={productName} sections={sections} />
 
       <style>{`
         .page { display: flex; flex-direction: column; gap: 24px; }

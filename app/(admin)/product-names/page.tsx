@@ -213,7 +213,14 @@ export default async function ProductNamesPage({
                   <td className="text-muted">{dash(item.category)}</td>
                   <td>
                     {item.hsCode?.trim() ? (
-                      <span className="code-pill">{item.hsCode}</span>
+                      <>
+                        <span className="code-pill">{item.hsCode}</span>
+                        {item.hsDescription && (
+                          <div className="hs-desc" title="Официальное описание EU CN 2026">
+                            {item.hsDescription}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <span className="hs-missing" title="HS-код не указан">—</span>
                     )}
@@ -262,6 +269,7 @@ export default async function ProductNamesPage({
         .code-pill { display: inline-flex; align-items: center; justify-content: center; padding: 3px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--color-text); background: var(--color-muted-bg); white-space: nowrap; }
         .text-muted { color: var(--color-muted); }
         .hs-missing { color: var(--color-danger); font-weight: 600; }
+        .hs-desc { font-size: 11.5px; color: var(--color-muted); margin-top: 4px; max-width: 240px; line-height: 1.35; }
         .btn-ghost { display: inline-flex; align-items: center; padding: 5px 10px; background: transparent; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--color-accent); text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
         .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
         .row-clickable { cursor: pointer; }

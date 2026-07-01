@@ -112,16 +112,21 @@ model ProductName {
   nameRu    String
   nameEn    String?
   nameCn    String?
-  category  String?   // секция (Одежда/Обувь/Сумки) — Фаза 2
-  hsCode    String?   // ТН ВЭД — Фаза 2
+  category  String?   // секция (текст) — дублирует parent.nameRu для быстрого поиска/показа
+  hsCode        String?   // ТН ВЭД / HS6 — Фаза 2 (таможня ЕС €3/позиция)
+  hsDescription String?   // официальное описание EU CN 2026 для hsCode (сверка с базой ЕС)
+  parentId      String?   // ссылка на секцию (у секций null, у позиций — id секции)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  orders Order[]
+  parent   ProductName?  @relation("ProductNameTree", fields: [parentId], references: [id])
+  children ProductName[] @relation("ProductNameTree")
+  orders   Order[]
 
   @@index([nameRu])
   @@index([category])
+  @@index([parentId])
 }
 
 model ShippingTariff {

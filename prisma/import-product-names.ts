@@ -1,139 +1,93 @@
+// Импорт большого справочника наименований (секции → позиции) в ProductName.
+// Идемпотентно (upsert по code). Секция = PF-СС0000 (parentId null),
+// позиция = PF-СС{seq:0000} (parentId = id секции, category = nameRu секции).
+//
+// Запуск: npm run product-names:import
+// БД берётся из DATABASE_URL (.env). Для прод-базы:
+//   DATABASE_URL="file:../data/postmanfox.db" npm run product-names:import
+
+import { readFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
+import { PRODUCT_NAME_SECTIONS, PRODUCT_NAME_ITEM_COUNT } from "./product-names-data";
 
 const prisma = new PrismaClient();
 
-type ProductNameSeed = {
-  sourceRow: number;
-  code: string;
-  nameRu: string;
-  nameEn: string;
-  nameCn: string;
-};
+// Карта официальных описаний EU Combined Nomenclature 2026 (HS6 -> { desc, cn }).
+// Источник: Finnish Customs «CN 2026 official texts», сверено сгенерированным скриптом.
+type CnEntry = { desc: string; cn: string };
+const CN_DESCRIPTIONS: Record<string, CnEntry> = JSON.parse(
+  readFileSync(new URL("./eu-cn-descriptions.json", import.meta.url), "utf-8")
+);
 
-const PRODUCT_NAMES: ProductNameSeed[] = [
-  {
-    sourceRow: 2,
-    code: "PF-010000",
-    nameRu: "Авто, Мото, Инструмент",
-    nameEn: "Auto, Moto, Tool",
-    nameCn: "汽車、摩托車、工具",
-  },
-  {
-    sourceRow: 3,
-    code: "PF-020000",
-    nameRu: "Бизнес",
-    nameEn: "Business",
-    nameCn: "商業",
-  },
-  {
-    sourceRow: 4,
-    code: "PF-030000",
-    nameRu: "Бытовая техника",
-    nameEn: "Appliances",
-    nameCn: "家電",
-  },
-  {
-    sourceRow: 5,
-    code: "PF-040000",
-    nameRu: "Зоотовары",
-    nameEn: "Pet supplies",
-    nameCn: "寵物用品",
-  },
-  {
-    sourceRow: 6,
-    code: "PF-050000",
-    nameRu: "Красота и здоровье",
-    nameEn: "Health and beauty",
-    nameCn: "健康和美麗",
-  },
-  {
-    sourceRow: 7,
-    code: "PF-060000",
-    nameRu: "Ноутбуки, ПК, оргтехника",
-    nameEn: "Laptops, PCs, office equipment",
-    nameCn: "筆記本電腦、個人電腦、辦公設備",
-  },
-  {
-    sourceRow: 8,
-    code: "PF-070000",
-    nameRu: "Одежда",
-    nameEn: "Clothing",
-    nameCn: "衣服",
-  },
-  {
-    sourceRow: 9,
-    code: "PF-080000",
-    nameRu: "Продукты питания, напитки, БАДы",
-    nameEn: "Food, drinks, dietary supplements",
-    nameCn: "食品、飲料、膳食補充劑",
-  },
-  {
-    sourceRow: 10,
-    code: "PF-090000",
-    nameRu: "Сетевое оборудование",
-    nameEn: "Network hardware",
-    nameCn: "網絡硬件",
-  },
-  {
-    sourceRow: 11,
-    code: "PF-100000",
-    nameRu: "Спорт, увлечения, хобби",
-    nameEn: "Sports, hobbies, hobbies",
-    nameCn: "運動、愛好、愛好",
-  },
-  {
-    sourceRow: 12,
-    code: "PF-110000",
-    nameRu: "Сумки, обувь, аксессуары",
-    nameEn: "Bags, shoes, accessories",
-    nameCn: "包包、鞋子、配飾",
-  },
-  {
-    sourceRow: 13,
-    code: "PF-120000",
-    nameRu: "Товары для детей",
-    nameEn: "Goods for kids",
-    nameCn: "兒童用品",
-  },
-  {
-    sourceRow: 14,
-    code: "PF-130000",
-    nameRu: "Товары для дома",
-    nameEn: "Household products",
-    nameCn: "家庭用品",
-  },
-  {
-    sourceRow: 15,
-    code: "PF-140000",
-    nameRu: "Фото и видеотехника",
-    nameEn: "Photo and video equipment",
-    nameCn: "照片和視頻設備",
-  },
-  {
-    sourceRow: 16,
-    code: "PF-150000",
-    nameRu: "Электроника",
-    nameEn: "Electronics",
-    nameCn: "電子產品",
-  },
-];
+/** Официальное описание EU CN по HS-коду позиции (пробелы игнорируются). */
+function cnDescription(hs: string | undefined): string | null {
+  if (!hs) return null;
+  return CN_DESCRIPTIONS[hs.replace(/\s/g, "")]?.desc ?? null;
+}
+
+/** Код позиции: PF-СС{seq:0000}. Из кода секции берём двузначный префикс секции. */
+function itemCode(sectionCode: string, seq: number): string {
+  const section2 = sectionCode.slice(3, 5); // "PF-07" -> "07"
+  return `PF-${section2}${String(seq).padStart(4, "0")}`;
+}
 
 async function main() {
-  for (const item of PRODUCT_NAMES) {
-    await prisma.productName.upsert({
-      where: { code: item.code },
+  let sections = 0;
+  let items = 0;
+
+  for (const section of PRODUCT_NAME_SECTIONS) {
+    // 1) Секция (верхний уровень).
+    const parent = await prisma.productName.upsert({
+      where: { code: section.code },
       update: {
-        nameRu: item.nameRu,
-        nameEn: item.nameEn,
-        nameCn: item.nameCn,
-        sourceRow: item.sourceRow,
+        nameRu: section.ru,
+        nameEn: section.en,
+        nameCn: section.cn,
+        category: null,
+        parentId: null,
         deletedAt: null,
       },
-      create: item,
+      create: {
+        code: section.code,
+        nameRu: section.ru,
+        nameEn: section.en,
+        nameCn: section.cn,
+      },
     });
+    sections += 1;
+
+    // 2) Позиции секции.
+    for (const item of section.items) {
+      await prisma.productName.upsert({
+        where: { code: itemCode(section.code, item.seq) },
+        update: {
+          nameRu: item.ru,
+          nameEn: item.en,
+          nameCn: item.cn,
+          hsCode: item.hs,
+          hsDescription: cnDescription(item.hs),
+          category: section.ru,
+          parentId: parent.id,
+          deletedAt: null,
+        },
+        create: {
+          code: itemCode(section.code, item.seq),
+          nameRu: item.ru,
+          nameEn: item.en,
+          nameCn: item.cn,
+          hsCode: item.hs,
+          hsDescription: cnDescription(item.hs),
+          category: section.ru,
+          parentId: parent.id,
+        },
+      });
+      items += 1;
+    }
   }
 
-  console.log(`Imported product names: ${PRODUCT_NAMES.length}`);
+  console.log(
+    `Импортировано: секций ${sections}, позиций ${items} (ожидалось ${PRODUCT_NAME_ITEM_COUNT}).`
+  );
 }
 
 main()

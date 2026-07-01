@@ -1,0 +1,990 @@
+{
+"870829": {
+"desc": "Other",
+"cn": "870829"
+},
+"870830": {
+"desc": "Brakes and servo-brakes; parts thereof",
+"cn": "870830"
+},
+"842123": {
+"desc": "Oil or petrol filters for internal combustion engines",
+"cn": "84212300"
+},
+"851110": {
+"desc": "Sparking plugs",
+"cn": "85111000"
+},
+"401110": {
+"desc": "Of a kind used on motor cars (including station wagons and racing cars)",
+"cn": "40111000"
+},
+"850710": {
+"desc": "Lead-acid, of a kind used for starting piston engines",
+"cn": "850710"
+},
+"271019": {
+"desc": "Other",
+"cn": "271019"
+},
+"852721": {
+"desc": "Combined with sound recording or reproducing apparatus",
+"cn": "852721"
+},
+"852190": {
+"desc": "Other",
+"cn": "85219000"
+},
+"570500": {
+"desc": "Other carpets and other textile floor coverings, whether or not made up",
+"cn": "570500"
+},
+"870899": {
+"desc": "Other",
+"cn": "870899"
+},
+"650610": {
+"desc": "Safety headgear",
+"cn": "650610"
+},
+"621133": {
+"desc": "Of man-made fibres",
+"cn": "621133"
+},
+"871410": {
+"desc": "Of motorcycles (including mopeds)",
+"cn": "871410"
+},
+"871200": {
+"desc": "Bicycles and other cycles (including delivery tricycles), not motorised",
+"cn": "871200"
+},
+"871491": {
+"desc": "Frames and forks, and parts thereof",
+"cn": "871491"
+},
+"871160": {
+"desc": "With electric motor for propulsion",
+"cn": "871160"
+},
+"846721": {
+"desc": "Drills of all kinds",
+"cn": "846721"
+},
+"846729": {
+"desc": "Other",
+"cn": "846729"
+},
+"820600": {
+"desc": "Tools of two or more of headings 8202 to 8205, put up in sets for retail sale",
+"cn": "82060000"
+},
+"820411": {
+"desc": "Non-adjustable",
+"cn": "82041100"
+},
+"820540": {
+"desc": "Screwdrivers",
+"cn": "82054000"
+},
+"851531": {
+"desc": "Fully or partly automatic",
+"cn": "85153100"
+},
+"841480": {
+"desc": "Other",
+"cn": "841480"
+},
+"901730": {
+"desc": "Micrometers, callipers and gauges",
+"cn": "90173000"
+},
+"731815": {
+"desc": "Other screws and bolts, whether or not with their nuts or washers",
+"cn": "731815"
+},
+"847050": {
+"desc": "Cash registers",
+"cn": "84705000"
+},
+"830300": {
+"desc": "Armoured or reinforced safes, strongboxes and doors and safe deposit lockers for strong-rooms, cash or deed boxes and the like, of base metal",
+"cn": "830300"
+},
+"847290": {
+"desc": "Other",
+"cn": "847290"
+},
+"847010": {
+"desc": "Electronic calculators capable of operation without an external source of electric power and pocket-size data-recording, reproducing and displaying machines with calculating functions",
+"cn": "84701000"
+},
+"940320": {
+"desc": "Other metal furniture",
+"cn": "940320"
+},
+"871680": {
+"desc": "Other vehicles",
+"cn": "87168000"
+},
+"392690": {
+"desc": "Other",
+"cn": "392690"
+},
+"961100": {
+"desc": "Date, sealing or numbering stamps, and the like (including devices for printing or embossing labels), designed for operating in the hand; hand-operated composing sticks and hand printing sets incorporating such composing sticks",
+"cn": "96110000"
+},
+"847190": {
+"desc": "Other",
+"cn": "84719000"
+},
+"841810": {
+"desc": "Combined refrigerator-freezers, fitted with separate external doors or drawers, or combinations thereof",
+"cn": "841810"
+},
+"841830": {
+"desc": "Freezers of the chest type, not exceeding 800 litres capacity",
+"cn": "841830"
+},
+"845011": {
+"desc": "Fully-automatic machines",
+"cn": "845011"
+},
+"842211": {
+"desc": "Of the household type",
+"cn": "84221100"
+},
+"851660": {
+"desc": "Other ovens; cookers, cooking plates, boiling rings; grillers and roasters",
+"cn": "851660"
+},
+"851650": {
+"desc": "Microwave ovens",
+"cn": "85165000"
+},
+"841460": {
+"desc": "Hoods having a maximum horizontal side not exceeding 120 cm",
+"cn": "84146000"
+},
+"850811": {
+"desc": "Of a power not exceeding 1500 W and having a dust bag or other receptacle capacity not exceeding 20 l",
+"cn": "85081100"
+},
+"851640": {
+"desc": "Electric smoothing irons",
+"cn": "85164000"
+},
+"841510": {
+"desc": "Of a kind designed to be fixed to a window, wall, ceiling or floor, self-contained or ‘split-system’",
+"cn": "841510"
+},
+"841451": {
+"desc": "Table, floor, wall, window, ceiling or roof fans, with a self-contained electric motor of an output not exceeding 125 W",
+"cn": "84145100"
+},
+"851629": {
+"desc": "Other",
+"cn": "851629"
+},
+"851610": {
+"desc": "Electric instantaneous or storage water heaters and immersion heaters",
+"cn": "851610"
+},
+"851679": {
+"desc": "Other",
+"cn": "851679"
+},
+"851671": {
+"desc": "Coffee or tea makers",
+"cn": "85167100"
+},
+"850940": {
+"desc": "Food grinders and mixers; fruit or vegetable juice extractors",
+"cn": "85094000"
+},
+"851672": {
+"desc": "Toasters",
+"cn": "85167200"
+},
+"851631": {
+"desc": "Hairdryers",
+"cn": "85163100"
+},
+"845210": {
+"desc": "Sewing machines of the household type",
+"cn": "845210"
+},
+"850980": {
+"desc": "Other appliances",
+"cn": "85098000"
+},
+"842139": {
+"desc": "Other",
+"cn": "842139"
+},
+"230910": {
+"desc": "Dog or cat food, put up for retail sale",
+"cn": "230910"
+},
+"382499": {
+"desc": "Other",
+"cn": "382499"
+},
+"392490": {
+"desc": "Other",
+"cn": "39249000"
+},
+"420292": {
+"desc": "With outer surface of sheeting of plastics or of textile materials",
+"cn": "420292"
+},
+"732690": {
+"desc": "Other",
+"cn": "732690"
+},
+"702000": {
+"desc": "Other articles of glass",
+"cn": "702000"
+},
+"842121": {
+"desc": "For filtering or purifying water",
+"cn": "84212100"
+},
+"420100": {
+"desc": "Saddlery and harness for any animal (including traces, leads, knee pads, muzzles, saddle-cloths, saddlebags, dog coats and the like), of any material",
+"cn": "42010000"
+},
+"442199": {
+"desc": "Other",
+"cn": "442199"
+},
+"392410": {
+"desc": "Tableware and kitchenware",
+"cn": "39241000"
+},
+"330790": {
+"desc": "Other",
+"cn": "33079000"
+},
+"230990": {
+"desc": "Other",
+"cn": "230990"
+},
+"330410": {
+"desc": "Lip make-up preparations",
+"cn": "33041000"
+},
+"330420": {
+"desc": "Eye make-up preparations",
+"cn": "33042000"
+},
+"330499": {
+"desc": "Other",
+"cn": "33049900"
+},
+"330491": {
+"desc": "Powders, whether or not compressed",
+"cn": "33049100"
+},
+"330510": {
+"desc": "Shampoos",
+"cn": "33051000"
+},
+"330590": {
+"desc": "Other",
+"cn": "33059000"
+},
+"340130": {
+"desc": "Organic surface-active products and preparations for washing the skin, in the form of liquid or cream and put up for retail sale, whether or not containing soap",
+"cn": "34013000"
+},
+"340111": {
+"desc": "For toilet use (including medicated products)",
+"cn": "34011100"
+},
+"330300": {
+"desc": "Perfumes and toilet waters",
+"cn": "330300"
+},
+"330720": {
+"desc": "Personal deodorants and antiperspirants",
+"cn": "33072000"
+},
+"330610": {
+"desc": "Dentifrices",
+"cn": "33061000"
+},
+"330430": {
+"desc": "Manicure or pedicure preparations",
+"cn": "33043000"
+},
+"901910": {
+"desc": "Mechano-therapy appliances; massage apparatus; psychological aptitude-testing apparatus",
+"cn": "901910"
+},
+"901890": {
+"desc": "Other instruments and appliances",
+"cn": "901890"
+},
+"902519": {
+"desc": "Other",
+"cn": "90251900"
+},
+"901819": {
+"desc": "Other",
+"cn": "901819"
+},
+"901920": {
+"desc": "Ozone therapy, oxygen therapy, aerosol therapy, artificial respiration or other therapeutic respiration apparatus",
+"cn": "901920"
+},
+"851030": {
+"desc": "Hair-removing appliances",
+"cn": "85103000"
+},
+"851020": {
+"desc": "Hair clippers",
+"cn": "85102000"
+},
+"300510": {
+"desc": "Adhesive dressings and other articles having an adhesive layer",
+"cn": "30051000"
+},
+"210690": {
+"desc": "Other",
+"cn": "210690"
+},
+"630790": {
+"desc": "Other",
+"cn": "630790"
+},
+"847130": {
+"desc": "Portable automatic data-processing machines, weighing not more than 10 kg, consisting of at least a central processing unit, a keyboard and a display",
+"cn": "84713000"
+},
+"847141": {
+"desc": "Comprising in the same housing at least a central processing unit and an input and output unit, whether or not combined",
+"cn": "84714100"
+},
+"847330": {
+"desc": "Parts and accessories of the machines of heading 8471",
+"cn": "847330"
+},
+"854231": {
+"desc": "Processors and controllers, whether or not combined with memories, converters, logic circuits, amplifiers, clock and timing circuits, or other circuits",
+"cn": "854231"
+},
+"847170": {
+"desc": "Storage units",
+"cn": "847170"
+},
+"850440": {
+"desc": "Static converters",
+"cn": "850440"
+},
+"852852": {
+"desc": "Capable of directly connecting to and designed for use with an automatic data processing machine of heading 8471",
+"cn": "852852"
+},
+"847160": {
+"desc": "Input or output units, whether or not containing storage units in the same housing",
+"cn": "847160"
+},
+"852589": {
+"desc": "Other",
+"cn": "85258900"
+},
+"844332": {
+"desc": "Other, capable of connecting to an automatic data-processing machine or to a network",
+"cn": "844332"
+},
+"844331": {
+"desc": "Machines which perform two or more of the functions of printing, copying or facsimile transmission, capable of connecting to an automatic data-processing machine or to a network",
+"cn": "84433100"
+},
+"844399": {
+"desc": "Other",
+"cn": "844399"
+},
+"852862": {
+"desc": "Capable of directly connecting to and designed for use with an automatic data processing machine of heading 8471",
+"cn": "85286200"
+},
+"852351": {
+"desc": "Solid-state non-volatile storage devices",
+"cn": "852351"
+},
+"847180": {
+"desc": "Other units of automatic data-processing machines",
+"cn": "84718000"
+},
+"853630": {
+"desc": "Other apparatus for protecting electrical circuits",
+"cn": "853630"
+},
+"610910": {
+"desc": "Of cotton",
+"cn": "61091000"
+},
+"620520": {
+"desc": "Of cotton",
+"cn": "62052000"
+},
+"620630": {
+"desc": "Of cotton",
+"cn": "62063000"
+},
+"620342": {
+"desc": "Of cotton",
+"cn": "620342"
+},
+"620343": {
+"desc": "Of synthetic fibres",
+"cn": "620343"
+},
+"620452": {
+"desc": "Of cotton",
+"cn": "62045200"
+},
+"620442": {
+"desc": "Of cotton",
+"cn": "62044200"
+},
+"620140": {
+"desc": "Of man-made fibres",
+"cn": "620140"
+},
+"620333": {
+"desc": "Of synthetic fibres",
+"cn": "620333"
+},
+"611020": {
+"desc": "Of cotton",
+"cn": "611020"
+},
+"611030": {
+"desc": "Of man-made fibres",
+"cn": "611030"
+},
+"611212": {
+"desc": "Of synthetic fibres",
+"cn": "61121200"
+},
+"610821": {
+"desc": "Of cotton",
+"cn": "61082100"
+},
+"611595": {
+"desc": "Of cotton",
+"cn": "61159500"
+},
+"611521": {
+"desc": "Of synthetic fibres, measuring per single yarn less than 67 decitex",
+"cn": "61152100"
+},
+"611241": {
+"desc": "Of synthetic fibres",
+"cn": "611241"
+},
+"610831": {
+"desc": "Of cotton",
+"cn": "61083100"
+},
+"610891": {
+"desc": "Of cotton",
+"cn": "61089100"
+},
+"620130": {
+"desc": "Of cotton",
+"cn": "620130"
+},
+"610990": {
+"desc": "Of other textile materials",
+"cn": "610990"
+},
+"611693": {
+"desc": "Of synthetic fibres",
+"cn": "61169300"
+},
+"650500": {
+"desc": "Hats and other headgear, knitted or crocheted, or made up from lace, felt or other textile fabric, in the piece (but not in strips), whether or not lined or trimmed; hairnets of any material, whether or not lined or trimmed",
+"cn": "650500"
+},
+"611710": {
+"desc": "Shawls, scarves, mufflers, mantillas, veils and the like",
+"cn": "61171000"
+},
+"090230": {
+"desc": "Black tea (fermented) and partly fermented tea, in immediate packings of a content not exceeding 3 kg",
+"cn": "09023000"
+},
+"090121": {
+"desc": "Not decaffeinated",
+"cn": "09012100"
+},
+"190590": {
+"desc": "Other",
+"cn": "190590"
+},
+"190531": {
+"desc": "Sweet biscuits",
+"cn": "190531"
+},
+"180690": {
+"desc": "Other",
+"cn": "180690"
+},
+"170490": {
+"desc": "Other",
+"cn": "170490"
+},
+"081350": {
+"desc": "Mixtures of nuts or dried fruits of this chapter",
+"cn": "081350"
+},
+"200819": {
+"desc": "Other, including mixtures",
+"cn": "200819"
+},
+"040900": {
+"desc": "Natural honey",
+"cn": "04090000"
+},
+"210390": {
+"desc": "Other",
+"cn": "210390"
+},
+"190230": {
+"desc": "Other pasta",
+"cn": "190230"
+},
+"110419": {
+"desc": "Of other cereals",
+"cn": "110419"
+},
+"151219": {
+"desc": "Other",
+"cn": "151219"
+},
+"200989": {
+"desc": "Other",
+"cn": "200989"
+},
+"220210": {
+"desc": "Waters, including mineral waters and aerated waters, containing added sugar or other sweetening matter or flavoured",
+"cn": "22021000"
+},
+"220299": {
+"desc": "Other",
+"cn": "220299"
+},
+"220110": {
+"desc": "Mineral waters and aerated waters",
+"cn": "220110"
+},
+"040221": {
+"desc": "Not containing added sugar or other sweetening matter",
+"cn": "040221"
+},
+"190110": {
+"desc": "Preparations suitable for infants or young children, put up for retail sale",
+"cn": "19011000"
+},
+"160250": {
+"desc": "Of bovine animals",
+"cn": "160250"
+},
+"030559": {
+"desc": "Other",
+"cn": "030559"
+},
+"851762": {
+"desc": "Machines for the reception, conversion and transmission or regeneration of voice, images or other data, including switching and routing apparatus",
+"cn": "85176200"
+},
+"854442": {
+"desc": "Fitted with connectors",
+"cn": "854442"
+},
+"854470": {
+"desc": "Optical fibre cables",
+"cn": "85447000"
+},
+"853669": {
+"desc": "Other",
+"cn": "853669"
+},
+"851771": {
+"desc": "Aerials and aerial reflectors of all kinds; parts suitable for use therewith",
+"cn": "85177100"
+},
+"847150": {
+"desc": "Processing units other than those of subheading 847141 or 847149, whether or not containing in the same housing one or two of the following types of unit: storage units, input units, output units",
+"cn": "84715000"
+},
+"950691": {
+"desc": "Articles and equipment for general physical exercise, gymnastics or athletics",
+"cn": "950691"
+},
+"950662": {
+"desc": "Inflatable",
+"cn": "95066200"
+},
+"950651": {
+"desc": "Lawn-tennis rackets, whether or not strung",
+"cn": "95065100"
+},
+"950659": {
+"desc": "Other",
+"cn": "95065900"
+},
+"950640": {
+"desc": "Articles and equipment for table tennis",
+"cn": "95064000"
+},
+"630622": {
+"desc": "Of synthetic fibres",
+"cn": "63062200"
+},
+"940430": {
+"desc": "Sleeping bags",
+"cn": "94043000"
+},
+"950710": {
+"desc": "Fishing rods",
+"cn": "95071000"
+},
+"950730": {
+"desc": "Fishing reels",
+"cn": "95073000"
+},
+"950670": {
+"desc": "Ice skates and roller skates, including skating boots with skates attached",
+"cn": "950670"
+},
+"950699": {
+"desc": "Other",
+"cn": "950699"
+},
+"900490": {
+"desc": "Other",
+"cn": "900490"
+},
+"950490": {
+"desc": "Other",
+"cn": "950490"
+},
+"950300": {
+"desc": "Tricycles, scooters, pedal cars and similar wheeled toys; dolls' carriages; dolls; other toys; reduced-size (‘scale’) models and similar recreational models, working or not; puzzles of all kinds",
+"cn": "950300"
+},
+"420221": {
+"desc": "With outer surface of leather or of composition leather",
+"cn": "42022100"
+},
+"420291": {
+"desc": "With outer surface of leather or of composition leather",
+"cn": "420291"
+},
+"420212": {
+"desc": "With outer surface of plastics or of textile materials",
+"cn": "420212"
+},
+"420231": {
+"desc": "With outer surface of leather or of composition leather",
+"cn": "42023100"
+},
+"420232": {
+"desc": "With outer surface of sheeting of plastics or of textile materials",
+"cn": "420232"
+},
+"420222": {
+"desc": "With outer surface of sheeting of plastics or of textile materials",
+"cn": "420222"
+},
+"640411": {
+"desc": "Sports footwear; tennis shoes, basketball shoes, gym shoes, training shoes and the like",
+"cn": "64041100"
+},
+"640419": {
+"desc": "Other",
+"cn": "640419"
+},
+"640359": {
+"desc": "Other",
+"cn": "640359"
+},
+"640391": {
+"desc": "Covering the ankle",
+"cn": "640391"
+},
+"640299": {
+"desc": "Other",
+"cn": "640299"
+},
+"640520": {
+"desc": "With uppers of textile materials",
+"cn": "640520"
+},
+"640220": {
+"desc": "Footwear with upper straps or thongs assembled to the sole by means of plugs",
+"cn": "64022000"
+},
+"640192": {
+"desc": "Covering the ankle but not covering the knee",
+"cn": "640192"
+},
+"420330": {
+"desc": "Belts and bandoliers",
+"cn": "42033000"
+},
+"910211": {
+"desc": "With mechanical display only",
+"cn": "91021100"
+},
+"900410": {
+"desc": "Sunglasses",
+"cn": "900410"
+},
+"900311": {
+"desc": "Of plastics",
+"cn": "90031100"
+},
+"711719": {
+"desc": "Other",
+"cn": "71171900"
+},
+"711319": {
+"desc": "Of other precious metal, whether or not plated or clad with precious metal",
+"cn": "71131900"
+},
+"420329": {
+"desc": "Other",
+"cn": "420329"
+},
+"660191": {
+"desc": "Having a telescopic shaft",
+"cn": "66019100"
+},
+"961900": {
+"desc": "Sanitary towels (pads) and tampons, napkins (diapers), napkin liners  and similar articles, of any material",
+"cn": "961900"
+},
+"340119": {
+"desc": "Other",
+"cn": "34011900"
+},
+"401490": {
+"desc": "Other",
+"cn": "40149000"
+},
+"871500": {
+"desc": "Baby carriages and parts thereof",
+"cn": "871500"
+},
+"940180": {
+"desc": "Other seats",
+"cn": "94018000"
+},
+"940360": {
+"desc": "Other wooden furniture",
+"cn": "940360"
+},
+"940389": {
+"desc": "Other",
+"cn": "94038900"
+},
+"611120": {
+"desc": "Of cotton",
+"cn": "611120"
+},
+"640291": {
+"desc": "Covering the ankle",
+"cn": "640291"
+},
+"630260": {
+"desc": "Toilet linen and kitchen linen, of terry towelling or similar terry fabrics, of cotton",
+"cn": "63026000"
+},
+"392290": {
+"desc": "Other",
+"cn": "39229000"
+},
+"630231": {
+"desc": "Of cotton",
+"cn": "63023100"
+},
+"940440": {
+"desc": "Quilts, bedspreads, eiderdowns and duvets (comforters)",
+"cn": "940440"
+},
+"940490": {
+"desc": "Other",
+"cn": "940490"
+},
+"630140": {
+"desc": "Blankets (other than electric blankets) and travelling rugs, of synthetic fibres",
+"cn": "630140"
+},
+"630392": {
+"desc": "Of synthetic fibres",
+"cn": "630392"
+},
+"691200": {
+"desc": "Ceramic tableware, kitchenware, other household articles and toilet articles, other than of porcelain or china",
+"cn": "691200"
+},
+"732393": {
+"desc": "Of stainless steel",
+"cn": "73239300"
+},
+"821110": {
+"desc": "Sets of assorted articles",
+"cn": "82111000"
+},
+"821520": {
+"desc": "Other sets of assorted articles",
+"cn": "821520"
+},
+"701337": {
+"desc": "Other",
+"cn": "701337"
+},
+"961700": {
+"desc": "Vacuum flasks and other vacuum vessels, complete; parts thereof other than glass inners",
+"cn": "96170000"
+},
+"392390": {
+"desc": "Other",
+"cn": "39239000"
+},
+"732399": {
+"desc": "Other",
+"cn": "73239900"
+},
+"960390": {
+"desc": "Other",
+"cn": "960390"
+},
+"340250": {
+"desc": "Preparations put up for retail sale",
+"cn": "340250"
+},
+"340290": {
+"desc": "Other",
+"cn": "340290"
+},
+"330749": {
+"desc": "Other",
+"cn": "33074900"
+},
+"340600": {
+"desc": "Candles, tapers and the like",
+"cn": "34060000"
+},
+"910521": {
+"desc": "Electrically operated",
+"cn": "91052100"
+},
+"700992": {
+"desc": "Framed",
+"cn": "70099200"
+},
+"691390": {
+"desc": "Other",
+"cn": "691390"
+},
+"441490": {
+"desc": "Other",
+"cn": "44149000"
+},
+"670290": {
+"desc": "Of other materials",
+"cn": "67029000"
+},
+"940529": {
+"desc": "Other",
+"cn": "940529"
+},
+"900211": {
+"desc": "For cameras, projectors or photographic enlargers or reducers",
+"cn": "90021100"
+},
+"962000": {
+"desc": "Monopods, bipods, tripods and similar articles",
+"cn": "962000"
+},
+"900661": {
+"desc": "Discharge lamp (electronic) flashlight apparatus",
+"cn": "90066100"
+},
+"940542": {
+"desc": "Other, designed for use solely with light-emitting diode (LED) light sources",
+"cn": "940542"
+},
+"851810": {
+"desc": "Microphones and stands therefor",
+"cn": "85181000"
+},
+"900220": {
+"desc": "Filters",
+"cn": "90022000"
+},
+"370320": {
+"desc": "Other, for colour photography (polychrome)",
+"cn": "37032000"
+},
+"850760": {
+"desc": "Lithium-ion",
+"cn": "85076000"
+},
+"851713": {
+"desc": "Smartphones",
+"cn": "85171300"
+},
+"851714": {
+"desc": "Other telephones for cellular networks or for other wireless networks",
+"cn": "85171400"
+},
+"851830": {
+"desc": "Headphones and earphones, whether or not combined with a microphone, and sets consisting of a microphone and one or more loudspeakers",
+"cn": "85183000"
+},
+"851822": {
+"desc": "Multiple loudspeakers, mounted in the same enclosure",
+"cn": "85182200"
+},
+"852872": {
+"desc": "Other, colour",
+"cn": "852872"
+},
+"852871": {
+"desc": "Not designed to incorporate a video display or screen",
+"cn": "85287100"
+},
+"854370": {
+"desc": "Other machines and apparatus",
+"cn": "854370"
+},
+"950450": {
+"desc": "Video game consoles and machines, other than those of subheading 950430",
+"cn": "95045000"
+},
+"880622": {
+"desc": "With maximum take-off weight more than 250 g but not more than 7 kg",
+"cn": "880622"
+},
+"854340": {
+"desc": "Electronic cigarettes and similar personal electric vaporizing devices",
+"cn": "85434000"
+},
+"853952": {
+"desc": "Light-emitting diode (LED) lamps",
+"cn": "85395200"
+},
+"391990": {
+"desc": "Other",
+"cn": "391990"
+}
+}
