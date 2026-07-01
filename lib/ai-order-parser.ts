@@ -13,6 +13,9 @@ import "server-only";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "moonshotai/kimi-k2";
 
+/** Курс пересчёта юаня в доллар (¥ за $), совпадает с дефолтом в схеме Parcel. */
+const CNY_PER_USD = 7.1;
+
 const DELIVERY_TYPES = ["AUTO", "AIR", "SEA", "EMS"] as const;
 type DeliveryType = (typeof DELIVERY_TYPES)[number];
 
@@ -20,28 +23,46 @@ export type ParsedOrderDraft = {
   productNameText: string;
   quantity: number;
   unitPriceUsd: number | null;
+  unitPriceCny: number | null;
   trackNumber: string | null;
   deliveryType: DeliveryType | null;
+  recipientNameText: string | null;
+  detailedCheckRequested: boolean;
+  keepOriginalPackaging: boolean;
 };
 
-const SYSTEM_PROMPT = `Ты — помощник склада карго-доставки PostmanFox. Тебе дают свободный текст (сообщение клиента, выгрузку из Excel, список ссылок и т.п.), в котором может быть НЕСКОЛЬКО товаров-заказов. Твоя задача — разобрать текст и разложить его ПОЗАКАЗНО: один товар = один заказ.
+function buildSystemPrompt(catalog: string[]): string {
+  const catalogBlock = catalog.length
+    ? `\n\nСПРАВОЧНИК НАИМЕНОВАНИЙ (используй ТОЧНО эти названия, если товар очевидно совпадает по смыслу — верни каноничное название из списка; если товара в списке нет — верни как есть):\n${catalog.map((n) => `- ${n}`).join("\n")}`
+    : "";
+
+  return `Ты — помощник склада карго-доставки PostmanFox. Тебе дают свободный текст (сообщение клиента, выгрузку из Excel, список ссылок и т.п.), в котором может быть НЕСКОЛЬКО товаров-заказов. Твоя задача — разобрать текст и разложить его ПОЗАКАЗНО: один товар = один заказ.
 
 Верни СТРОГО JSON-объект вида:
-{"orders":[{"productNameText":"...","quantity":1,"unitPriceUsd":null,"trackNumber":null,"deliveryType":null}]}
+{"orders":[{"productNameText":"...","quantity":1,"unitPriceUsd":null,"unitPriceCny":null,"trackNumber":null,"deliveryType":null,"recipientNameText":null,"detailedCheckRequested":false,"keepOriginalPackaging":true}]}
 
-Правила:
+Правила по полям:
 - productNameText — наименование товара (строка, обязательно). Если в строке несколько одинаковых товаров — это один заказ с quantity.
-- quantity — целое число, минимум 1. Если не указано — 1.
-- unitPriceUsd — цена за единицу в долларах США (число) или null, если не указана. Если цена в юанях (CNY/¥/RMB) — пересчитай в USD по курсу 7.1 (раздели на 7.1) и округли до 2 знаков.
-- trackNumber — китайский трек-номер посылки (строка) или null. НЕ путай с артикулом/SKU.
-- deliveryType — одно из: "AUTO" (авто), "AIR" (авиа), "SEA" (море), "EMS"; либо null, если не указано.
+- quantity — целое число, минимум 1. Если количество НЕ указано — всегда ставь 1.
+- ВАЛЮТА ЦЕНЫ. Внимательно определи валюту:
+  • Если цена в юанях (¥, CNY, RMB, 元, «юаней», «юань», «ю», «китайских») — запиши число юаней в unitPriceCny И пересчитай в доллары: unitPriceUsd = round(unitPriceCny / ${CNY_PER_USD}, 2).
+  • Если цена в долларах ($, USD, «долларов», «баксов») — запиши в unitPriceUsd, а unitPriceCny = null.
+  • Если валюта не указана — считай, что это доллары: unitPriceUsd = число, unitPriceCny = null.
+  • Если цены нет вовсе — unitPriceUsd = null, unitPriceCny = null.
+  Цена — за ЕДИНИЦУ товара. Если дана общая сумма за партию — раздели на quantity.
+- trackNumber — китайский трек-номер посылки (строка) или null. НЕ путай с артикулом/SKU. У РАЗНЫХ трек-номеров — РАЗНЫЕ заказы.
+- deliveryType — одно из: "AUTO" (авто), "AIR" (авиа), "SEA" (море), "EMS"; либо null, если явно не указано.
+- recipientNameText — имя/ФИО получателя (кому везём), если оно есть в тексте; иначе null.
+- detailedCheckRequested — true, если клиент просит фотоотчёт, фото, детальную проверку, «проверьте», «сфотографируйте», «с фото»; иначе false.
+- keepOriginalPackaging — по умолчанию true. Ставь false ТОЛЬКО если клиент явно просит компактную/лёгкую упаковку, убрать коробку, переупаковать, «без коробки», «выкинуть упаковку».
 - Разные товары — разные элементы массива. Не объединяй разные товары в один заказ.
-- Игнорируй приветствия, подписи, адреса получателя — только товары.
-- Никакого текста вне JSON. Только JSON-объект.`;
+- Игнорируй приветствия и подписи. Адрес получателя игнорируй, но ИМЯ получателя вынеси в recipientNameText.
+- Никакого текста вне JSON. Только JSON-объект.${catalogBlock}`;
+}
 
 type ParseResult =
   | { ok: true; orders: ParsedOrderDraft[] }
-  | { ok: false; error: string };
+  | { ok: false; error: string; detail?: string };
 
 function coerceDraft(raw: unknown): ParsedOrderDraft | null {
   if (!raw || typeof raw !== "object") return null;
@@ -53,11 +74,21 @@ function coerceDraft(raw: unknown): ParsedOrderDraft | null {
   const qtyNum = Number(o.quantity);
   const quantity = Number.isFinite(qtyNum) && qtyNum >= 1 ? Math.floor(qtyNum) : 1;
 
+  const cnyNum = Number(o.unitPriceCny);
+  const unitPriceCny =
+    o.unitPriceCny != null && Number.isFinite(cnyNum) && cnyNum >= 0
+      ? Math.round(cnyNum * 100) / 100
+      : null;
+
   const priceNum = Number(o.unitPriceUsd);
-  const unitPriceUsd =
+  let unitPriceUsd =
     o.unitPriceUsd != null && Number.isFinite(priceNum) && priceNum >= 0
       ? Math.round(priceNum * 100) / 100
       : null;
+  // Страховка: если юани есть, а доллары модель не пересчитала — считаем сами.
+  if (unitPriceUsd == null && unitPriceCny != null) {
+    unitPriceUsd = Math.round((unitPriceCny / CNY_PER_USD) * 100) / 100;
+  }
 
   const track = typeof o.trackNumber === "string" ? o.trackNumber.trim() : "";
   const trackNumber = track || null;
@@ -67,10 +98,29 @@ function coerceDraft(raw: unknown): ParsedOrderDraft | null {
     ? (dt as DeliveryType)
     : null;
 
-  return { productNameText: name, quantity, unitPriceUsd, trackNumber, deliveryType };
+  const recipient = typeof o.recipientNameText === "string" ? o.recipientNameText.trim() : "";
+  const recipientNameText = recipient || null;
+
+  const detailedCheckRequested = o.detailedCheckRequested === true;
+  const keepOriginalPackaging = o.keepOriginalPackaging === false ? false : true;
+
+  return {
+    productNameText: name,
+    quantity,
+    unitPriceUsd,
+    unitPriceCny,
+    trackNumber,
+    deliveryType,
+    recipientNameText,
+    detailedCheckRequested,
+    keepOriginalPackaging,
+  };
 }
 
-export async function parseOrdersFromText(text: string): Promise<ParseResult> {
+export async function parseOrdersFromText(
+  text: string,
+  catalog: string[] = [],
+): Promise<ParseResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return { ok: false, error: "Не задан OPENROUTER_API_KEY в .env" };
@@ -83,6 +133,7 @@ export async function parseOrdersFromText(text: string): Promise<ParseResult> {
 
   const model = process.env.OPENROUTER_ORDER_MODEL?.trim() || DEFAULT_MODEL;
   const referer = process.env.NEXT_PUBLIC_APP_URL || "https://cabinet.postmanfox.com";
+  const systemPrompt = buildSystemPrompt(catalog.slice(0, 400));
 
   let res: Response;
   try {
@@ -99,43 +150,67 @@ export async function parseOrdersFromText(text: string): Promise<ParseResult> {
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: trimmed },
         ],
       }),
     });
-  } catch {
-    return { ok: false, error: "Не удалось связаться с OpenRouter" };
+  } catch (err) {
+    return {
+      ok: false,
+      error: "Не удалось связаться с OpenRouter",
+      detail: `model=${model}\nurl=${OPENROUTER_URL}\n${String(err)}`,
+    };
   }
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    return { ok: false, error: `OpenRouter ${res.status}: ${body.slice(0, 200)}` };
+    return {
+      ok: false,
+      error: `OpenRouter вернул ошибку ${res.status}`,
+      detail: `model=${model}\nHTTP ${res.status} ${res.statusText}\n\n${body}`,
+    };
   }
 
   let payload: unknown;
   try {
     payload = await res.json();
-  } catch {
-    return { ok: false, error: "OpenRouter вернул некорректный ответ" };
+  } catch (err) {
+    return {
+      ok: false,
+      error: "OpenRouter вернул некорректный ответ",
+      detail: `model=${model}\n${String(err)}`,
+    };
   }
 
   const content = (payload as { choices?: { message?: { content?: string } }[] })
     ?.choices?.[0]?.message?.content;
   if (!content || typeof content !== "string") {
-    return { ok: false, error: "Модель вернула пустой ответ" };
+    return {
+      ok: false,
+      error: "Модель вернула пустой ответ",
+      detail: `model=${model}\n\n${JSON.stringify(payload, null, 2).slice(0, 4000)}`,
+    };
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
-  } catch {
-    return { ok: false, error: "Модель вернула не-JSON" };
+  } catch (err) {
+    return {
+      ok: false,
+      error: "Модель вернула не-JSON",
+      detail: `model=${model}\n${String(err)}\n\nОтвет модели:\n${content.slice(0, 4000)}`,
+    };
   }
 
   const ordersRaw = (parsed as { orders?: unknown })?.orders;
   if (!Array.isArray(ordersRaw)) {
-    return { ok: false, error: "В ответе нет массива orders" };
+    return {
+      ok: false,
+      error: "В ответе нет массива orders",
+      detail: `model=${model}\n\nРазобранный JSON:\n${JSON.stringify(parsed, null, 2).slice(0, 4000)}`,
+    };
   }
 
   const orders = ordersRaw
@@ -143,7 +218,11 @@ export async function parseOrdersFromText(text: string): Promise<ParseResult> {
     .filter((d): d is ParsedOrderDraft => d !== null);
 
   if (orders.length === 0) {
-    return { ok: false, error: "Не удалось распознать ни одного заказа" };
+    return {
+      ok: false,
+      error: "Не удалось распознать ни одного заказа",
+      detail: `model=${model}\n\nМодель вернула orders, но ни одна строка не прошла проверку:\n${JSON.stringify(ordersRaw, null, 2).slice(0, 4000)}`,
+    };
   }
 
   return { ok: true, orders };

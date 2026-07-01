@@ -139,10 +139,10 @@ export default function OrderForm({
         </div>
       </fieldset>
 
-      {/* Секция 3 — Количество, стоимость, вес */}
+      {/* Секция 3 — Количество, стоимость */}
       <fieldset className="of-sec">
         <legend className="of-sec-title">Количество и стоимость</legend>
-        <div className="of-grid of-grid--3">
+        <div className="of-grid">
           <label className="of-field">
             <span className="of-label">Количество <i>*</i></span>
             <input name="quantity" type="number" min="1" required value={qty} onChange={(e) => setQty(e.target.value)} className="of-input" />
@@ -151,11 +151,6 @@ export default function OrderForm({
           <label className="of-field">
             <span className="of-label">Цена за ед., $</span>
             <input name="unitPriceUsd" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="of-input" placeholder="0.00" />
-          </label>
-
-          <label className="of-field">
-            <span className="of-label">Вес, кг</span>
-            <input name="actualWeightKg" type="number" min="0" step="0.01" className="of-input" placeholder="0.00" defaultValue={initial?.actualWeightKg != null ? String(initial.actualWeightKg) : ""} />
           </label>
         </div>
 
@@ -190,7 +185,6 @@ export default function OrderForm({
         .of-sec { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px; margin: 0; background: color-mix(in oklch, var(--color-muted-bg) 35%, var(--color-surface)); }
         .of-sec-title { padding: 0 8px; margin-left: -4px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-accent); }
         .of-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-        .of-grid--3 { grid-template-columns: repeat(3, 1fr); }
         .of-field { display: flex; flex-direction: column; gap: 5px; }
         .of-field--wide { grid-column: 1 / -1; }
         .of-label { font-size: 12px; font-weight: 600; color: var(--color-muted); }
@@ -217,7 +211,7 @@ export default function OrderForm({
         .of-submit:hover { background: var(--color-accent-hover); }
 
         @media (max-width: 640px) {
-          .of-grid, .of-grid--3 { grid-template-columns: 1fr; }
+          .of-grid { grid-template-columns: 1fr; }
           .of-declared-val { margin-left: 0; }
         }
       `}</style>

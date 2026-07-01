@@ -268,6 +268,38 @@ export function formatTariffDays(tariff: ShippingTariff): string {
   return `${tariff.minDays}-${tariff.maxDays} дней`;
 }
 
+// ─────────── Виды доставки по стране назначения (для авто-подстановки) ───────────
+
+export type OrderDeliveryType = "AUTO" | "AIR" | "SEA" | "EMS";
+
+const MODE_TO_DELIVERY: Record<TransportMode, OrderDeliveryType | null> = {
+  auto: "AUTO",
+  air: "AIR",
+  sea: "SEA",
+  ems: "EMS",
+  request: null,
+};
+
+/** Все доступные виды доставки для страны (по тарифам). */
+export function deliveryTypesForCountry(country: string | null | undefined): OrderDeliveryType[] {
+  const c = (country ?? "").trim().toLowerCase();
+  if (!c) return [];
+  const set = new Set<OrderDeliveryType>();
+  for (const t of ALL_SHIPPING_TARIFFS) {
+    if (t.destination.toLowerCase().includes(c)) {
+      const d = MODE_TO_DELIVERY[t.mode];
+      if (d) set.add(d);
+    }
+  }
+  return [...set];
+}
+
+/** Единственный вид доставки для страны, если вариант ровно один; иначе null. */
+export function soleDeliveryTypeForCountry(country: string | null | undefined): OrderDeliveryType | null {
+  const types = deliveryTypesForCountry(country);
+  return types.length === 1 ? types[0] : null;
+}
+
 export function formatAdditionalServicePrice(service: AdditionalServiceTariff): string {
   if (service.pricingType === "percent_range") {
     return `${service.minPercent}-${service.maxPercent}%`;

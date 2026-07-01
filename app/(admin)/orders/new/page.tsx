@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import OrderForm from "@/components/orders/order-form";
 import OrderBulkImport from "@/components/orders/order-bulk-import";
 
 export const metadata: Metadata = { title: "Новый заказ" };
@@ -16,7 +15,7 @@ export default async function NewOrderPage() {
     }),
     prisma.recipient.findMany({
       where: { deletedAt: null },
-      select: { id: true, customerId: true, name: true },
+      select: { id: true, customerId: true, name: true, country: true },
       orderBy: { name: "asc" },
     }),
     prisma.productName.findMany({
@@ -33,16 +32,12 @@ export default async function NewOrderPage() {
         К заказам
       </Link>
       <h1 className="page-title">Новый заказ</h1>
-      <p className="page-subtitle">Один заказ = один товар + один трек-номер</p>
+      <p className="page-subtitle">Один заказ = один товар + один трек-номер. Несколько трек-номеров — несколько заказов.</p>
 
-      <div className="card">
-        <OrderForm customers={customers} recipients={recipients} productNames={productNames} />
-      </div>
-
-      <OrderBulkImport customers={customers} recipients={recipients} />
+      <OrderBulkImport customers={customers} recipients={recipients} productNames={productNames} />
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+        .page { display: flex; flex-direction: column; gap: 12px; max-width: 860px; }
         .back { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: 13px; font-weight: 600; color: var(--color-accent); text-decoration: none; }
         .page-title { font-size: 24px; font-weight: 700; margin: 6px 0 0; color: var(--color-text); }
         .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 0; }
