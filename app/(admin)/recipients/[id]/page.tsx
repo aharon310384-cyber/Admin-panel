@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { deleteRecipient } from "@/actions/recipients";
 import DeleteRecipientButton from "./delete-recipient-button";
 
@@ -24,7 +24,10 @@ export default async function RecipientDetailPage({
 
   const recipient = await prisma.recipient.findFirst({
     where: { id, deletedAt: null },
-    include: { customer: { select: { id: true, name: true, code: true } } },
+    include: {
+      customer: { select: { id: true, name: true, code: true } },
+      author: { select: { name: true } },
+    },
   });
 
   if (!recipient) notFound();
@@ -70,7 +73,9 @@ export default async function RecipientDetailPage({
 
         <h2 className="card-title">Данные получателя</h2>
         <dl className="info-list">
-          <div className="info-row"><dt>Имя</dt><dd>{dash(recipient.name)}</dd></div>
+          <div className="info-row"><dt>Фамилия</dt><dd>{dash(recipient.lastName)}</dd></div>
+          <div className="info-row"><dt>Имя</dt><dd>{dash(recipient.firstName)}</dd></div>
+          <div className="info-row"><dt>Отчество</dt><dd>{dash(recipient.middleName)}</dd></div>
           <div className="info-row"><dt>Телефон</dt><dd>{dash(recipient.phone)}</dd></div>
         </dl>
 
@@ -83,9 +88,20 @@ export default async function RecipientDetailPage({
           <div className="info-row"><dt>Улица, дом, квартира</dt><dd>{dash(recipient.address)}</dd></div>
         </dl>
 
+        <hr className="info-divider" />
+
+        <h2 className="card-title">Документы</h2>
+        <dl className="info-list">
+          <div className="info-row"><dt>Серия паспорта</dt><dd>{dash(recipient.passportSeries)}</dd></div>
+          <div className="info-row"><dt>Номер паспорта</dt><dd>{dash(recipient.passportNumber)}</dd></div>
+          <div className="info-row"><dt>Дата окончания</dt><dd>{recipient.passportExpiry ? formatDate(recipient.passportExpiry) : "—"}</dd></div>
+          <div className="info-row"><dt>PINFL</dt><dd className="mono">{dash(recipient.pinfl)}</dd></div>
+        </dl>
+
         <hr className="info-divider info-divider--soft" />
 
         <dl className="info-list">
+          <div className="info-row"><dt>Автор</dt><dd>{dash(recipient.author?.name)}</dd></div>
           <div className="info-row"><dt>Создан</dt><dd>{formatDateTime(recipient.createdAt)}</dd></div>
         </dl>
       </div>
@@ -114,6 +130,7 @@ export default async function RecipientDetailPage({
         .link { color: var(--color-accent); text-decoration: none; }
         .link:hover { text-decoration: underline; }
         .code-pill { display: inline-flex; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); }
+        .mono { font-family: var(--font-mono); }
       `}</style>
     </div>
   );

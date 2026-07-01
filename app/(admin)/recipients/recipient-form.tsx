@@ -24,14 +24,27 @@ type CustomerOption = {
 type RecipientValues = {
   id: string;
   customerId: string;
-  name: string;
+  firstName: string | null;
+  lastName: string | null;
+  middleName: string | null;
   phone: string | null;
   countryCode: string | null;
   country: string | null;
   city: string | null;
   address: string | null;
   postalCode: string | null;
+  passportSeries: string | null;
+  passportNumber: string | null;
+  passportExpiry: Date | null;
+  pinfl: string | null;
 };
+
+function toDateInput(value: Date | null | undefined): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
 
 type Props = {
   customers: CustomerOption[];
@@ -112,16 +125,39 @@ export default function RecipientForm({
             {errors?.customerId && <p className="field-error">{errors.customerId[0]}</p>}
           </div>
 
-          <div className="field field--full">
-            <label className="field-label">Имя получателя <span className="required">*</span></label>
+          <div className="field">
+            <label className="field-label">Фамилия <span className="required">*</span></label>
             <input
               type="text"
-              name="name"
-              defaultValue={recipient?.name ?? ""}
-              className={`field-input ${errors?.name ? "field-input--error" : ""}`}
-              placeholder="Иван Иванов или название из инвойса"
+              name="lastName"
+              defaultValue={recipient?.lastName ?? ""}
+              className={`field-input ${errors?.lastName ? "field-input--error" : ""}`}
+              placeholder="Иванов"
             />
-            {errors?.name && <p className="field-error">{errors.name[0]}</p>}
+            {errors?.lastName && <p className="field-error">{errors.lastName[0]}</p>}
+          </div>
+
+          <div className="field">
+            <label className="field-label">Имя <span className="required">*</span></label>
+            <input
+              type="text"
+              name="firstName"
+              defaultValue={recipient?.firstName ?? ""}
+              className={`field-input ${errors?.firstName ? "field-input--error" : ""}`}
+              placeholder="Иван"
+            />
+            {errors?.firstName && <p className="field-error">{errors.firstName[0]}</p>}
+          </div>
+
+          <div className="field">
+            <label className="field-label">Отчество</label>
+            <input
+              type="text"
+              name="middleName"
+              defaultValue={recipient?.middleName ?? ""}
+              className="field-input"
+              placeholder="Иванович"
+            />
           </div>
 
           <div className="field">
@@ -207,6 +243,58 @@ export default function RecipientForm({
               className="field-input field-textarea"
               rows={3}
             />
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section-title">Документы</h2>
+        <div className="field-grid">
+          <div className="field">
+            <label className="field-label">Серия паспорта</label>
+            <input
+              type="text"
+              name="passportSeries"
+              defaultValue={recipient?.passportSeries ?? ""}
+              className="field-input"
+              placeholder="AA"
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label">Номер паспорта</label>
+            <input
+              type="text"
+              name="passportNumber"
+              defaultValue={recipient?.passportNumber ?? ""}
+              className="field-input"
+              placeholder="1234567"
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label">Дата окончания</label>
+            <input
+              type="date"
+              name="passportExpiry"
+              defaultValue={toDateInput(recipient?.passportExpiry)}
+              className={`field-input ${errors?.passportExpiry ? "field-input--error" : ""}`}
+            />
+            {errors?.passportExpiry && <p className="field-error">{errors.passportExpiry[0]}</p>}
+          </div>
+
+          <div className="field">
+            <label className="field-label">PINFL (14 цифр)</label>
+            <input
+              type="text"
+              name="pinfl"
+              defaultValue={recipient?.pinfl ?? ""}
+              className={`field-input ${errors?.pinfl ? "field-input--error" : ""}`}
+              placeholder="12345678901234"
+              inputMode="numeric"
+              maxLength={14}
+            />
+            {errors?.pinfl && <p className="field-error">{errors.pinfl[0]}</p>}
           </div>
         </div>
       </div>

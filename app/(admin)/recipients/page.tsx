@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import ClickableRow from "@/components/ui/clickable-row";
@@ -24,6 +26,10 @@ export default async function RecipientsPage() {
           <h1 className="page-title">Получатели</h1>
           <p className="page-subtitle">{recipients.length} получателей · привязаны к клиентам</p>
         </div>
+        <Link href="/recipients/new" className="btn-add">
+          <Plus size={16} />
+          Добавить получателя
+        </Link>
       </div>
 
       <div className="card">
@@ -65,6 +71,8 @@ export default async function RecipientsPage() {
       <style>{`
         .page { display: flex; flex-direction: column; gap: 20px; }
         .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .btn-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; background: var(--color-accent); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; color: #fff; text-decoration: none; white-space: nowrap; transition: opacity 0.15s; }
+        .btn-add:hover { opacity: 0.9; }
         .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
         .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
         .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }

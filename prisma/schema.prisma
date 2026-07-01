@@ -85,6 +85,7 @@ model User {
   localDeliveries     LocalDelivery[]
   lostItems           LostItem[]
   ordersCreated       Order[]               @relation("OrderAuthor")
+  recipientsCreated   Recipient[]           @relation("RecipientAuthor")
 }
 
 // ─────────────────────────── СПРАВОЧНИКИ ───────────────────────────
@@ -218,23 +219,35 @@ model Customer {
 model Recipient {
   id          String    @id @default(cuid())
   customerId  String
-  name        String
+  name        String    // отображаемое ФИО (собирается из lastName/firstName/middleName)
+  firstName   String?
+  lastName    String?
+  middleName  String?
   phone       String?
   countryCode String?
   country     String?
   city        String?
   address     String?
   postalCode  String?
+  // документы
+  passportSeries String?
+  passportNumber String?
+  passportExpiry DateTime?
+  pinfl          String?   // ПИНФЛ (14 цифр, Узбекистан)
+  // кто внёс получателя
+  authorId    String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   customer       Customer @relation(fields: [customerId], references: [id])
   countryRef     Country? @relation(fields: [countryCode], references: [code])
+  author         User?    @relation("RecipientAuthor", fields: [authorId], references: [id])
   orders         Order[]
   parcels        Parcel[]
 
   @@index([customerId])
+  @@index([authorId])
 }
 
 // ─────────────────────────── ЗАКАЗ = СТРОКА = ТОВАР ───────────────────────────

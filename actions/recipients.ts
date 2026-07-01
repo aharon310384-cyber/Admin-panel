@@ -8,7 +8,9 @@ import { requireAdmin } from "@/lib/server-helpers";
 
 const recipientSchema = z.object({
   customerId: z.string().min(1, "Выберите клиента-владельца"),
-  name: z.string().min(2, "Имя должно быть не короче 2 символов"),
+  lastName: z.string().min(1, "Укажите фамилию"),
+  firstName: z.string().min(1, "Укажите имя"),
+  middleName: z.string().optional(),
   phone: z.string().optional(),
   countryCode: z
     .string()
@@ -19,33 +21,68 @@ const recipientSchema = z.object({
   city: z.string().optional(),
   address: z.string().optional(),
   postalCode: z.string().optional(),
+  passportSeries: z.string().optional(),
+  passportNumber: z.string().optional(),
+  passportExpiry: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Дата в формате ГГГГ-ММ-ДД")
+    .optional()
+    .or(z.literal("")),
+  pinfl: z
+    .string()
+    .regex(/^\d{14}$/, "PINFL — 14 цифр")
+    .optional()
+    .or(z.literal("")),
 });
+
+function str(v: FormDataEntryValue | null): string | undefined {
+  const s = (v as string | null)?.trim();
+  return s ? s : undefined;
+}
 
 function readForm(formData: FormData) {
   return {
     customerId: (formData.get("customerId") as string | null)?.trim() ?? "",
-    name: formData.get("name"),
-    phone: formData.get("phone") || undefined,
-    countryCode:
-      ((formData.get("countryCode") as string | null)?.trim().toUpperCase() ||
-        undefined) ?? undefined,
-    country: formData.get("country") || undefined,
-    city: formData.get("city") || undefined,
-    address: formData.get("address") || undefined,
-    postalCode: formData.get("postalCode") || undefined,
+    lastName: str(formData.get("lastName")) ?? "",
+    firstName: str(formData.get("firstName")) ?? "",
+    middleName: str(formData.get("middleName")),
+    phone: str(formData.get("phone")),
+    countryCode: str(formData.get("countryCode"))?.toUpperCase(),
+    country: str(formData.get("country")),
+    city: str(formData.get("city")),
+    address: str(formData.get("address")),
+    postalCode: str(formData.get("postalCode")),
+    passportSeries: str(formData.get("passportSeries")),
+    passportNumber: str(formData.get("passportNumber")),
+    passportExpiry: str(formData.get("passportExpiry")),
+    pinfl: str(formData.get("pinfl")),
   };
+}
+
+function composeName(parsed: z.infer<typeof recipientSchema>): string {
+  return [parsed.lastName, parsed.firstName, parsed.middleName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 }
 
 function toData(parsed: z.infer<typeof recipientSchema>) {
   const countryCode = parsed.countryCode ? parsed.countryCode.toUpperCase() : null;
   return {
-    name: parsed.name,
+    name: composeName(parsed),
+    firstName: parsed.firstName ?? null,
+    lastName: parsed.lastName ?? null,
+    middleName: parsed.middleName ?? null,
     phone: parsed.phone ?? null,
     countryCode,
     country: parsed.country ?? null,
     city: parsed.city ?? null,
     address: parsed.address ?? null,
     postalCode: parsed.postalCode ?? null,
+    passportSeries: parsed.passportSeries ?? null,
+    passportNumber: parsed.passportNumber ?? null,
+    passportExpiry: parsed.passportExpiry ? new Date(parsed.passportExpiry) : null,
+    pinfl: parsed.pinfl || null,
   };
 }
 
@@ -57,7 +94,7 @@ function safeReturnTo(value: string | null | undefined, recipientId: string): st
 }
 
 export async function createRecipient(formData: FormData) {
-  await requireAdmin();
+  const session = await requireAdmin();
 
   const parsed = recipientSchema.safeParse(readForm(formData));
   if (!parsed.success) {
@@ -73,7 +110,7 @@ export async function createRecipient(formData: FormData) {
   }
 
   const recipient = await prisma.recipient.create({
-    data: { customerId: owner.id, ...toData(parsed.data) },
+    data: { customerId: owner.id, authorId: session.user.id, ...toData(parsed.data) },
   });
 
   revalidatePath("/recipients");
