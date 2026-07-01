@@ -3,9 +3,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { cleanAddressLine } from "@/lib/customer-label";
-import { deleteCustomer } from "@/actions/customers";
-import DeleteCustomerButton from "./delete-customer-button";
+import { formatDateTime } from "@/lib/utils";
+import { deleteRecipient } from "@/actions/recipients";
+import DeleteRecipientButton from "./delete-recipient-button";
 
 export const metadata: Metadata = { title: "Карточка получателя" };
 
@@ -13,7 +13,7 @@ function dash(value: string | null | undefined): string {
   return value?.trim() || "—";
 }
 
-export default async function CustomerDetailPage({
+export default async function RecipientDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -22,11 +22,12 @@ export default async function CustomerDetailPage({
   const session = await auth();
   const isAdmin = session?.user.role === "ADMIN";
 
-  const customer = await prisma.customer.findFirst({
+  const recipient = await prisma.recipient.findFirst({
     where: { id, deletedAt: null },
+    include: { customer: { select: { id: true, name: true, code: true } } },
   });
 
-  if (!customer) notFound();
+  if (!recipient) notFound();
 
   return (
     <div className="page">
@@ -35,43 +36,57 @@ export default async function CustomerDetailPage({
           <div className="breadcrumb">
             <Link href="/recipients" className="breadcrumb-link">Получатели</Link>
             <span className="breadcrumb-sep">/</span>
-            <span>{customer.name}</span>
+            <span>{recipient.name}</span>
           </div>
-          <h1 className="page-title">{customer.name}</h1>
+          <h1 className="page-title">{recipient.name}</h1>
         </div>
         {isAdmin && (
           <div className="header-actions">
-            <Link href={`/recipients/${customer.id}/edit`} className="btn-secondary">
+            <Link href={`/recipients/${recipient.id}/edit`} className="btn-secondary">
               Редактировать
             </Link>
-            <DeleteCustomerButton customerId={customer.id} deleteAction={deleteCustomer} />
+            <DeleteRecipientButton recipientId={recipient.id} deleteAction={deleteRecipient} />
           </div>
         )}
       </div>
 
       <div className="card">
-        <h2 className="card-title">Контактные данные</h2>
+        <h2 className="card-title">Клиент-владелец</h2>
         <dl className="info-list">
-          <div className="info-row"><dt>КОД_КЛИЕНТА</dt><dd>{dash(customer.clientCode ?? customer.code)}</dd></div>
+          <div className="info-row">
+            <dt>Клиент</dt>
+            <dd>
+              <Link href={`/clients/${recipient.customer.id}`} className="link">
+                {recipient.customer.code ? (
+                  <span className="code-pill">{recipient.customer.code}</span>
+                ) : null}{" "}
+                {recipient.customer.name}
+              </Link>
+            </dd>
+          </div>
         </dl>
 
         <hr className="info-divider" />
 
+        <h2 className="card-title">Данные получателя</h2>
         <dl className="info-list">
-          <div className="info-row"><dt>Фамилия</dt><dd>{dash(customer.lastName)}</dd></div>
-          <div className="info-row"><dt>Имя</dt><dd>{dash(customer.firstName)}</dd></div>
-          <div className="info-row"><dt>Отчество</dt><dd>{dash(customer.middleName)}</dd></div>
-          <div className="info-row"><dt>Email</dt><dd>{customer.email ?? "—"}</dd></div>
-          <div className="info-row"><dt>Telegram</dt><dd>{customer.telegramUsername ?? "—"}</dd></div>
-          <div className="info-row"><dt>Телефон</dt><dd>{customer.phone ?? "—"}</dd></div>
+          <div className="info-row"><dt>Имя</dt><dd>{dash(recipient.name)}</dd></div>
+          <div className="info-row"><dt>Телефон</dt><dd>{dash(recipient.phone)}</dd></div>
         </dl>
 
         <hr className="info-divider info-divider--soft" />
 
         <dl className="info-list info-list--address">
-          <div className="info-row"><dt>Страна</dt><dd>{customer.country ?? "—"}</dd></div>
-          <div className="info-row"><dt>Населённый пункт</dt><dd>{customer.city ?? "—"}</dd></div>
-          <div className="info-row"><dt>Улица, дом, квартира</dt><dd>{dash(cleanAddressLine(customer.address, [customer.country, customer.city]))}</dd></div>
+          <div className="info-row"><dt>Страна</dt><dd>{dash(recipient.country)}{recipient.countryCode ? ` (${recipient.countryCode})` : ""}</dd></div>
+          <div className="info-row"><dt>Населённый пункт</dt><dd>{dash(recipient.city)}</dd></div>
+          <div className="info-row"><dt>Почтовый индекс</dt><dd>{dash(recipient.postalCode)}</dd></div>
+          <div className="info-row"><dt>Улица, дом, квартира</dt><dd>{dash(recipient.address)}</dd></div>
+        </dl>
+
+        <hr className="info-divider info-divider--soft" />
+
+        <dl className="info-list">
+          <div className="info-row"><dt>Создан</dt><dd>{formatDateTime(recipient.createdAt)}</dd></div>
         </dl>
       </div>
 
@@ -96,6 +111,9 @@ export default async function CustomerDetailPage({
         .info-row dd { flex: 1; color: var(--color-text); margin: 0; }
         .info-divider { border: 0; border-top: 1px solid var(--color-border); margin: 16px 0; }
         .info-divider--soft { border-top-style: dashed; border-top-color: color-mix(in srgb, var(--color-border) 60%, transparent); margin: 12px 0; }
+        .link { color: var(--color-accent); text-decoration: none; }
+        .link:hover { text-decoration: underline; }
+        .code-pill { display: inline-flex; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); }
       `}</style>
     </div>
   );

@@ -3,31 +3,38 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { createCustomer } from "@/actions/customers";
-import NewCustomerForm from "./new-customer-form";
+import { createRecipient } from "@/actions/recipients";
+import RecipientForm from "../recipient-form";
 
 export const metadata: Metadata = { title: "Новый получатель" };
 
-export default async function NewCustomerPage({
+export default async function NewRecipientPage({
   searchParams,
 }: {
-  searchParams: Promise<{ returnTo?: string }>;
+  searchParams: Promise<{ returnTo?: string; customerId?: string }>;
 }) {
   const session = await auth();
   if (session?.user.role !== "ADMIN") redirect("/recipients");
 
   const { returnTo } = await searchParams;
 
-  const countries = await prisma.country.findMany({
-    select: {
-      code: true,
-      nameRu: true,
-      nameEn: true,
-      postalCodeRegex: true,
-      postalCodeExample: true,
-    },
-    orderBy: { nameRu: "asc" },
-  });
+  const [customers, countries] = await Promise.all([
+    prisma.customer.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.country.findMany({
+      select: {
+        code: true,
+        nameRu: true,
+        nameEn: true,
+        postalCodeRegex: true,
+        postalCodeExample: true,
+      },
+      orderBy: { nameRu: "asc" },
+    }),
+  ]);
 
   return (
     <div className="page">
@@ -44,7 +51,12 @@ export default async function NewCustomerPage({
         </div>
       </div>
 
-      <NewCustomerForm countries={countries} action={createCustomer} returnTo={returnTo} />
+      <RecipientForm
+        customers={customers}
+        countries={countries}
+        action={createRecipient}
+        returnTo={returnTo}
+      />
 
       <style>{`
         .page { display: flex; flex-direction: column; gap: 24px; }

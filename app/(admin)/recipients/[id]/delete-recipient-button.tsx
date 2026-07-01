@@ -5,19 +5,19 @@ import { toast } from "sonner";
 import { Trash2, Loader2 } from "lucide-react";
 
 type Props = {
-  customerId: string;
+  recipientId: string;
   deleteAction: (id: string) => Promise<void>;
 };
 
-export default function DeleteCustomerButton({ customerId, deleteAction }: Props) {
+export default function DeleteRecipientButton({ recipientId, deleteAction }: Props) {
   const [confirm, setConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
     setLoading(true);
     try {
-      await deleteAction(customerId);
-      toast.success("Получатель удален");
+      await deleteAction(recipientId);
+      toast.success("Получатель удалён");
     } catch {
       toast.error("Ошибка при удалении");
       setLoading(false);

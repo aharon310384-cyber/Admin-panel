@@ -3,12 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { updateCustomer } from "@/actions/customers";
-import CustomerEditForm from "./customer-edit-form";
+import { updateRecipient } from "@/actions/recipients";
+import RecipientForm from "../../recipient-form";
 
 export const metadata: Metadata = { title: "Редактирование получателя" };
 
-export default async function EditCustomerPage({
+export default async function EditRecipientPage({
   params,
   searchParams,
 }: {
@@ -20,8 +20,13 @@ export default async function EditCustomerPage({
   const session = await auth();
   if (session?.user.role !== "ADMIN") redirect(`/recipients/${id}`);
 
-  const [customer, countries] = await Promise.all([
-    prisma.customer.findFirst({ where: { id, deletedAt: null } }),
+  const [recipient, customers, countries] = await Promise.all([
+    prisma.recipient.findFirst({ where: { id, deletedAt: null } }),
+    prisma.customer.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: "asc" },
+    }),
     prisma.country.findMany({
       select: {
         code: true,
@@ -34,9 +39,9 @@ export default async function EditCustomerPage({
     }),
   ]);
 
-  if (!customer) notFound();
+  if (!recipient) notFound();
 
-  const action = updateCustomer.bind(null, id);
+  const action = updateRecipient.bind(null, id);
 
   return (
     <div className="page">
@@ -45,7 +50,7 @@ export default async function EditCustomerPage({
           <div className="breadcrumb">
             <Link href="/recipients" className="breadcrumb-link">Получатели</Link>
             <span className="breadcrumb-sep">/</span>
-            <Link href={`/recipients/${id}`} className="breadcrumb-link">{customer.name}</Link>
+            <Link href={`/recipients/${id}`} className="breadcrumb-link">{recipient.name}</Link>
             <span className="breadcrumb-sep">/</span>
             <span>Редактирование</span>
           </div>
@@ -53,8 +58,9 @@ export default async function EditCustomerPage({
         </div>
       </div>
 
-      <CustomerEditForm
-        customer={customer}
+      <RecipientForm
+        recipient={recipient}
+        customers={customers}
         countries={countries}
         action={action}
         returnTo={returnTo}

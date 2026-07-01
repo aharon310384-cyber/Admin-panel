@@ -1,0 +1,123 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/server-helpers";
+
+const recipientSchema = z.object({
+  customerId: z.string().min(1, "Выберите клиента-владельца"),
+  name: z.string().min(2, "Имя должно быть не короче 2 символов"),
+  phone: z.string().optional(),
+  countryCode: z
+    .string()
+    .regex(/^[A-Za-z]{2}$/, "Код страны — 2 буквы")
+    .optional()
+    .or(z.literal("")),
+  country: z.string().optional(),
+  city: z.string().optional(),
+  address: z.string().optional(),
+  postalCode: z.string().optional(),
+});
+
+function readForm(formData: FormData) {
+  return {
+    customerId: (formData.get("customerId") as string | null)?.trim() ?? "",
+    name: formData.get("name"),
+    phone: formData.get("phone") || undefined,
+    countryCode:
+      ((formData.get("countryCode") as string | null)?.trim().toUpperCase() ||
+        undefined) ?? undefined,
+    country: formData.get("country") || undefined,
+    city: formData.get("city") || undefined,
+    address: formData.get("address") || undefined,
+    postalCode: formData.get("postalCode") || undefined,
+  };
+}
+
+function toData(parsed: z.infer<typeof recipientSchema>) {
+  const countryCode = parsed.countryCode ? parsed.countryCode.toUpperCase() : null;
+  return {
+    name: parsed.name,
+    phone: parsed.phone ?? null,
+    countryCode,
+    country: parsed.country ?? null,
+    city: parsed.city ?? null,
+    address: parsed.address ?? null,
+    postalCode: parsed.postalCode ?? null,
+  };
+}
+
+function safeReturnTo(value: string | null | undefined, recipientId: string): string | null {
+  if (!value) return null;
+  if (!value.startsWith("/")) return null;
+  if (value.includes("//") || value.includes("\\")) return null;
+  return value.replace("{recipientId}", recipientId).replace("{id}", recipientId);
+}
+
+export async function createRecipient(formData: FormData) {
+  await requireAdmin();
+
+  const parsed = recipientSchema.safeParse(readForm(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors };
+  }
+
+  const owner = await prisma.customer.findFirst({
+    where: { id: parsed.data.customerId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!owner) {
+    return { error: { customerId: ["Клиент-владелец не найден"] } };
+  }
+
+  const recipient = await prisma.recipient.create({
+    data: { customerId: owner.id, ...toData(parsed.data) },
+  });
+
+  revalidatePath("/recipients");
+
+  const returnTo = (formData.get("returnTo") as string | null)?.trim();
+  redirect(safeReturnTo(returnTo, recipient.id) ?? `/recipients/${recipient.id}`);
+}
+
+export async function updateRecipient(id: string, formData: FormData) {
+  await requireAdmin();
+
+  const parsed = recipientSchema.safeParse(readForm(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors };
+  }
+
+  const owner = await prisma.customer.findFirst({
+    where: { id: parsed.data.customerId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!owner) {
+    return { error: { customerId: ["Клиент-владелец не найден"] } };
+  }
+
+  await prisma.recipient.update({
+    where: { id },
+    data: { customerId: owner.id, ...toData(parsed.data) },
+  });
+
+  revalidatePath(`/recipients/${id}`);
+  revalidatePath("/recipients");
+
+  const returnTo = (formData.get("returnTo") as string | null)?.trim();
+  redirect(safeReturnTo(returnTo, id) ?? `/recipients/${id}`);
+}
+
+export async function deleteRecipient(id: string) {
+  await requireAdmin();
+
+  await prisma.recipient.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+
+  revalidatePath("/recipients");
+  redirect("/recipients");
+}

@@ -3,7 +3,6 @@
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import type { Customer } from "@prisma/client";
 
 type FormState = { error?: Record<string, string[]> };
 type ActionFn = (formData: FormData) => Promise<FormState | void>;
@@ -16,38 +15,52 @@ type CountryOption = {
   postalCodeExample: string | null;
 };
 
+type CustomerOption = {
+  id: string;
+  name: string;
+  code: string | null;
+};
+
+type RecipientValues = {
+  id: string;
+  customerId: string;
+  name: string;
+  phone: string | null;
+  countryCode: string | null;
+  country: string | null;
+  city: string | null;
+  address: string | null;
+  postalCode: string | null;
+};
+
 type Props = {
-  customer: Customer;
+  customers: CustomerOption[];
   countries: CountryOption[];
   action: ActionFn;
+  recipient?: RecipientValues;
   returnTo?: string;
 };
 
-function findCountry(
-  countries: CountryOption[],
-  value: string
-): CountryOption | null {
+function findCountry(countries: CountryOption[], value: string): CountryOption | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
-
   if (/^[A-Za-z]{2}$/.test(trimmed)) {
     const code = trimmed.toUpperCase();
     return countries.find((c) => c.code === code) ?? null;
   }
-
   const lower = trimmed.toLowerCase();
   return (
     countries.find(
-      (c) =>
-        c.nameRu.toLowerCase() === lower || c.nameEn.toLowerCase() === lower
+      (c) => c.nameRu.toLowerCase() === lower || c.nameEn.toLowerCase() === lower
     ) ?? null
   );
 }
 
-export default function CustomerEditForm({
-  customer,
+export default function RecipientForm({
+  customers,
   countries,
   action,
+  recipient,
   returnTo,
 }: Props) {
   const [state, formAction, isPending] = useActionState<FormState, FormData>(
@@ -55,87 +68,60 @@ export default function CustomerEditForm({
     {}
   );
 
+  const [country, setCountry] = useState(recipient?.country ?? "");
+  const [countryCode, setCountryCode] = useState(recipient?.countryCode ?? "");
+
+  const selectedCountry = useMemo(
+    () => findCountry(countries, country),
+    [countries, country]
+  );
+
+  function handleCountryChange(value: string) {
+    setCountry(value);
+    const match = findCountry(countries, value);
+    if (match) setCountryCode(match.code);
+  }
+
+  const postalExample = selectedCountry?.postalCodeExample ?? "";
+  const postalRegex = selectedCountry?.postalCodeRegex ?? null;
   const errors = state?.error;
+  const isEdit = Boolean(recipient);
+  const cancelHref = returnTo ?? (recipient ? `/recipients/${recipient.id}` : "/recipients");
 
   return (
     <form action={formAction} className="customer-form">
       {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
+
       <div className="card">
-        <h2 className="section-title">Контактные данные</h2>
+        <h2 className="section-title">Данные получателя</h2>
         <div className="field-grid">
-          <div className="field">
-            <label className="field-label">Имя <span className="required">*</span></label>
+          <div className="field field--full">
+            <label className="field-label">Клиент-владелец <span className="required">*</span></label>
+            <select
+              name="customerId"
+              defaultValue={recipient?.customerId ?? ""}
+              className={`field-input ${errors?.customerId ? "field-input--error" : ""}`}
+            >
+              <option value="" disabled>Выберите клиента…</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code ? `${c.code} — ${c.name}` : c.name}
+                </option>
+              ))}
+            </select>
+            {errors?.customerId && <p className="field-error">{errors.customerId[0]}</p>}
+          </div>
+
+          <div className="field field--full">
+            <label className="field-label">Имя получателя <span className="required">*</span></label>
             <input
               type="text"
               name="name"
-              defaultValue={customer.name}
+              defaultValue={recipient?.name ?? ""}
               className={`field-input ${errors?.name ? "field-input--error" : ""}`}
+              placeholder="Иван Иванов или название из инвойса"
             />
             {errors?.name && <p className="field-error">{errors.name[0]}</p>}
-          </div>
-
-          <div className="field">
-            <label className="field-label">КОД_КЛИЕНТА</label>
-            <input
-              type="text"
-              name="clientCode"
-              defaultValue={customer.clientCode ?? ""}
-              className="field-input"
-              placeholder="SM"
-            />
-          </div>
-
-          <div className="field">
-            <label className="field-label">Фамилия</label>
-            <input
-              type="text"
-              name="lastName"
-              defaultValue={customer.lastName ?? ""}
-              className="field-input"
-            />
-          </div>
-
-          <div className="field">
-            <label className="field-label">Имя</label>
-            <input
-              type="text"
-              name="firstName"
-              defaultValue={customer.firstName ?? ""}
-              className="field-input"
-            />
-          </div>
-
-          <div className="field">
-            <label className="field-label">Отчество</label>
-            <input
-              type="text"
-              name="middleName"
-              defaultValue={customer.middleName ?? ""}
-              className="field-input"
-            />
-          </div>
-
-          <div className="field">
-            <label className="field-label">Email</label>
-            <input
-              type="email"
-              name="email"
-              defaultValue={customer.email ?? ""}
-              className={`field-input ${errors?.email ? "field-input--error" : ""}`}
-            />
-            {errors?.email && <p className="field-error">{errors.email[0]}</p>}
-          </div>
-
-          <div className="field">
-            <label className="field-label">Telegram / WeChat</label>
-            <input
-              type="text"
-              name="username"
-              defaultValue={customer.telegramUsername ?? ""}
-              className="field-input"
-              placeholder="@username"
-              disabled
-            />
           </div>
 
           <div className="field">
@@ -143,7 +129,7 @@ export default function CustomerEditForm({
             <input
               type="tel"
               name="phone"
-              defaultValue={customer.phone ?? ""}
+              defaultValue={recipient?.phone ?? ""}
               className="field-input"
               placeholder="+7 (999) 000-00-00"
             />
@@ -154,7 +140,8 @@ export default function CustomerEditForm({
             <input
               type="text"
               name="country"
-              defaultValue={customer.country ?? ""}
+              value={country}
+              onChange={(e) => handleCountryChange(e.target.value)}
               list="country-options"
               className="field-input"
               placeholder="Spain"
@@ -170,21 +157,53 @@ export default function CustomerEditForm({
           </div>
 
           <div className="field">
-            <label className="field-label">Населенный пункт</label>
+            <label className="field-label">Код страны</label>
+            <input
+              type="text"
+              name="countryCode"
+              value={countryCode}
+              onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
+              className={`field-input ${errors?.countryCode ? "field-input--error" : ""}`}
+              placeholder="ES"
+              maxLength={2}
+              style={{ textTransform: "uppercase" }}
+              autoComplete="off"
+            />
+            {errors?.countryCode && <p className="field-error">{errors.countryCode[0]}</p>}
+          </div>
+
+          <div className="field">
+            <label className="field-label">Населённый пункт</label>
             <input
               type="text"
               name="city"
-              defaultValue={customer.city ?? ""}
+              defaultValue={recipient?.city ?? ""}
               className="field-input"
-              placeholder="Варшава"
+              placeholder="Мадрид"
             />
+          </div>
+
+          <div className="field">
+            <label className="field-label">
+              Почтовый индекс
+              {postalExample && <span className="field-hint"> (пример: {postalExample})</span>}
+            </label>
+            <input
+              type="text"
+              name="postalCode"
+              defaultValue={recipient?.postalCode ?? ""}
+              className={`field-input ${errors?.postalCode ? "field-input--error" : ""}`}
+              placeholder={postalExample || "100037"}
+              pattern={postalRegex ?? undefined}
+            />
+            {errors?.postalCode && <p className="field-error">{errors.postalCode[0]}</p>}
           </div>
 
           <div className="field field--full">
             <label className="field-label">Адрес</label>
             <textarea
               name="address"
-              defaultValue={customer.address ?? ""}
+              defaultValue={recipient?.address ?? ""}
               className="field-input field-textarea"
               rows={3}
             />
@@ -193,19 +212,20 @@ export default function CustomerEditForm({
       </div>
 
       <div className="form-actions">
-        <Link
-          href={returnTo ?? `/recipients/${customer.id}`}
-          className="btn-secondary"
-        >
+        <Link href={cancelHref} className="btn-secondary">
           Отмена
         </Link>
         <button type="submit" disabled={isPending} className="btn-primary">
           {isPending ? (
             <>
               <Loader2 size={15} className="spin" />
-              Сохранение...
+              {isEdit ? "Сохранение…" : "Создание…"}
             </>
-          ) : "Сохранить изменения"}
+          ) : isEdit ? (
+            "Сохранить изменения"
+          ) : (
+            "Создать получателя"
+          )}
         </button>
       </div>
 
