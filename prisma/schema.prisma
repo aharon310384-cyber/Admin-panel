@@ -162,7 +162,7 @@ model FinanceSettings {
   id                    String   @id @default(cuid())
   exchangeRateCnyPerUsd Decimal  @default(7.1)
   // Таможенная пошлина ЕС (Council Reg. (EU) 2026/382, €3/позиция до 01.07.2028)
-  exchangeRateCnyPerEur Decimal  @default(8)     // курс EUR в юанях (¥ за €) — для пересчёта пошлины ЕС
+  exchangeRateCnyPerEur Decimal  @default(7.8)   // курс EUR в юанях (¥ за €) — для пересчёта пошлины ЕС
   euDutyEnabled         Boolean  @default(true)  // мастер-выключатель меры
   euDutyPassToClient    Boolean  @default(true)  // включать ли пошлину в счёт клиента
   updatedAt             DateTime @updatedAt

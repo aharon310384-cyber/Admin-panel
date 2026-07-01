@@ -38,7 +38,7 @@ async function calcDutyFor(
     enabled: settings?.euDutyEnabled ?? true,
     destinationIsEu,
     declaredValueUsd,
-    exchangeRateCnyPerEur: Number(settings?.exchangeRateCnyPerEur ?? 8),
+    exchangeRateCnyPerEur: Number(settings?.exchangeRateCnyPerEur ?? 7.8),
     exchangeRateCnyPerUsd: Number(settings?.exchangeRateCnyPerUsd ?? 7.1),
     orders,
   });
