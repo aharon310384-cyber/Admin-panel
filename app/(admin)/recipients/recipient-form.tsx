@@ -11,6 +11,7 @@ type CountryOption = {
   code: string;
   nameRu: string;
   nameEn: string;
+  phoneCode: string | null;
   postalCodeRegex: string | null;
   postalCodeExample: string | null;
 };
@@ -28,6 +29,7 @@ type RecipientValues = {
   lastName: string | null;
   middleName: string | null;
   phone: string | null;
+  phoneDialCode: string | null;
   countryCode: string | null;
   country: string | null;
   city: string | null;
@@ -83,6 +85,7 @@ export default function RecipientForm({
 
   const [country, setCountry] = useState(recipient?.country ?? "");
   const [countryCode, setCountryCode] = useState(recipient?.countryCode ?? "");
+  const [phoneDialCode, setPhoneDialCode] = useState(recipient?.phoneDialCode ?? "");
 
   const selectedCountry = useMemo(
     () => findCountry(countries, country),
@@ -92,7 +95,10 @@ export default function RecipientForm({
   function handleCountryChange(value: string) {
     setCountry(value);
     const match = findCountry(countries, value);
-    if (match) setCountryCode(match.code);
+    if (match) {
+      setCountryCode(match.code);
+      setPhoneDialCode(match.phoneCode ?? "");
+    }
   }
 
   const postalExample = selectedCountry?.postalCodeExample ?? "";
@@ -161,17 +167,6 @@ export default function RecipientForm({
           </div>
 
           <div className="field">
-            <label className="field-label">Телефон</label>
-            <input
-              type="tel"
-              name="phone"
-              defaultValue={recipient?.phone ?? ""}
-              className="field-input"
-              placeholder="+7 (999) 000-00-00"
-            />
-          </div>
-
-          <div className="field">
             <label className="field-label">Страна</label>
             <input
               type="text"
@@ -198,10 +193,10 @@ export default function RecipientForm({
               type="text"
               name="countryCode"
               value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
-              className={`field-input ${errors?.countryCode ? "field-input--error" : ""}`}
+              readOnly
+              className={`field-input field-input--readonly ${errors?.countryCode ? "field-input--error" : ""}`}
               placeholder="ES"
-              maxLength={2}
+              title="Подтягивается из выбранной страны"
               style={{ textTransform: "uppercase" }}
               autoComplete="off"
             />
@@ -243,6 +238,30 @@ export default function RecipientForm({
               className="field-input field-textarea"
               rows={3}
             />
+          </div>
+
+          <div className="field field--full">
+            <label className="field-label">Телефон</label>
+            <div className="phone-group">
+              <input
+                type="text"
+                name="phoneDialCode"
+                value={phoneDialCode}
+                readOnly
+                className="field-input field-input--dial"
+                placeholder="+—"
+                title="Подтягивается из выбранной страны"
+                aria-label="Телефонный код страны"
+              />
+              <input
+                type="tel"
+                name="phone"
+                defaultValue={recipient?.phone ?? ""}
+                className="field-input phone-number"
+                placeholder="999 000-00-00"
+                aria-label="Номер телефона"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -330,6 +349,10 @@ export default function RecipientForm({
         .field-input { padding: 10px 14px; background: oklch(99% 0.008 65 / 0.6); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 14px; color: var(--color-text); font-family: var(--font-sans); outline: none; transition: border-color 0.15s; }
         .field-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px oklch(52% 0.14 42 / 0.1); }
         .field-textarea { resize: vertical; min-height: 84px; }
+        .phone-group { display: flex; gap: 8px; align-items: stretch; }
+        .field-input--dial { width: 84px; flex: 0 0 84px; text-align: center; background: var(--color-muted-bg); color: var(--color-muted); cursor: default; }
+        .field-input--readonly { background: var(--color-muted-bg); color: var(--color-muted); cursor: default; }
+        .phone-number { flex: 1 1 auto; min-width: 0; }
         .field-input--error { border-color: var(--color-danger); }
         .field-error { font-size: 12px; color: var(--color-danger); }
         .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }

@@ -12,6 +12,11 @@ const recipientSchema = z.object({
   firstName: z.string().min(1, "Укажите имя"),
   middleName: z.string().optional(),
   phone: z.string().optional(),
+  phoneDialCode: z
+    .string()
+    .regex(/^\+\d{1,4}$/, "Телефонный код в формате +7")
+    .optional()
+    .or(z.literal("")),
   countryCode: z
     .string()
     .regex(/^[A-Za-z]{2}$/, "Код страны — 2 буквы")
@@ -47,6 +52,7 @@ function readForm(formData: FormData) {
     firstName: str(formData.get("firstName")) ?? "",
     middleName: str(formData.get("middleName")),
     phone: str(formData.get("phone")),
+    phoneDialCode: str(formData.get("phoneDialCode")),
     countryCode: str(formData.get("countryCode"))?.toUpperCase(),
     country: str(formData.get("country")),
     city: str(formData.get("city")),
@@ -74,6 +80,7 @@ function toData(parsed: z.infer<typeof recipientSchema>) {
     lastName: parsed.lastName ?? null,
     middleName: parsed.middleName ?? null,
     phone: parsed.phone ?? null,
+    phoneDialCode: parsed.phoneDialCode || null,
     countryCode,
     country: parsed.country ?? null,
     city: parsed.city ?? null,

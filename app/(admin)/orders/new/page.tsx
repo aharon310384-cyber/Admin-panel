@@ -7,7 +7,7 @@ import OrderBulkImport from "@/components/orders/order-bulk-import";
 export const metadata: Metadata = { title: "Новый заказ" };
 
 export default async function NewOrderPage() {
-  const [customers, recipients, productNames] = await Promise.all([
+  const [customers, recipients, productNames, countries] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       select: { id: true, code: true, name: true },
@@ -23,6 +23,10 @@ export default async function NewOrderPage() {
       select: { id: true, code: true, nameRu: true, category: true, hsCode: true },
       orderBy: { nameRu: "asc" },
     }),
+    prisma.country.findMany({
+      select: { code: true, nameRu: true },
+      orderBy: { nameRu: "asc" },
+    }),
   ]);
 
   return (
@@ -34,7 +38,7 @@ export default async function NewOrderPage() {
       <h1 className="page-title">Новый заказ</h1>
       <p className="page-subtitle">Один заказ = один товар + один трек-номер. Несколько трек-номеров — несколько заказов.</p>
 
-      <OrderBulkImport customers={customers} recipients={recipients} productNames={productNames} />
+      <OrderBulkImport customers={customers} recipients={recipients} productNames={productNames} countries={countries} />
 
       <style>{`
         .page { display: flex; flex-direction: column; gap: 12px; max-width: 860px; }

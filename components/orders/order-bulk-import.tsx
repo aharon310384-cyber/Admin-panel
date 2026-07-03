@@ -10,6 +10,7 @@ import { soleDeliveryTypeForCountry } from "@/lib/postmanfox-tariffs";
 type CustomerOpt = { id: string; code: string | null; name: string };
 type RecipientOpt = { id: string; customerId: string; name: string; country: string | null };
 type ProductNameOpt = { id: string; code: string; nameRu: string; category: string | null; hsCode: string | null };
+type CountryOpt = { code: string; nameRu: string };
 
 type DeliveryValue = "" | "AUTO" | "AIR" | "SEA" | "EMS";
 
@@ -49,10 +50,12 @@ export default function OrderBulkImport({
   customers,
   recipients,
   productNames = [],
+  countries = [],
 }: {
   customers: CustomerOpt[];
   recipients: RecipientOpt[];
   productNames?: ProductNameOpt[];
+  countries?: CountryOpt[];
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -321,7 +324,12 @@ export default function OrderBulkImport({
               </label>
               <label className="bi-field">
                 <span className="bi-label">Страна</span>
-                <input className="bi-input" value={pendingRecipient.country} onChange={(e) => setPendingRecipient({ ...pendingRecipient, country: e.target.value })} placeholder="напр. Казахстан" />
+                <select className="bi-input" value={pendingRecipient.country} onChange={(e) => setPendingRecipient({ ...pendingRecipient, country: e.target.value })}>
+                  <option value="">— выберите —</option>
+                  {countries.map((c) => (
+                    <option key={c.code} value={c.nameRu}>{c.nameRu}</option>
+                  ))}
+                </select>
               </label>
             </div>
             <div className="bi-newrec-actions">

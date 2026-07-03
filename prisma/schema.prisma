@@ -94,6 +94,7 @@ model Country {
   code              String   @id // ISO
   nameRu            String
   nameEn            String
+  phoneCode         String?  // международный телефонный код (напр. "+34")
   postalCodeRegex   String?
   postalCodeExample String?
   isEu              Boolean  @default(false) // член ЕС — для таможенной пошлины ЕС €3/позиция
@@ -224,6 +225,7 @@ model Recipient {
   lastName    String?
   middleName  String?
   phone       String?
+  phoneDialCode String? // телефонный код страны (напр. "+34"), подтягивается из справочника
   countryCode String?
   country     String?
   city        String?

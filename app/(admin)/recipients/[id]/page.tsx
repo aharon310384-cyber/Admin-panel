@@ -76,7 +76,6 @@ export default async function RecipientDetailPage({
           <div className="info-row"><dt>Фамилия</dt><dd>{dash(recipient.lastName)}</dd></div>
           <div className="info-row"><dt>Имя</dt><dd>{dash(recipient.firstName)}</dd></div>
           <div className="info-row"><dt>Отчество</dt><dd>{dash(recipient.middleName)}</dd></div>
-          <div className="info-row"><dt>Телефон</dt><dd>{dash(recipient.phone)}</dd></div>
         </dl>
 
         <hr className="info-divider info-divider--soft" />
@@ -86,6 +85,7 @@ export default async function RecipientDetailPage({
           <div className="info-row"><dt>Населённый пункт</dt><dd>{dash(recipient.city)}</dd></div>
           <div className="info-row"><dt>Почтовый индекс</dt><dd>{dash(recipient.postalCode)}</dd></div>
           <div className="info-row"><dt>Улица, дом, квартира</dt><dd>{dash(recipient.address)}</dd></div>
+          <div className="info-row"><dt>Телефон</dt><dd>{dash([recipient.phoneDialCode, recipient.phone].filter(Boolean).join(" ") || null)}</dd></div>
         </dl>
 
         <hr className="info-divider" />
