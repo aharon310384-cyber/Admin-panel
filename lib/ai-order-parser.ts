@@ -148,12 +148,12 @@ export async function parseOrdersFromText(
       body: JSON.stringify({
         model,
         temperature: 0,
-        response_format: { type: "json_object" },
-        // Направляем запрос только к провайдерам, которые поддерживают все
-        // переданные параметры (включая response_format/structured-outputs).
-        // Иначе OpenRouter может выбрать провайдера (напр. Novita), у которого
-        // модель не умеет structured-outputs → HTTP 400 INVALID_REQUEST_BODY.
-        provider: { require_parameters: true },
+        // ВНИМАНИЕ: НЕ передаём response_format=json_object. У moonshotai/kimi-k2
+        // на OpenRouter НИ ОДИН провайдер не поддерживает structured-outputs
+        // (с provider.require_parameters=true запрос падает в 404 "No endpoints",
+        // без него провайдер вроде Novita отвечает 400 INVALID_REQUEST_BODY).
+        // Поэтому полагаемся на строгий системный промпт ("верни СТРОГО JSON")
+        // и на устойчивый разбор ответа ниже (снятие markdown-обёртки ```json).
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: trimmed },
