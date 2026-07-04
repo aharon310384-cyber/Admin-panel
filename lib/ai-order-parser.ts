@@ -149,6 +149,11 @@ export async function parseOrdersFromText(
         model,
         temperature: 0,
         response_format: { type: "json_object" },
+        // Направляем запрос только к провайдерам, которые поддерживают все
+        // переданные параметры (включая response_format/structured-outputs).
+        // Иначе OpenRouter может выбрать провайдера (напр. Novita), у которого
+        // модель не умеет structured-outputs → HTTP 400 INVALID_REQUEST_BODY.
+        provider: { require_parameters: true },
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: trimmed },
@@ -193,9 +198,17 @@ export async function parseOrdersFromText(
     };
   }
 
+  // Снимаем возможную markdown-обёртку ```json ... ``` — некоторые провайдеры
+  // возвращают JSON внутри код-блока даже при response_format=json_object.
+  const jsonText = content
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
   let parsed: unknown;
   try {
-    parsed = JSON.parse(content);
+    parsed = JSON.parse(jsonText);
   } catch (err) {
     return {
       ok: false,
