@@ -12,6 +12,8 @@ type CountryOption = {
   nameRu: string;
   nameEn: string;
   phoneCode: string | null;
+  phoneNumberMin: number | null;
+  phoneNumberMax: number | null;
   postalCodeRegex: string | null;
   postalCodeExample: string | null;
 };
@@ -103,6 +105,14 @@ export default function RecipientForm({
 
   const postalExample = selectedCountry?.postalCodeExample ?? "";
   const postalRegex = selectedCountry?.postalCodeRegex ?? null;
+  const phoneMin = selectedCountry?.phoneNumberMin ?? null;
+  const phoneMax = selectedCountry?.phoneNumberMax ?? null;
+  const phoneLenHint =
+    phoneMin != null && phoneMax != null
+      ? phoneMin === phoneMax
+        ? `${phoneMin} цифр`
+        : `${phoneMin}–${phoneMax} цифр`
+      : "";
   const errors = state?.error;
   const isEdit = Boolean(recipient);
   const cancelHref = returnTo ?? (recipient ? `/recipients/${recipient.id}` : "/recipients");
@@ -209,9 +219,10 @@ export default function RecipientForm({
               type="text"
               name="city"
               defaultValue={recipient?.city ?? ""}
-              className="field-input"
+              className={`field-input ${errors?.city ? "field-input--error" : ""}`}
               placeholder="Мадрид"
             />
+            {errors?.city && <p className="field-error">{errors.city[0]}</p>}
           </div>
 
           <div className="field">
@@ -241,7 +252,10 @@ export default function RecipientForm({
           </div>
 
           <div className="field field--full">
-            <label className="field-label">Телефон</label>
+            <label className="field-label">
+              Телефон
+              {phoneLenHint && <span className="field-hint"> (нужно {phoneLenHint})</span>}
+            </label>
             <div className="phone-group">
               <input
                 type="text"
@@ -257,11 +271,13 @@ export default function RecipientForm({
                 type="tel"
                 name="phone"
                 defaultValue={recipient?.phone ?? ""}
-                className="field-input phone-number"
+                className={`field-input phone-number ${errors?.phone ? "field-input--error" : ""}`}
                 placeholder="999 000-00-00"
+                inputMode="tel"
                 aria-label="Номер телефона"
               />
             </div>
+            {errors?.phone && <p className="field-error">{errors.phone[0]}</p>}
           </div>
         </div>
       </div>

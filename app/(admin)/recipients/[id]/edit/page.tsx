@@ -33,6 +33,8 @@ export default async function EditRecipientPage({
         nameRu: true,
         nameEn: true,
         phoneCode: true,
+        phoneNumberMin: true,
+        phoneNumberMax: true,
         postalCodeRegex: true,
         postalCodeExample: true,
       },

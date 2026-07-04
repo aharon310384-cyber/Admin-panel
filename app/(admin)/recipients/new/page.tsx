@@ -30,6 +30,8 @@ export default async function NewRecipientPage({
         nameRu: true,
         nameEn: true,
         phoneCode: true,
+        phoneNumberMin: true,
+        phoneNumberMax: true,
         postalCodeRegex: true,
         postalCodeExample: true,
       },

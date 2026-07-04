@@ -95,6 +95,8 @@ model Country {
   nameRu            String
   nameEn            String
   phoneCode         String?  // международный телефонный код (напр. "+34")
+  phoneNumberMin    Int?     // мин. число цифр национального номера (без кода страны)
+  phoneNumberMax    Int?     // макс. число цифр национального номера (без кода страны)
   postalCodeRegex   String?
   postalCodeExample String?
   isEu              Boolean  @default(false) // член ЕС — для таможенной пошлины ЕС €3/позиция

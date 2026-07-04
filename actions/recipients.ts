@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
+import { checkCityCountry, countPhoneDigits, isPhoneLengthValid } from "@/lib/geo-validation";
 
 const recipientSchema = z.object({
   customerId: z.string().min(1, "Выберите клиента-владельца"),
@@ -93,6 +94,51 @@ function toData(parsed: z.infer<typeof recipientSchema>) {
   };
 }
 
+/**
+ * Проверки, зависящие от справочника стран:
+ *  - строгая длина телефонного номера для выбранной страны;
+ *  - соответствие города стране (через геосервис, блок только при явном противоречии).
+ * Возвращает объект ошибок по полям или null, если всё в порядке.
+ */
+async function validateGeoFields(
+  data: z.infer<typeof recipientSchema>,
+): Promise<Record<string, string[]> | null> {
+  const countryCode = data.countryCode ? data.countryCode.toUpperCase() : null;
+  if (!countryCode) return null;
+
+  const country = await prisma.country.findUnique({
+    where: { code: countryCode },
+    select: { nameRu: true, phoneNumberMin: true, phoneNumberMax: true },
+  });
+  if (!country) return null;
+
+  const errors: Record<string, string[]> = {};
+
+  // Телефон: строгая проверка числа цифр (без кода страны).
+  if (data.phone && data.phone.trim()) {
+    if (!isPhoneLengthValid(data.phone, country.phoneNumberMin, country.phoneNumberMax)) {
+      const digits = countPhoneDigits(data.phone);
+      const range =
+        country.phoneNumberMin === country.phoneNumberMax
+          ? `${country.phoneNumberMin}`
+          : `${country.phoneNumberMin}–${country.phoneNumberMax}`;
+      errors.phone = [
+        `Для страны «${country.nameRu}» номер должен содержать ${range} цифр (введено ${digits})`,
+      ];
+    }
+  }
+
+  // Город: соответствие стране.
+  if (data.city && data.city.trim()) {
+    const result = await checkCityCountry(data.city, countryCode);
+    if (result === "mismatch") {
+      errors.city = [`Город «${data.city.trim()}» не относится к стране «${country.nameRu}»`];
+    }
+  }
+
+  return Object.keys(errors).length > 0 ? errors : null;
+}
+
 function safeReturnTo(value: string | null | undefined, recipientId: string): string | null {
   if (!value) return null;
   if (!value.startsWith("/")) return null;
@@ -114,6 +160,11 @@ export async function createRecipient(formData: FormData) {
   });
   if (!owner) {
     return { error: { customerId: ["Клиент-владелец не найден"] } };
+  }
+
+  const geoErrors = await validateGeoFields(parsed.data);
+  if (geoErrors) {
+    return { error: geoErrors };
   }
 
   // Автор пишется, только если пользователь реально есть в БД:
@@ -147,6 +198,11 @@ export async function updateRecipient(id: string, formData: FormData) {
   });
   if (!owner) {
     return { error: { customerId: ["Клиент-владелец не найден"] } };
+  }
+
+  const geoErrors = await validateGeoFields(parsed.data);
+  if (geoErrors) {
+    return { error: geoErrors };
   }
 
   await prisma.recipient.update({
