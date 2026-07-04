@@ -151,104 +151,109 @@ export default function RecipientForm({
             {errors?.customerId && <p className="field-error">{errors.customerId[0]}</p>}
           </div>
 
-          <div className="field">
-            <label className="field-label">Фамилия <span className="required">*</span></label>
-            <input
-              type="text"
-              name="lastName"
-              defaultValue={recipient?.lastName ?? ""}
-              className={`field-input ${errors?.lastName ? "field-input--error" : ""}`}
-              placeholder="Иванов"
-            />
-            {errors?.lastName && <p className="field-error">{errors.lastName[0]}</p>}
+          <div className="field-row field-row--3">
+            <div className="field">
+              <label className="field-label">Фамилия <span className="required">*</span></label>
+              <input
+                type="text"
+                name="lastName"
+                defaultValue={recipient?.lastName ?? ""}
+                className={`field-input ${errors?.lastName ? "field-input--error" : ""}`}
+                placeholder="Иванов"
+              />
+              {errors?.lastName && <p className="field-error">{errors.lastName[0]}</p>}
+            </div>
+
+            <div className="field">
+              <label className="field-label">Имя <span className="required">*</span></label>
+              <input
+                type="text"
+                name="firstName"
+                defaultValue={recipient?.firstName ?? ""}
+                className={`field-input ${errors?.firstName ? "field-input--error" : ""}`}
+                placeholder="Иван"
+              />
+              {errors?.firstName && <p className="field-error">{errors.firstName[0]}</p>}
+            </div>
+
+            <div className="field">
+              <label className="field-label">Отчество</label>
+              <input
+                type="text"
+                name="middleName"
+                defaultValue={recipient?.middleName ?? ""}
+                className="field-input"
+                placeholder="Иванович"
+              />
+            </div>
           </div>
 
-          <div className="field">
-            <label className="field-label">Имя <span className="required">*</span></label>
-            <input
-              type="text"
-              name="firstName"
-              defaultValue={recipient?.firstName ?? ""}
-              className={`field-input ${errors?.firstName ? "field-input--error" : ""}`}
-              placeholder="Иван"
-            />
-            {errors?.firstName && <p className="field-error">{errors.firstName[0]}</p>}
-          </div>
+          <div className="field-row field-row--geo">
+            <div className="field">
+              <label className="field-label">Страна <span className="required">*</span></label>
+              <input
+                type="text"
+                name="country"
+                value={country}
+                onChange={(e) => handleCountryChange(e.target.value)}
+                list="country-options"
+                className={`field-input ${errors?.country ? "field-input--error" : ""}`}
+                placeholder="Spain"
+                autoComplete="off"
+              />
+              <datalist id="country-options">
+                {countries.map((c) => (
+                  <option key={c.code} value={c.nameRu}>
+                    {c.code} — {c.nameEn}
+                  </option>
+                ))}
+              </datalist>
+              {errors?.country && <p className="field-error">{errors.country[0]}</p>}
+            </div>
 
-          <div className="field">
-            <label className="field-label">Отчество</label>
-            <input
-              type="text"
-              name="middleName"
-              defaultValue={recipient?.middleName ?? ""}
-              className="field-input"
-              placeholder="Иванович"
-            />
-          </div>
+            <div className="field field--narrow">
+              <label className="field-label">Код</label>
+              <input
+                type="text"
+                name="countryCode"
+                value={countryCode}
+                readOnly
+                className={`field-input field-input--readonly ${errors?.countryCode ? "field-input--error" : ""}`}
+                placeholder="ES"
+                title="Подтягивается из выбранной страны"
+                style={{ textTransform: "uppercase" }}
+                autoComplete="off"
+              />
+              {errors?.countryCode && <p className="field-error">{errors.countryCode[0]}</p>}
+            </div>
 
-          <div className="field">
-            <label className="field-label">Страна <span className="required">*</span></label>
-            <input
-              type="text"
-              name="country"
-              value={country}
-              onChange={(e) => handleCountryChange(e.target.value)}
-              list="country-options"
-              className="field-input"
-              placeholder="Spain"
-              autoComplete="off"
-            />
-            <datalist id="country-options">
-              {countries.map((c) => (
-                <option key={c.code} value={c.nameRu}>
-                  {c.code} — {c.nameEn}
-                </option>
-              ))}
-            </datalist>
-          </div>
+            <div className="field">
+              <label className="field-label">Населённый пункт <span className="required">*</span></label>
+              <input
+                type="text"
+                name="city"
+                defaultValue={recipient?.city ?? ""}
+                className={`field-input ${errors?.city ? "field-input--error" : ""}`}
+                placeholder="Мадрид"
+              />
+              {errors?.city && <p className="field-error">{errors.city[0]}</p>}
+            </div>
 
-          <div className="field">
-            <label className="field-label">Код страны</label>
-            <input
-              type="text"
-              name="countryCode"
-              value={countryCode}
-              readOnly
-              className={`field-input field-input--readonly ${errors?.countryCode ? "field-input--error" : ""}`}
-              placeholder="ES"
-              title="Подтягивается из выбранной страны"
-              style={{ textTransform: "uppercase" }}
-              autoComplete="off"
-            />
-            {errors?.countryCode && <p className="field-error">{errors.countryCode[0]}</p>}
-          </div>
-
-          <div className="field">
-            <label className="field-label">Населённый пункт <span className="required">*</span></label>
-            <input
-              type="text"
-              name="city"
-              defaultValue={recipient?.city ?? ""}
-              className={`field-input ${errors?.city ? "field-input--error" : ""}`}
-              placeholder="Мадрид"
-            />
-            {errors?.city && <p className="field-error">{errors.city[0]}</p>}
-          </div>
-
-          <div className="field">
-            <label className="field-label">
-              Почтовый индекс
-              {postalExample && <span className="field-hint"> (пример: {postalExample})</span>}
-            </label>
-            <input
-              type="text"
-              name="postalCode"
-              defaultValue={recipient?.postalCode ?? ""}
-              className={`field-input ${errors?.postalCode ? "field-input--error" : ""}`}
-              placeholder={postalExample || "100037"}
-              pattern={postalRegex ?? undefined}
-            />
-            {errors?.postalCode && <p className="field-error">{errors.postalCode[0]}</p>}
+            <div className="field">
+              <label className="field-label">
+                Почтовый индекс
+                {postalExample && <span className="field-hint"> (пример: {postalExample})</span>}
+              </label>
+              <input
+                type="text"
+                name="postalCode"
+                defaultValue={recipient?.postalCode ?? ""}
+                className={`field-input ${errors?.postalCode ? "field-input--error" : ""}`}
+                placeholder={postalExample || "100037"}
+                pattern={postalRegex ?? undefined}
+              />
+              {errors?.postalCode && <p className="field-error">{errors.postalCode[0]}</p>}
+            </div>
           </div>
 
           <div className="field field--full">
@@ -369,6 +374,9 @@ export default function RecipientForm({
         .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .field { display: flex; flex-direction: column; gap: 6px; }
         .field--full { grid-column: 1 / -1; }
+        .field-row { grid-column: 1 / -1; display: grid; gap: 16px; }
+        .field-row--3 { grid-template-columns: repeat(3, 1fr); }
+        .field-row--geo { grid-template-columns: 1.6fr 0.7fr 1.6fr 1fr; }
         .field-label { font-size: 13px; font-weight: 500; color: var(--color-text); }
         .field-hint { color: var(--color-muted); font-weight: 400; }
         .required { color: var(--color-danger); }
@@ -389,7 +397,10 @@ export default function RecipientForm({
         .btn-secondary:hover { background: var(--color-muted-bg); }
         .spin { animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        @media (max-width: 640px) { .field-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 640px) {
+          .field-grid { grid-template-columns: 1fr; }
+          .field-row--3, .field-row--geo { grid-template-columns: 1fr; }
+        }
       `}</style>
     </form>
   );
