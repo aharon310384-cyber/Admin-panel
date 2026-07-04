@@ -102,15 +102,32 @@ export default function OrderBulkImport({
       let country = recipientCountry;
       let pending: { name: string; country: string } | null = null;
       const recName = res.orders.map((o) => o.recipientNameText).find(Boolean) ?? null;
-      if (recName) {
-        const match = recipientList.find((r) => norm(r.name) === norm(recName));
-        if (match) {
-          nextCustomerId = match.customerId;
-          nextRecipientId = match.id;
-          country = match.country;
-        } else {
-          pending = { name: recName, country: "" };
-        }
+
+      // 1) по имени, которое извлёк ИИ (точное совпадение).
+      let match: RecipientOpt | null = recName
+        ? recipientList.find((r) => norm(r.name) === norm(recName)) ?? null
+        : null;
+
+      // 2) запасной вариант: если ИИ не извлёк получателя или не нашли по имени —
+      //    ищем известного получателя прямо в исходном тексте (по вхождению ФИО).
+      //    Берём самое длинное совпадение, чтобы не цепляться за короткие обрывки.
+      if (!match) {
+        const haystack = norm(text);
+        match =
+          recipientList
+            .filter((r) => {
+              const n = norm(r.name);
+              return n.length >= 4 && haystack.includes(n);
+            })
+            .sort((a, b) => b.name.length - a.name.length)[0] ?? null;
+      }
+
+      if (match) {
+        nextCustomerId = match.customerId;
+        nextRecipientId = match.id;
+        country = match.country;
+      } else if (recName) {
+        pending = { name: recName, country: "" };
       }
 
       // Вид доставки (общий): приоритет — из текста, иначе единственный по стране.
