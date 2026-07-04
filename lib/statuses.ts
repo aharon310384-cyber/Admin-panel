@@ -13,7 +13,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 
 /** RU-названия статусов Посылки. */
 export const PARCEL_STATUS_LABELS: Record<ParcelStatus, string> = {
-  FORMED: "Оформлена на отправку",
+  FORMED: "Новая",
   ASSEMBLED: "Собран",
   PACKED: "Упакован",
   READY_TO_SHIP: "Готова к отправке",

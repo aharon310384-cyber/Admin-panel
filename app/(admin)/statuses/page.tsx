@@ -13,7 +13,7 @@ type StatusNode = {
 
 // Справочник статусов посылки (модель v2). Счётчики — иллюстративные.
 const MAIN_FLOW: StatusNode[] = [
-  { code: "FORMED", description: "Оформлена на отправку из принятых заказов", count: 0 },
+  { code: "FORMED", description: "Новая — собрана из принятых заказов", count: 0 },
   { code: "ASSEMBLED", description: "Заказы собраны вместе", count: 0 },
   { code: "PACKED", description: "Упакована к отправке", count: 0 },
   { code: "READY_TO_SHIP", description: "Готова к отправке, формируется квитанция", count: 0 },

@@ -3,7 +3,7 @@ import type { ParcelStatus } from "@prisma/client";
 type Meta = { label: string; color: string };
 
 const STATUS_META: Record<ParcelStatus, Meta> = {
-  FORMED: { label: "Оформлена", color: "var(--cab-blue)" },
+  FORMED: { label: "Новая", color: "var(--cab-blue)" },
   ASSEMBLED: { label: "Собрана", color: "var(--cab-orange)" },
   PACKED: { label: "Упакована", color: "var(--cab-orange)" },
   READY_TO_SHIP: { label: "Готова к отправке", color: "var(--cab-mint)" },
