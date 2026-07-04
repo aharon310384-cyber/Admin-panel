@@ -1,18 +1,73 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, deliveryTypeLabel } from "@/lib/statuses";
+import SortableHeader from "@/components/ui/sortable-header";
+import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 
 export const metadata: Metadata = { title: "Посылки" };
 
-export default async function ParcelsPage() {
+const SORT_FIELDS = [
+  "customerCode",
+  "number",
+  "status",
+  "recipientName",
+  "deliveryType",
+  "ordersCount",
+  "billableWeightKg",
+  "totalUsd",
+  "isPaid",
+  "createdAt",
+] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+function parcelOrderBy(field: SortField, dir: SortDirection): Prisma.ParcelOrderByWithRelationInput {
+  switch (field) {
+    case "customerCode":
+      return { customer: { code: dir } };
+    case "recipientName":
+      return { recipient: { name: dir } };
+    case "ordersCount":
+      return { orders: { _count: dir } };
+    case "number":
+      return { number: dir };
+    case "status":
+      return { status: dir };
+    case "deliveryType":
+      return { deliveryType: dir };
+    case "billableWeightKg":
+      return { billableWeightKg: dir };
+    case "totalUsd":
+      return { totalUsd: dir };
+    case "isPaid":
+      return { isPaid: dir };
+    case "createdAt":
+    default:
+      return { createdAt: dir };
+  }
+}
+
+export default async function ParcelsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
+  const params = await searchParams;
+  const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+
   const parcels = await prisma.parcel.findMany({
     where: { deletedAt: null },
     include: { customer: { select: { name: true, code: true } }, recipient: { select: { name: true } }, _count: { select: { orders: true } } },
-    orderBy: { createdAt: "desc" },
+    orderBy: parcelOrderBy(sortField, sortDir),
     take: 200,
   });
+
+  const sortHref = (field: SortField) => {
+    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    return buildListHref("/parcels", {}, { sort: `${field}_${nextDir}` });
+  };
 
   return (
     <div className="page">
@@ -28,24 +83,24 @@ export default async function ParcelsPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Номер</th>
-                <th>Статус</th>
-                <th>Клиент</th>
-                <th>Получатель</th>
-                <th>Доставка</th>
-                <th>Заказов</th>
-                <th>Вес кг</th>
-                <th>Итог $</th>
-                <th>Оплата</th>
-                <th>Создана</th>
+                <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
+                <th><SortableHeader label="Номер" href={sortHref("number")} active={sortField === "number"} direction={sortDir} /></th>
+                <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
+                <th><SortableHeader label="Получатель" href={sortHref("recipientName")} active={sortField === "recipientName"} direction={sortDir} /></th>
+                <th><SortableHeader label="Доставка" href={sortHref("deliveryType")} active={sortField === "deliveryType"} direction={sortDir} /></th>
+                <th><SortableHeader label="Заказов" href={sortHref("ordersCount")} active={sortField === "ordersCount"} direction={sortDir} /></th>
+                <th><SortableHeader label="Вес кг" href={sortHref("billableWeightKg")} active={sortField === "billableWeightKg"} direction={sortDir} /></th>
+                <th><SortableHeader label="Итог $" href={sortHref("totalUsd")} active={sortField === "totalUsd"} direction={sortDir} /></th>
+                <th><SortableHeader label="Оплата" href={sortHref("isPaid")} active={sortField === "isPaid"} direction={sortDir} /></th>
+                <th><SortableHeader label="Создана" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
               </tr>
             </thead>
             <tbody>
               {parcels.map((p) => (
                 <tr key={p.id}>
+                  <td><span className="code-pill">{p.customer.code ?? "—"}</span></td>
                   <td><Link href={`/parcels/${p.id}`} className="num">{p.number}</Link></td>
                   <td><span className="st">{parcelStatusLabel(p.status)}</span></td>
-                  <td><span className="code-pill">{p.customer.code ?? "—"}</span> {p.customer.name}</td>
                   <td className="text-muted">{p.recipient?.name ?? "—"}</td>
                   <td className="text-muted">{deliveryTypeLabel(p.deliveryType)}</td>
                   <td className="tabular">{p._count.orders}</td>

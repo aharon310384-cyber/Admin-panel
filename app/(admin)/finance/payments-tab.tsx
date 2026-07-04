@@ -2,13 +2,21 @@ import Link from "next/link";
 import { Check, Clock, TrendingUp, Wallet } from "lucide-react";
 import { ParcelStatusBadge } from "@/components/ui/status-badge";
 import TableRowLink from "@/components/ui/table-row-link";
+import SortableHeader from "@/components/ui/sortable-header";
 import { Pagination } from "@/components/ui/pagination";
 import { formatCny, formatDateTime, formatNumber, formatUsd } from "@/lib/utils";
-import type { PaymentsFilter, PaymentsRegistry } from "@/lib/finance";
+import type {
+  PaymentsFilter,
+  PaymentsRegistry,
+  PaymentsSortDirection,
+  PaymentsSortField,
+} from "@/lib/finance";
 
 type Props = {
   data: PaymentsRegistry;
   filter: PaymentsFilter;
+  sortField: PaymentsSortField;
+  sortDir: PaymentsSortDirection;
 };
 
 const FILTER_LINKS: Array<{ key: PaymentsFilter; label: string }> = [
@@ -17,17 +25,25 @@ const FILTER_LINKS: Array<{ key: PaymentsFilter; label: string }> = [
   { key: "unpaid", label: "Не оплачены" },
 ];
 
-function buildHref(filter: PaymentsFilter, page?: number): string {
+function buildHref(opts: { filter?: PaymentsFilter; sort?: string; page?: number }): string {
   const query = new URLSearchParams();
-  query.set("tab", "payments");
+  const filter = opts.filter ?? "all";
   if (filter !== "all") query.set("paid", filter);
-  if (page && page > 1) query.set("page", String(page));
-  return `/finance?${query.toString()}`;
+  if (opts.sort) query.set("sort", opts.sort);
+  if (opts.page && opts.page > 1) query.set("page", String(opts.page));
+  const qs = query.toString();
+  return qs ? `/payments?${qs}` : "/payments";
 }
 
-export default function PaymentsTab({ data, filter }: Props) {
+export default function PaymentsTab({ data, filter, sortField, sortDir }: Props) {
   const totalPages = Math.ceil(data.total / data.pageSize);
   const { summary } = data;
+  const currentSort = `${sortField}_${sortDir}`;
+
+  const sortHref = (field: PaymentsSortField) => {
+    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    return buildHref({ filter, sort: `${field}_${nextDir}` });
+  };
 
   return (
     <div className="registry">
@@ -71,7 +87,7 @@ export default function PaymentsTab({ data, filter }: Props) {
           {FILTER_LINKS.map(({ key, label }) => (
             <Link
               key={key}
-              href={buildHref(key)}
+              href={buildHref({ filter: key, sort: currentSort })}
               className={`filter ${filter === key ? "filter--active" : ""}`}
               aria-current={filter === key ? "true" : undefined}
             >
@@ -87,22 +103,22 @@ export default function PaymentsTab({ data, filter }: Props) {
           <table className="table">
             <thead>
               <tr>
-                <th>Дата</th>
-                <th>Номер</th>
-                <th>Клиент</th>
-                <th>Статус</th>
-                <th className="num">Расчёт $</th>
-                <th className="num">Курс</th>
-                <th className="num">К оплате ¥</th>
-                <th>Оплата</th>
+                <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
+                <th><SortableHeader label="Дата" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
+                <th><SortableHeader label="Номер" href={sortHref("number")} active={sortField === "number"} direction={sortDir} /></th>
+                <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
+                <th className="num"><SortableHeader label="Расчёт $" href={sortHref("totalUsd")} active={sortField === "totalUsd"} direction={sortDir} align="right" /></th>
+                <th className="num"><SortableHeader label="Курс" href={sortHref("exchangeRate")} active={sortField === "exchangeRate"} direction={sortDir} align="right" /></th>
+                <th className="num"><SortableHeader label="К оплате ¥" href={sortHref("totalCny")} active={sortField === "totalCny"} direction={sortDir} align="right" /></th>
+                <th><SortableHeader label="Оплата" href={sortHref("isPaid")} active={sortField === "isPaid"} direction={sortDir} /></th>
               </tr>
             </thead>
             <tbody>
               {data.rows.map((row) => (
                 <TableRowLink key={row.id} href={`/parcels/${row.id}`}>
+                  <td><span className="code-pill">{row.customerCode ?? "—"}</span></td>
                   <td className="text-muted">{formatDateTime(row.createdAt)}</td>
                   <td className="mono link">{row.number}</td>
-                  <td>{row.customerName}</td>
                   <td>
                     <ParcelStatusBadge status={row.status} />
                   </td>
@@ -140,7 +156,7 @@ export default function PaymentsTab({ data, filter }: Props) {
         <Pagination
           currentPage={data.page}
           totalPages={totalPages}
-          hrefForPage={(page) => buildHref(filter, page)}
+          hrefForPage={(page) => buildHref({ filter, sort: currentSort, page })}
         />
       </div>
 
@@ -229,6 +245,7 @@ export default function PaymentsTab({ data, filter }: Props) {
         .table .link { color: var(--color-accent); font-weight: 500; }
         .table .text-muted { color: var(--color-muted); }
         .table .negative { color: var(--color-danger); }
+        .code-pill { display: inline-flex; align-items: center; min-width: 36px; justify-content: center; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--color-text); background: var(--color-muted-bg); }
         .row-clickable { cursor: pointer; transition: background 0.1s; }
         .row-clickable:hover { background: var(--color-muted-bg); }
         .table-empty { text-align: center; padding: 32px 16px; color: var(--color-muted); }

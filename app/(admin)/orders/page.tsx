@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { orderStatusLabel, deliveryTypeLabel, ORDER_STATUS_COLOR } from "@/lib/statuses";
 import ClickableRow from "@/components/ui/clickable-row";
+import SortableHeader from "@/components/ui/sortable-header";
+import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 
 export const metadata: Metadata = { title: "Заказы" };
 
@@ -12,13 +15,68 @@ function dash(v: string | null | undefined): string {
   return v?.trim() || "—";
 }
 
-export default async function OrdersPage() {
+const SORT_FIELDS = [
+  "customerCode",
+  "productNameText",
+  "trackNumber",
+  "quantity",
+  "unitPriceUsd",
+  "declaredValueUsd",
+  "actualWeightKg",
+  "deliveryType",
+  "recipientName",
+  "status",
+  "createdAt",
+] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+function orderOrderBy(field: SortField, dir: SortDirection): Prisma.OrderOrderByWithRelationInput {
+  switch (field) {
+    case "customerCode":
+      return { customer: { code: dir } };
+    case "recipientName":
+      return { recipient: { name: dir } };
+    case "productNameText":
+      return { productNameText: dir };
+    case "trackNumber":
+      return { trackNumber: dir };
+    case "quantity":
+      return { quantity: dir };
+    case "unitPriceUsd":
+      return { unitPriceUsd: dir };
+    case "declaredValueUsd":
+      return { declaredValueUsd: dir };
+    case "actualWeightKg":
+      return { actualWeightKg: dir };
+    case "deliveryType":
+      return { deliveryType: dir };
+    case "status":
+      return { status: dir };
+    case "createdAt":
+    default:
+      return { createdAt: dir };
+  }
+}
+
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
+  const params = await searchParams;
+  const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+
   const orders = await prisma.order.findMany({
     where: { deletedAt: null },
     include: { customer: true, recipient: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: orderOrderBy(sortField, sortDir),
     take: 200,
   });
+
+  const sortHref = (field: SortField) => {
+    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    return buildListHref("/orders", {}, { sort: `${field}_${nextDir}` });
+  };
 
   return (
     <div className="page">
@@ -38,22 +96,25 @@ export default async function OrdersPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Наименование</th>
-                <th>Трек-номер</th>
-                <th>Кол-во</th>
-                <th>Цена $</th>
-                <th>Объявл. $</th>
-                <th>Вес кг</th>
-                <th>Доставка</th>
-                <th>Клиент</th>
-                <th>Получатель</th>
-                <th>Статус</th>
-                <th>Создан</th>
+                <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
+                <th><SortableHeader label="Наименование" href={sortHref("productNameText")} active={sortField === "productNameText"} direction={sortDir} /></th>
+                <th><SortableHeader label="Трек-номер" href={sortHref("trackNumber")} active={sortField === "trackNumber"} direction={sortDir} /></th>
+                <th><SortableHeader label="Кол-во" href={sortHref("quantity")} active={sortField === "quantity"} direction={sortDir} /></th>
+                <th><SortableHeader label="Цена $" href={sortHref("unitPriceUsd")} active={sortField === "unitPriceUsd"} direction={sortDir} /></th>
+                <th><SortableHeader label="Объявл. $" href={sortHref("declaredValueUsd")} active={sortField === "declaredValueUsd"} direction={sortDir} /></th>
+                <th><SortableHeader label="Вес кг" href={sortHref("actualWeightKg")} active={sortField === "actualWeightKg"} direction={sortDir} /></th>
+                <th><SortableHeader label="Доставка" href={sortHref("deliveryType")} active={sortField === "deliveryType"} direction={sortDir} /></th>
+                <th><SortableHeader label="Получатель" href={sortHref("recipientName")} active={sortField === "recipientName"} direction={sortDir} /></th>
+                <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
+                <th><SortableHeader label="Создан" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
               </tr>
             </thead>
             <tbody>
               {orders.map((o) => (
                 <ClickableRow key={o.id} href={`/orders/${o.id}/edit`}>
+                  <td>
+                    <span className="code-pill">{dash(o.customer.code)}</span>
+                  </td>
                   <td className="strong">{dash(o.productNameText)}</td>
                   <td className="mono text-muted">{dash(o.trackNumber)}</td>
                   <td className="tabular">{o.quantity}</td>
@@ -61,9 +122,6 @@ export default async function OrdersPage() {
                   <td className="tabular text-muted">{o.declaredValueUsd ? formatUsd(o.declaredValueUsd) : "—"}</td>
                   <td className="tabular">{o.actualWeightKg ? formatNumber(Number(o.actualWeightKg)) : "—"}</td>
                   <td className="text-muted">{deliveryTypeLabel(o.deliveryType)}</td>
-                  <td>
-                    <span className="code-pill">{dash(o.customer.code)}</span> {o.customer.name}
-                  </td>
                   <td className="text-muted">{dash(o.recipient?.name)}</td>
                   <td>
                     <span className={`st st--${ORDER_STATUS_COLOR[o.status]}`}>{orderStatusLabel(o.status)}</span>

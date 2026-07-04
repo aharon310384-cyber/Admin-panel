@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import ClickableRow from "@/components/ui/clickable-row";
+import SortableHeader from "@/components/ui/sortable-header";
+import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 
 export const metadata: Metadata = { title: "Клиенты" };
 
@@ -9,15 +12,64 @@ function dash(v: string | null | undefined): string {
   return v?.trim() || "—";
 }
 
-export default async function ClientsPage() {
+const SORT_FIELDS = [
+  "code",
+  "name",
+  "phone",
+  "email",
+  "city",
+  "recipientsCount",
+  "ordersCount",
+  "parcelsCount",
+  "createdAt",
+] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+function clientOrderBy(field: SortField, dir: SortDirection): Prisma.CustomerOrderByWithRelationInput {
+  switch (field) {
+    case "recipientsCount":
+      return { recipients: { _count: dir } };
+    case "ordersCount":
+      return { orders: { _count: dir } };
+    case "parcelsCount":
+      return { parcels: { _count: dir } };
+    case "code":
+      return { code: dir };
+    case "name":
+      return { name: dir };
+    case "phone":
+      return { phone: dir };
+    case "email":
+      return { email: dir };
+    case "city":
+      return { city: dir };
+    case "createdAt":
+    default:
+      return { createdAt: dir };
+  }
+}
+
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
+  const params = await searchParams;
+  const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+
   const clients = await prisma.customer.findMany({
     where: { deletedAt: null },
     include: {
       _count: { select: { orders: { where: { deletedAt: null } }, parcels: { where: { deletedAt: null } }, recipients: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: clientOrderBy(sortField, sortDir),
     take: 300,
   });
+
+  const sortHref = (field: SortField) => {
+    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    return buildListHref("/clients", {}, { sort: `${field}_${nextDir}` });
+  };
 
   return (
     <div className="page">
@@ -33,15 +85,15 @@ export default async function ClientsPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Код</th>
-                <th>Имя</th>
-                <th>Телефон</th>
-                <th>Email</th>
-                <th>Город</th>
-                <th>Получателей</th>
-                <th>Заказов</th>
-                <th>Посылок</th>
-                <th>Создан</th>
+                <th><SortableHeader label="Код" href={sortHref("code")} active={sortField === "code"} direction={sortDir} /></th>
+                <th><SortableHeader label="Имя" href={sortHref("name")} active={sortField === "name"} direction={sortDir} /></th>
+                <th><SortableHeader label="Телефон" href={sortHref("phone")} active={sortField === "phone"} direction={sortDir} /></th>
+                <th><SortableHeader label="Email" href={sortHref("email")} active={sortField === "email"} direction={sortDir} /></th>
+                <th><SortableHeader label="Город" href={sortHref("city")} active={sortField === "city"} direction={sortDir} /></th>
+                <th><SortableHeader label="Получателей" href={sortHref("recipientsCount")} active={sortField === "recipientsCount"} direction={sortDir} /></th>
+                <th><SortableHeader label="Заказов" href={sortHref("ordersCount")} active={sortField === "ordersCount"} direction={sortDir} /></th>
+                <th><SortableHeader label="Посылок" href={sortHref("parcelsCount")} active={sortField === "parcelsCount"} direction={sortDir} /></th>
+                <th><SortableHeader label="Создан" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
               </tr>
             </thead>
             <tbody>

@@ -11,6 +11,8 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
+import SortableHeader from "@/components/ui/sortable-header";
+import { parseSortParam, buildListHref } from "@/lib/list-params";
 
 export const metadata: Metadata = { title: "Услуги" };
 
@@ -127,8 +129,45 @@ function formatPrice(s: MockService): string {
   }
 }
 
-export default function ServicesPage() {
+const SORT_FIELDS = ["nameRu", "code", "pricingType", "value", "isActive", "sortOrder"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+// Компаратор для mock-данных (услуги пока в памяти, без БД).
+function compareServices(a: MockService, b: MockService, field: SortField): number {
+  switch (field) {
+    case "value":
+      return a.value - b.value;
+    case "isActive":
+      return Number(a.isActive) - Number(b.isActive);
+    case "nameRu":
+      return a.nameRu.localeCompare(b.nameRu, "ru");
+    case "code":
+      return a.code.localeCompare(b.code);
+    case "pricingType":
+      return a.pricingType.localeCompare(b.pricingType);
+    case "sortOrder":
+    default:
+      return a.sortOrder - b.sortOrder;
+  }
+}
+
+export default async function ServicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
+  const params = await searchParams;
+  const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "sortOrder", "asc");
+  const services = [...SERVICES].sort((a, b) => {
+    const cmp = compareServices(a, b, sortField);
+    return sortDir === "asc" ? cmp : -cmp;
+  });
   const activeCount = SERVICES.filter((s) => s.isActive).length;
+
+  const sortHref = (field: SortField) => {
+    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    return buildListHref("/services", {}, { sort: `${field}_${nextDir}` });
+  };
 
   return (
     <div className="page">
@@ -151,18 +190,18 @@ export default function ServicesPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Услуга</th>
-                <th>Код</th>
-                <th>Тип стоимости</th>
-                <th>Стоимость</th>
+                <th><SortableHeader label="Услуга" href={sortHref("nameRu")} active={sortField === "nameRu"} direction={sortDir} /></th>
+                <th><SortableHeader label="Код" href={sortHref("code")} active={sortField === "code"} direction={sortDir} /></th>
+                <th><SortableHeader label="Тип стоимости" href={sortHref("pricingType")} active={sortField === "pricingType"} direction={sortDir} /></th>
+                <th><SortableHeader label="Стоимость" href={sortHref("value")} active={sortField === "value"} direction={sortDir} /></th>
                 <th>Применима к</th>
-                <th>Активна</th>
-                <th>Порядок</th>
+                <th><SortableHeader label="Активна" href={sortHref("isActive")} active={sortField === "isActive"} direction={sortDir} /></th>
+                <th><SortableHeader label="Порядок" href={sortHref("sortOrder")} active={sortField === "sortOrder"} direction={sortDir} /></th>
                 <th className="th-actions">Действия</th>
               </tr>
             </thead>
             <tbody>
-              {SERVICES.map((s) => {
+              {services.map((s) => {
                 const Icon = s.icon;
                 return (
                   <tr key={s.id} className={s.isActive ? "" : "row-dim"}>

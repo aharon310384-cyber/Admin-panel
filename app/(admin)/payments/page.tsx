@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import {
   getPaymentsRegistry,
+  PAYMENTS_SORT_FIELDS,
   type PaymentsFilter,
 } from "@/lib/finance";
-import { parsePageParam } from "@/lib/list-params";
+import { parsePageParam, parseSortParam } from "@/lib/list-params";
 import PaymentsTab from "../finance/payments-tab";
 
 export const metadata: Metadata = { title: "Расчёт и оплата" };
@@ -11,6 +12,7 @@ export const metadata: Metadata = { title: "Расчёт и оплата" };
 type SearchParams = {
   page?: string;
   paid?: string;
+  sort?: string;
 };
 
 function parsePaidFilter(raw: string | undefined): PaymentsFilter {
@@ -27,7 +29,8 @@ export default async function PaymentsPage({
   const params = await searchParams;
   const page = parsePageParam(params.page);
   const filter = parsePaidFilter(params.paid);
-  const data = await getPaymentsRegistry({ page, filter });
+  const [sortField, sortDir] = parseSortParam(params.sort, PAYMENTS_SORT_FIELDS, "createdAt", "desc");
+  const data = await getPaymentsRegistry({ page, filter, sortField, sortDir });
 
   return (
     <div className="page">
@@ -39,7 +42,7 @@ export default async function PaymentsPage({
         </div>
       </div>
 
-      <PaymentsTab data={data} filter={filter} />
+      <PaymentsTab data={data} filter={filter} sortField={sortField} sortDir={sortDir} />
 
       <style>{`
         .page { display: flex; flex-direction: column; gap: 20px; }

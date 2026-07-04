@@ -65,6 +65,7 @@ export type PaymentRow = {
   id: string;
   number: string;
   customerName: string;
+  customerCode: string | null;
   createdAt: Date;
   totalUsd: number;
   exchangeRateCnyPerUsd: number;
@@ -72,6 +73,44 @@ export type PaymentRow = {
   isPaid: boolean;
   status: ParcelStatus;
 };
+
+export const PAYMENTS_SORT_FIELDS = [
+  "createdAt",
+  "number",
+  "customerCode",
+  "status",
+  "totalUsd",
+  "exchangeRate",
+  "totalCny",
+  "isPaid",
+] as const;
+export type PaymentsSortField = (typeof PAYMENTS_SORT_FIELDS)[number];
+export type PaymentsSortDirection = "asc" | "desc";
+
+function paymentsOrderBy(
+  field: PaymentsSortField,
+  dir: PaymentsSortDirection
+): Prisma.ParcelOrderByWithRelationInput {
+  switch (field) {
+    case "customerCode":
+      return { customer: { code: dir } };
+    case "number":
+      return { number: dir };
+    case "status":
+      return { status: dir };
+    case "totalUsd":
+      return { totalUsd: dir };
+    case "exchangeRate":
+      return { exchangeRateCnyPerUsd: dir };
+    case "totalCny":
+      return { totalCny: dir };
+    case "isPaid":
+      return { isPaid: dir };
+    case "createdAt":
+    default:
+      return { createdAt: dir };
+  }
+}
 
 export type PaymentsRegistry = {
   rows: PaymentRow[];
@@ -94,10 +133,14 @@ export async function getPaymentsRegistry({
   page = 1,
   pageSize = 20,
   filter = "all",
+  sortField = "createdAt",
+  sortDir = "desc",
 }: {
   page?: number;
   pageSize?: number;
   filter?: PaymentsFilter;
+  sortField?: PaymentsSortField;
+  sortDir?: PaymentsSortDirection;
 } = {}): Promise<PaymentsRegistry> {
   const where: Prisma.ParcelWhereInput = {
     deletedAt: null,
@@ -109,7 +152,7 @@ export async function getPaymentsRegistry({
     prisma.parcel.findMany({
       where,
       include: { customer: true },
-      orderBy: [{ createdAt: "desc" }],
+      orderBy: paymentsOrderBy(sortField, sortDir),
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
@@ -131,6 +174,7 @@ export async function getPaymentsRegistry({
       id: row.id,
       number: row.number,
       customerName: row.customer.name,
+      customerCode: row.customer.code,
       createdAt: row.createdAt,
       totalUsd: Number(row.totalUsd ?? 0),
       exchangeRateCnyPerUsd: Number(row.exchangeRateCnyPerUsd ?? 0),

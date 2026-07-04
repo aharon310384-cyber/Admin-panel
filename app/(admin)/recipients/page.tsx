@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import ClickableRow from "@/components/ui/clickable-row";
+import SortableHeader from "@/components/ui/sortable-header";
+import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 
 export const metadata: Metadata = { title: "Получатели" };
 
@@ -11,13 +14,50 @@ function dash(v: string | null | undefined): string {
   return v?.trim() || "—";
 }
 
-export default async function RecipientsPage() {
+const SORT_FIELDS = ["customerCode", "name", "phone", "country", "city", "postalCode", "createdAt"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+// Прямое сопоставление колонки → orderBy Prisma. customerCode сортирует по коду клиента (связь).
+function recipientOrderBy(field: SortField, dir: SortDirection): Prisma.RecipientOrderByWithRelationInput {
+  switch (field) {
+    case "customerCode":
+      return { customer: { code: dir } };
+    case "name":
+      return { name: dir };
+    case "phone":
+      return { phone: dir };
+    case "country":
+      return { country: dir };
+    case "city":
+      return { city: dir };
+    case "postalCode":
+      return { postalCode: dir };
+    case "createdAt":
+    default:
+      return { createdAt: dir };
+  }
+}
+
+export default async function RecipientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
+  const params = await searchParams;
+  const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+
   const recipients = await prisma.recipient.findMany({
     where: { deletedAt: null },
-    include: { customer: { select: { name: true, code: true } } },
-    orderBy: { createdAt: "desc" },
+    include: { customer: { select: { code: true } } },
+    orderBy: recipientOrderBy(sortField, sortDir),
     take: 300,
   });
+
+  // Клик по заголовку переключает направление; текущий столбец — инвертирует, новый — по возрастанию.
+  const sortHref = (field: SortField) => {
+    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    return buildListHref("/recipients", {}, { sort: `${field}_${nextDir}` });
+  };
 
   return (
     <div className="page">
@@ -37,26 +77,26 @@ export default async function RecipientsPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Имя</th>
-                <th>Телефон</th>
-                <th>Страна</th>
-                <th>Город</th>
+                <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
+                <th><SortableHeader label="Имя" href={sortHref("name")} active={sortField === "name"} direction={sortDir} /></th>
+                <th><SortableHeader label="Телефон" href={sortHref("phone")} active={sortField === "phone"} direction={sortDir} /></th>
+                <th><SortableHeader label="Страна" href={sortHref("country")} active={sortField === "country"} direction={sortDir} /></th>
+                <th><SortableHeader label="Город" href={sortHref("city")} active={sortField === "city"} direction={sortDir} /></th>
                 <th>Адрес</th>
-                <th>Индекс</th>
-                <th>Клиент</th>
-                <th>Создан</th>
+                <th><SortableHeader label="Индекс" href={sortHref("postalCode")} active={sortField === "postalCode"} direction={sortDir} /></th>
+                <th><SortableHeader label="Создан" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
               </tr>
             </thead>
             <tbody>
               {recipients.map((r) => (
                 <ClickableRow key={r.id} href={`/recipients/${r.id}`}>
+                  <td><span className="code-pill">{dash(r.customer.code)}</span></td>
                   <td className="strong">{dash(r.name)}</td>
                   <td className="mono text-muted">{dash(r.phone)}</td>
                   <td className="text-muted">{dash(r.country)}</td>
                   <td className="text-muted">{dash(r.city)}</td>
                   <td className="addr">{dash(r.address)}</td>
                   <td className="mono text-muted">{dash(r.postalCode)}</td>
-                  <td><span className="code-pill">{dash(r.customer.code)}</span> {r.customer.name}</td>
                   <td className="text-muted">{formatDateTime(r.createdAt)}</td>
                 </ClickableRow>
               ))}

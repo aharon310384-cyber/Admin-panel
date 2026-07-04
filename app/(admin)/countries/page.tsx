@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import type { Prisma } from "@prisma/client";
 import { Globe } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import SortableHeader from "@/components/ui/sortable-header";
+import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 
 export const metadata: Metadata = { title: "Страны" };
 
@@ -8,10 +11,37 @@ function dash(value: string | null | undefined): string {
   return value?.trim() || "—";
 }
 
-export default async function CountriesPage() {
+const SORT_FIELDS = ["code", "nameRu", "nameEn"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+function countryOrderBy(field: SortField, dir: SortDirection): Prisma.CountryOrderByWithRelationInput {
+  switch (field) {
+    case "code":
+      return { code: dir };
+    case "nameEn":
+      return { nameEn: dir };
+    case "nameRu":
+    default:
+      return { nameRu: dir };
+  }
+}
+
+export default async function CountriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
+  const params = await searchParams;
+  const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "nameRu", "asc");
+
   const countries = await prisma.country.findMany({
-    orderBy: { nameRu: "asc" },
+    orderBy: countryOrderBy(sortField, sortDir),
   });
+
+  const sortHref = (field: SortField) => {
+    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    return buildListHref("/countries", {}, { sort: `${field}_${nextDir}` });
+  };
 
   return (
     <div className="page">
@@ -29,9 +59,9 @@ export default async function CountriesPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Код</th>
-                <th>Название (RU)</th>
-                <th>Название (EN)</th>
+                <th><SortableHeader label="Код" href={sortHref("code")} active={sortField === "code"} direction={sortDir} /></th>
+                <th><SortableHeader label="Название (RU)" href={sortHref("nameRu")} active={sortField === "nameRu"} direction={sortDir} /></th>
+                <th><SortableHeader label="Название (EN)" href={sortHref("nameEn")} active={sortField === "nameEn"} direction={sortDir} /></th>
                 <th>Формат индекса</th>
                 <th>Пример</th>
               </tr>
