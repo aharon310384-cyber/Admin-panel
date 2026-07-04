@@ -31,6 +31,7 @@ const draftSchema = z.object({
   unitPriceUsd: z.coerce.number().min(0).nullable().optional(),
   unitPriceCny: z.coerce.number().min(0).nullable().optional(),
   trackNumber: z.string().trim().nullable().optional(),
+  customerComment: z.string().trim().nullable().optional(),
   detailedCheckRequested: z.boolean().optional(),
   keepOriginalPackaging: z.boolean().optional(),
 });
@@ -105,6 +106,7 @@ export async function createOrdersBulk(
         category: match?.category ?? null,
         hsCode: match?.hsCode ?? null,
         trackNumber: draft.trackNumber || null,
+        customerComment: draft.customerComment || null,
         quantity: draft.quantity,
         unitPriceCny: draft.unitPriceCny ?? null,
         unitPriceUsd: draft.unitPriceUsd ?? null,

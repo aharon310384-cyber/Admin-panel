@@ -13,6 +13,7 @@ export type OrderInitial = {
   deliveryType: string | null;
   productNameText: string;
   trackNumber: string | null;
+  customerComment: string | null;
   quantity: number;
   unitPriceUsd: number | null;
   actualWeightKg: number | null;
@@ -136,6 +137,17 @@ export default function OrderForm({
             <span className="of-label">Трек-номер (Китай)</span>
             <input name="trackNumber" className="of-input of-input--mono" placeholder="SF…" defaultValue={initial?.trackNumber ?? ""} />
           </label>
+
+          <label className="of-field of-field--wide">
+            <span className="of-label">Комментарии клиента</span>
+            <textarea
+              name="customerComment"
+              className="of-input of-textarea"
+              rows={3}
+              placeholder="Пожелания и примечания клиента (напр. № заказа #3661, «упаковать аккуратно»)"
+              defaultValue={initial?.customerComment ?? ""}
+            />
+          </label>
         </div>
       </fieldset>
 
@@ -192,6 +204,7 @@ export default function OrderForm({
         .of-input { padding: 9px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13.5px; color: var(--color-text); background: var(--color-surface); outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
         .of-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px oklch(52% 0.14 42 / 0.1); }
         .of-input--mono { font-family: var(--font-mono); font-size: 12.5px; }
+        .of-textarea { resize: vertical; font-family: var(--font-sans); line-height: 1.45; }
         .of-hint { font-size: 12px; margin-top: 1px; }
         .of-hint--ok { color: var(--color-status-completed); }
         .of-hint--warn { color: var(--color-danger); }

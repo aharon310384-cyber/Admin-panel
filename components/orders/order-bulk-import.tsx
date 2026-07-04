@@ -20,6 +20,7 @@ type Row = {
   unitPriceUsd: number | null;
   unitPriceCny: number | null;
   trackNumber: string | null;
+  customerComment: string | null;
   detailedCheckRequested: boolean;
   keepOriginalPackaging: boolean;
 };
@@ -41,6 +42,7 @@ function emptyRow(): Row {
     unitPriceUsd: null,
     unitPriceCny: null,
     trackNumber: null,
+    customerComment: null,
     detailedCheckRequested: false,
     keepOriginalPackaging: true,
   };
@@ -141,6 +143,7 @@ export default function OrderBulkImport({
         unitPriceUsd: o.unitPriceUsd,
         unitPriceCny: o.unitPriceCny,
         trackNumber: o.trackNumber,
+        customerComment: o.customerComment,
         detailedCheckRequested: o.detailedCheckRequested,
         keepOriginalPackaging: o.keepOriginalPackaging,
       }));
@@ -243,6 +246,7 @@ export default function OrderBulkImport({
           unitPriceUsd: r.unitPriceUsd,
           unitPriceCny: r.unitPriceCny,
           trackNumber: r.trackNumber,
+          customerComment: r.customerComment,
           detailedCheckRequested: r.detailedCheckRequested,
           keepOriginalPackaging: r.keepOriginalPackaging,
         })),
@@ -392,6 +396,10 @@ export default function OrderBulkImport({
                     <span className="bi-label">Трек-номер (Китай)</span>
                     <input className="bi-input bi-input--mono" value={r.trackNumber ?? ""} onChange={(e) => updateRow(i, { trackNumber: e.target.value || null })} placeholder="SF…" />
                   </label>
+                  <label className="bi-field bi-field--wide">
+                    <span className="bi-label">Комментарии клиента</span>
+                    <textarea className="bi-input bi-textarea" rows={2} value={r.customerComment ?? ""} onChange={(e) => updateRow(i, { customerComment: e.target.value || null })} placeholder="№ заказа, пожелания клиента…" />
+                  </label>
                   <label className="bi-field">
                     <span className="bi-label">Количество <i>*</i></span>
                     <input className="bi-input" type="number" min={1} value={r.quantity} onChange={(e) => updateRow(i, { quantity: Number(e.target.value) || 1 })} />
@@ -480,6 +488,7 @@ export default function OrderBulkImport({
         .bi-input { padding: 9px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13.5px; color: var(--color-text); background: var(--color-surface); outline: none; transition: border-color 0.15s; }
         .bi-input:focus { border-color: var(--color-accent); }
         .bi-input--mono { font-family: var(--font-mono); font-size: 12.5px; }
+        .bi-textarea { resize: vertical; font-family: var(--font-sans); line-height: 1.45; }
         .bi-hint { font-size: 11.5px; }
         .bi-hint--ok { color: var(--color-status-completed); }
         .bi-hint--muted { color: var(--color-muted); }

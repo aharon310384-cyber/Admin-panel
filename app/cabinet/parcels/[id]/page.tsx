@@ -46,6 +46,7 @@ export default async function ClientCabinetParcelDetailPage({
         select: {
           id: true,
           productNameText: true,
+          customerComment: true,
           quantity: true,
           declaredValueUsd: true,
         },
@@ -166,7 +167,12 @@ export default async function ClientCabinetParcelDetailPage({
           <ul className="pd-items">
             {parcel.orders.map((it) => (
               <li key={it.id} className="pd-item">
-                <span className="pd-item-name">{it.productNameText ?? "Товар"}</span>
+                <span className="pd-item-main">
+                  <span className="pd-item-name">{it.productNameText ?? "Товар"}</span>
+                  {it.customerComment?.trim() && (
+                    <span className="pd-item-comment">💬 {it.customerComment}</span>
+                  )}
+                </span>
                 <span className="pd-item-meta">
                   <span className="pd-item-qty">× {it.quantity}</span>
                   {it.declaredValueUsd != null && (
@@ -250,7 +256,9 @@ export default async function ClientCabinetParcelDetailPage({
           background: color-mix(in srgb, var(--cab-bg) 60%, var(--cab-surface));
           border: 1px solid var(--cab-border);
         }
+        .pd-item-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
         .pd-item-name { font-size: 13.5px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        .pd-item-comment { font-size: 11.5px; color: var(--cab-text-soft); line-height: 1.35; word-break: break-word; }
         .pd-item-meta { display: inline-flex; align-items: center; gap: 12px; flex-shrink: 0; }
         .pd-item-qty { font-size: 12.5px; color: var(--cab-muted); font-variant-numeric: tabular-nums; }
         .pd-item-sum { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }

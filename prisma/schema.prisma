@@ -280,6 +280,8 @@ model Order {
   keepOriginalPackaging  Boolean  @default(true)  // «Оставить оригинальную упаковку» (по умолчанию включено)
   productUrl             String?
   imageUrl               String?
+  // комментарий клиента к заказу (пожелания/примечания; ИИ тоже может заполнить)
+  customerComment        String?
   // процесс
   status       OrderStatus @default(NEW)
   parcelId     String?     // заполняется при оформлении

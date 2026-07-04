@@ -25,6 +25,7 @@ export type ParsedOrderDraft = {
   unitPriceUsd: number | null;
   unitPriceCny: number | null;
   trackNumber: string | null;
+  customerComment: string | null;
   deliveryType: DeliveryType | null;
   recipientNameText: string | null;
   detailedCheckRequested: boolean;
@@ -39,7 +40,7 @@ function buildSystemPrompt(catalog: string[]): string {
   return `Ты — помощник склада карго-доставки PostmanFox. Тебе дают свободный текст (сообщение клиента, выгрузку из Excel, список ссылок и т.п.), в котором может быть НЕСКОЛЬКО товаров-заказов. Твоя задача — разобрать текст и разложить его ПОЗАКАЗНО: один товар = один заказ.
 
 Верни СТРОГО JSON-объект вида:
-{"orders":[{"productNameText":"...","quantity":1,"unitPriceUsd":null,"unitPriceCny":null,"trackNumber":null,"deliveryType":null,"recipientNameText":null,"detailedCheckRequested":false,"keepOriginalPackaging":true}]}
+{"orders":[{"productNameText":"...","quantity":1,"unitPriceUsd":null,"unitPriceCny":null,"trackNumber":null,"customerComment":null,"deliveryType":null,"recipientNameText":null,"detailedCheckRequested":false,"keepOriginalPackaging":true}]}
 
 Правила по полям:
 - productNameText — наименование товара (строка, обязательно). Если в строке несколько одинаковых товаров — это один заказ с quantity.
@@ -51,6 +52,7 @@ function buildSystemPrompt(catalog: string[]): string {
   • Если цены нет вовсе — unitPriceUsd = null, unitPriceCny = null.
   Цена — за ЕДИНИЦУ товара. Если дана общая сумма за партию — раздели на quantity.
 - trackNumber — китайский трек-номер посылки (строка) или null. НЕ путай с артикулом/SKU. У РАЗНЫХ трек-номеров — РАЗНЫЕ заказы.
+- customerComment — комментарий/пожелания/примечания клиента к ЭТОМУ заказу (строка) или null. Сюда складывай всё, что относится к заказу, но НЕ раскладывается по остальным полям: номер/референс заказа клиента (например «#3661», «заказ 3661»), пожелания по упаковке или обработке словами («упаковать аккуратно», «позвонить перед отправкой», «хрупкое»), любые прочие заметки клиента. Если по товару таких заметок нет — null. Референс вроде «#3661» относится к товару(ам) рядом с ним; если товаров несколько под одним референсом — впиши его в каждый из этих заказов.
 - deliveryType — одно из: "AUTO" (авто), "AIR" (авиа), "SEA" (море), "EMS"; либо null, если явно не указано.
 - recipientNameText — имя/ФИО получателя (кому везём), если оно есть в тексте; иначе null.
 - detailedCheckRequested — true, если клиент просит фотоотчёт, фото, детальную проверку, «проверьте», «сфотографируйте», «с фото»; иначе false.
@@ -93,6 +95,9 @@ function coerceDraft(raw: unknown): ParsedOrderDraft | null {
   const track = typeof o.trackNumber === "string" ? o.trackNumber.trim() : "";
   const trackNumber = track || null;
 
+  const comment = typeof o.customerComment === "string" ? o.customerComment.trim() : "";
+  const customerComment = comment || null;
+
   const dt = typeof o.deliveryType === "string" ? o.deliveryType.toUpperCase() : "";
   const deliveryType = (DELIVERY_TYPES as readonly string[]).includes(dt)
     ? (dt as DeliveryType)
@@ -110,6 +115,7 @@ function coerceDraft(raw: unknown): ParsedOrderDraft | null {
     unitPriceUsd,
     unitPriceCny,
     trackNumber,
+    customerComment,
     deliveryType,
     recipientNameText,
     detailedCheckRequested,

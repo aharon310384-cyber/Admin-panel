@@ -69,6 +69,9 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                 <li key={o.id} className="ord">
                   <span className="ord-name">{o.productNameText ?? "Товар"}</span>
                   <span className="ord-meta">{o.trackNumber ?? "—"} · {o.quantity} шт · {orderStatusLabel(o.status)}</span>
+                  {o.customerComment?.trim() ? (
+                    <span className="ord-comment">💬 {o.customerComment}</span>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -147,6 +150,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
         .ord { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
         .ord-name { font-size: 13.5px; font-weight: 600; }
         .ord-meta { font-size: 12px; color: var(--color-muted); }
+        .ord-comment { font-size: 12px; color: var(--color-text); margin-top: 2px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
         .rcpt { width: 100%; border-collapse: collapse; font-size: 13.5px; }
         .rcpt td { padding: 8px 6px; border-bottom: 1px solid var(--color-border); }
         .rcpt .r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }

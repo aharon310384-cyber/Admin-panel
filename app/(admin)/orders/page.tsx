@@ -99,6 +99,7 @@ export default async function OrdersPage({
                 <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
                 <th><SortableHeader label="Наименование" href={sortHref("productNameText")} active={sortField === "productNameText"} direction={sortDir} /></th>
                 <th><SortableHeader label="Трек-номер" href={sortHref("trackNumber")} active={sortField === "trackNumber"} direction={sortDir} /></th>
+                <th>Комментарий</th>
                 <th><SortableHeader label="Кол-во" href={sortHref("quantity")} active={sortField === "quantity"} direction={sortDir} /></th>
                 <th><SortableHeader label="Цена $" href={sortHref("unitPriceUsd")} active={sortField === "unitPriceUsd"} direction={sortDir} /></th>
                 <th><SortableHeader label="Объявл. $" href={sortHref("declaredValueUsd")} active={sortField === "declaredValueUsd"} direction={sortDir} /></th>
@@ -117,6 +118,7 @@ export default async function OrdersPage({
                   </td>
                   <td className="strong">{dash(o.productNameText)}</td>
                   <td className="mono text-muted">{dash(o.trackNumber)}</td>
+                  <td className="text-muted comment" title={o.customerComment ?? undefined}>{dash(o.customerComment)}</td>
                   <td className="tabular">{o.quantity}</td>
                   <td className="tabular">{o.unitPriceUsd ? formatUsd(o.unitPriceUsd) : "—"}</td>
                   <td className="tabular text-muted">{o.declaredValueUsd ? formatUsd(o.declaredValueUsd) : "—"}</td>
@@ -131,7 +133,7 @@ export default async function OrdersPage({
               ))}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="table-empty">Заказов пока нет</td>
+                  <td colSpan={12} className="table-empty">Заказов пока нет</td>
                 </tr>
               )}
             </tbody>
@@ -158,6 +160,7 @@ export default async function OrdersPage({
         .mono { font-family: var(--font-mono); font-size: 12px; }
         .tabular { font-variant-numeric: tabular-nums; }
         .text-muted { color: var(--color-muted); }
+        .comment { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .code-pill { display: inline-flex; align-items: center; min-width: 36px; justify-content: center; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); }
         .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
 

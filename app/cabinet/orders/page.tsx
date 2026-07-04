@@ -41,6 +41,7 @@ export default async function ClientCabinetOrdersPage({
       id: true,
       productNameText: true,
       trackNumber: true,
+      customerComment: true,
       unitPriceUsd: true,
       quantity: true,
       imageUrl: true,
@@ -88,6 +89,9 @@ export default async function ClientCabinetOrdersPage({
               <span className="or-info">
                 <span className="or-name">{p.productNameText ?? "—"}</span>
                 <span className="or-sku">{p.trackNumber ?? ""}</span>
+                {p.customerComment?.trim() ? (
+                  <span className="or-comment">💬 {p.customerComment}</span>
+                ) : null}
               </span>
               <span className="or-right">
                 <span className="or-price">{p.unitPriceUsd != null ? formatUsd(p.unitPriceUsd) : "—"}</span>
@@ -146,6 +150,7 @@ export default async function ClientCabinetOrdersPage({
         .or-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
         .or-name { font-size: 14px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .or-sku { font-family: var(--font-jetbrains-mono), monospace; font-size: 11px; color: var(--cab-muted); }
+        .or-comment { font-size: 11.5px; color: var(--cab-text-soft); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .or-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
         .or-price { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14.5px; white-space: nowrap; }
         .or-stock { font-size: 11px; font-weight: 600; }
