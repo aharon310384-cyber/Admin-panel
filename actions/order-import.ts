@@ -76,6 +76,14 @@ export async function createOrdersBulk(
     recipientId = recipient?.id ?? null;
   }
 
+  // Автор пишется, только если пользователь реально есть в БД:
+  // сессия может ссылаться на устаревший User.id (например, после пересева базы).
+  const author = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true },
+  });
+  const authorId = author?.id ?? null;
+
   let created = 0;
   for (const draft of data.orders) {
     const unit = draft.unitPriceUsd ?? 0;
@@ -104,7 +112,7 @@ export async function createOrdersBulk(
         detailedCheckRequested: draft.detailedCheckRequested ?? false,
         keepOriginalPackaging: draft.keepOriginalPackaging ?? true,
         status: "NEW",
-        authorId: session.user.id,
+        authorId,
       },
     });
     created += 1;

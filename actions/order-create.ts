@@ -36,6 +36,12 @@ export async function createOrder(formData: FormData): Promise<void> {
   const declaredValueUsd = unit * data.quantity;
   const catalog = await resolveProductCatalog(data.productNameId);
 
+  // Автор пишется, только если пользователь реально есть в БД:
+  // сессия может ссылаться на устаревший User.id (например, после пересева базы).
+  const author = session.user?.id
+    ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true } })
+    : null;
+
   await prisma.order.create({
     data: {
       customerId: data.customerId,
@@ -53,7 +59,7 @@ export async function createOrder(formData: FormData): Promise<void> {
       detailedCheckRequested: !!data.detailedCheckRequested,
       keepOriginalPackaging: !!data.keepOriginalPackaging,
       status: "NEW",
-      authorId: session.user.id,
+      authorId: author?.id ?? null,
     },
   });
 
