@@ -35,6 +35,12 @@
   --color-status-completed-bg: #def7eb;
   --color-status-canceled: #b42334;
   --color-status-canceled-bg: #ffe3e7;
+  --color-status-assembled: #0d9488;
+  --color-status-assembled-bg: #ccfbf1;
+  --color-status-ready: #4f46e5;
+  --color-status-ready-bg: #e0e7ff;
+  --color-status-utilized: #64748b;
+  --color-status-utilized-bg: #eef2f6;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;

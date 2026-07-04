@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
-import { parcelStatusLabel, deliveryTypeLabel } from "@/lib/statuses";
+import { parcelStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 
@@ -100,7 +100,7 @@ export default async function ParcelsPage({
                 <tr key={p.id}>
                   <td><span className="code-pill">{p.customer.code ?? "—"}</span></td>
                   <td><Link href={`/parcels/${p.id}`} className="num">{p.number}</Link></td>
-                  <td><span className="st">{parcelStatusLabel(p.status)}</span></td>
+                  <td><span className={`st st--${PARCEL_STATUS_COLOR[p.status]}`}>{parcelStatusLabel(p.status)}</span></td>
                   <td className="text-muted">{p.recipient?.name ?? "—"}</td>
                   <td className="text-muted">{deliveryTypeLabel(p.deliveryType)}</td>
                   <td className="tabular">{p._count.orders}</td>
@@ -133,7 +133,15 @@ export default async function ParcelsPage({
         .table tbody tr:last-child td { border-bottom: none; }
         .table tbody tr:hover td { background: var(--color-muted-bg); }
         .num { font-family: var(--font-mono); font-weight: 600; color: var(--color-accent); text-decoration: none; }
-        .st { display: inline-flex; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: var(--color-accent); background: oklch(52% 0.14 42 / 0.08); }
+        .st { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+        .st--new { color: var(--color-status-new); background: var(--color-status-new-bg); }
+        .st--assembled { color: var(--color-status-assembled); background: var(--color-status-assembled-bg); }
+        .st--processing { color: var(--color-status-processing); background: var(--color-status-processing-bg); }
+        .st--ready { color: var(--color-status-ready); background: var(--color-status-ready-bg); }
+        .st--shipped { color: var(--color-status-shipped); background: var(--color-status-shipped-bg); }
+        .st--completed { color: var(--color-status-completed); background: var(--color-status-completed-bg); }
+        .st--canceled { color: var(--color-status-canceled); background: var(--color-status-canceled-bg); }
+        .st--utilized { color: var(--color-status-utilized); background: var(--color-status-utilized-bg); }
         .strong { font-weight: 700; }
         .tabular { font-variant-numeric: tabular-nums; }
         .text-muted { color: var(--color-muted); }

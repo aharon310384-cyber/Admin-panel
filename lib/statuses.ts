@@ -42,6 +42,23 @@ export const ORDER_STATUS_COLOR: Record<OrderStatus, string> = {
   UTILIZED: "canceled",
 };
 
+/**
+ * Цвет статуса Посылки (для бейджей admin).
+ * 8 статусов раскладываются на палитру статусов: 5 общих ключей
+ * (new/processing/shipped/completed/canceled) + 3 специальных для посылок
+ * (assembled/ready/utilized), чтобы соседние этапы визуально не сливались.
+ */
+export const PARCEL_STATUS_COLOR: Record<ParcelStatus, string> = {
+  FORMED: "new", // Новая — синий
+  ASSEMBLED: "assembled", // Собран — бирюзовый
+  PACKED: "processing", // Упакован — янтарный
+  READY_TO_SHIP: "ready", // Готова к отправке — индиго
+  SHIPPED: "shipped", // Отправлена — фиолетовый
+  DELIVERED: "completed", // Доставлена — зелёный
+  RETURNED: "canceled", // Возвращён — красный
+  UTILIZED: "utilized", // Утилизировано — серый
+};
+
 export function orderStatusLabel(s: OrderStatus): string {
   return ORDER_STATUS_LABELS[s] ?? s;
 }
