@@ -8,7 +8,17 @@ import FormFromOrders from "@/components/parcels/form-from-orders";
 
 export const metadata: Metadata = { title: "Оформить посылку" };
 
-export default async function FromOrdersPage() {
+export default async function FromOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ orderIds?: string }>;
+}) {
+  const { orderIds } = await searchParams;
+  const preselected = (orderIds ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   const orders = await prisma.order.findMany({
     where: { deletedAt: null, status: "RECEIVED" },
     include: { customer: { select: { name: true, code: true } }, recipient: { select: { name: true } } },
@@ -36,7 +46,7 @@ export default async function FromOrdersPage() {
       <p className="page-subtitle">Выберите принятые заказы одного клиента → соберём в посылку с расчётом</p>
 
       <div className="card">
-        <FormFromOrders rows={rows} />
+        <FormFromOrders rows={rows} preselected={preselected} />
       </div>
 
       <style>{`

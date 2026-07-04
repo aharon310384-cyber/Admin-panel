@@ -16,8 +16,19 @@ type Row = {
   deliveryType: string | null;
 };
 
-export default function FormFromOrders({ rows }: { rows: Row[] }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+export default function FormFromOrders({
+  rows,
+  preselected = [],
+}: {
+  rows: Row[];
+  preselected?: string[];
+}) {
+  // Предвыбор из списка заказов (?orderIds=…): берём только те, что реально
+  // есть среди принятых заказов на этой странице.
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    const ids = new Set(rows.map((r) => r.id));
+    return new Set(preselected.filter((id) => ids.has(id)));
+  });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
