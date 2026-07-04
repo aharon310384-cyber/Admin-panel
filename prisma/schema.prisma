@@ -99,6 +99,7 @@ model Country {
   phoneNumberMax    Int?     // макс. число цифр национального номера (без кода страны)
   postalCodeRegex   String?
   postalCodeExample String?
+  aliases           String?  // альтернативные названия/транслиты через запятую (для поиска)
   isEu              Boolean  @default(false) // член ЕС — для таможенной пошлины ЕС €3/позиция
   // Фаза 2: таможенные лимиты
   dutyFreeLimitUsd  Decimal?

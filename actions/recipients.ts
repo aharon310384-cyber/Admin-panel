@@ -12,7 +12,7 @@ const recipientSchema = z.object({
   lastName: z.string().min(1, "Укажите фамилию"),
   firstName: z.string().min(1, "Укажите имя"),
   middleName: z.string().optional(),
-  phone: z.string().optional(),
+  phone: z.string().min(1, "Укажите номер телефона"),
   phoneDialCode: z
     .string()
     .regex(/^\+\d{1,4}$/, "Телефонный код в формате +7")
@@ -23,9 +23,9 @@ const recipientSchema = z.object({
     .regex(/^[A-Za-z]{2}$/, "Код страны — 2 буквы")
     .optional()
     .or(z.literal("")),
-  country: z.string().optional(),
-  city: z.string().optional(),
-  address: z.string().optional(),
+  country: z.string().min(1, "Укажите страну"),
+  city: z.string().min(1, "Укажите населённый пункт"),
+  address: z.string().min(1, "Укажите адрес"),
   postalCode: z.string().optional(),
   passportSeries: z.string().optional(),
   passportNumber: z.string().optional(),
@@ -52,12 +52,13 @@ function readForm(formData: FormData) {
     lastName: str(formData.get("lastName")) ?? "",
     firstName: str(formData.get("firstName")) ?? "",
     middleName: str(formData.get("middleName")),
-    phone: str(formData.get("phone")),
+    // Обязательные поля: пустое значение должно давать "" и падать на .min(1) валидации.
+    phone: str(formData.get("phone")) ?? "",
     phoneDialCode: str(formData.get("phoneDialCode")),
     countryCode: str(formData.get("countryCode"))?.toUpperCase(),
-    country: str(formData.get("country")),
-    city: str(formData.get("city")),
-    address: str(formData.get("address")),
+    country: str(formData.get("country")) ?? "",
+    city: str(formData.get("city")) ?? "",
+    address: str(formData.get("address")) ?? "",
     postalCode: str(formData.get("postalCode")),
     passportSeries: str(formData.get("passportSeries")),
     passportNumber: str(formData.get("passportNumber")),

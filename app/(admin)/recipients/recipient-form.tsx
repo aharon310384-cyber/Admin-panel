@@ -16,6 +16,7 @@ type CountryOption = {
   phoneNumberMax: number | null;
   postalCodeRegex: string | null;
   postalCodeExample: string | null;
+  aliases: string | null;
 };
 
 type CustomerOption = {
@@ -67,9 +68,18 @@ function findCountry(countries: CountryOption[], value: string): CountryOption |
   }
   const lower = trimmed.toLowerCase();
   return (
-    countries.find(
-      (c) => c.nameRu.toLowerCase() === lower || c.nameEn.toLowerCase() === lower
-    ) ?? null
+    countries.find((c) => {
+      if (c.nameRu.toLowerCase() === lower || c.nameEn.toLowerCase() === lower) {
+        return true;
+      }
+      // Поиск по альтернативным названиям/транслитам (через запятую, без учёта регистра).
+      if (c.aliases) {
+        return c.aliases
+          .split(",")
+          .some((alias) => alias.trim().toLowerCase() === lower);
+      }
+      return false;
+    }) ?? null
   );
 }
 
@@ -177,7 +187,7 @@ export default function RecipientForm({
           </div>
 
           <div className="field">
-            <label className="field-label">Страна</label>
+            <label className="field-label">Страна <span className="required">*</span></label>
             <input
               type="text"
               name="country"
@@ -214,7 +224,7 @@ export default function RecipientForm({
           </div>
 
           <div className="field">
-            <label className="field-label">Населённый пункт</label>
+            <label className="field-label">Населённый пункт <span className="required">*</span></label>
             <input
               type="text"
               name="city"
@@ -242,7 +252,7 @@ export default function RecipientForm({
           </div>
 
           <div className="field field--full">
-            <label className="field-label">Адрес</label>
+            <label className="field-label">Адрес <span className="required">*</span></label>
             <textarea
               name="address"
               defaultValue={recipient?.address ?? ""}
@@ -253,7 +263,7 @@ export default function RecipientForm({
 
           <div className="field field--full">
             <label className="field-label">
-              Телефон
+              Телефон <span className="required">*</span>
               {phoneLenHint && <span className="field-hint"> (нужно {phoneLenHint})</span>}
             </label>
             <div className="phone-group">

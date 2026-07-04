@@ -34,6 +34,7 @@ export default async function NewRecipientPage({
         phoneNumberMax: true,
         postalCodeRegex: true,
         postalCodeExample: true,
+        aliases: true,
       },
       orderBy: { nameRu: "asc" },
     }),
