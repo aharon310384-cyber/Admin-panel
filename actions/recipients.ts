@@ -116,8 +116,15 @@ export async function createRecipient(formData: FormData) {
     return { error: { customerId: ["Клиент-владелец не найден"] } };
   }
 
+  // Автор пишется, только если пользователь реально есть в БД:
+  // сессия может ссылаться на устаревший User.id (например, после пересева базы).
+  const author = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true },
+  });
+
   const recipient = await prisma.recipient.create({
-    data: { customerId: owner.id, authorId: session.user.id, ...toData(parsed.data) },
+    data: { customerId: owner.id, authorId: author?.id ?? null, ...toData(parsed.data) },
   });
 
   revalidatePath("/recipients");
