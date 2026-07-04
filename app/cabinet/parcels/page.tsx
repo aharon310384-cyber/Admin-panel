@@ -9,7 +9,7 @@ import { formatUsd, formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Посылки" };
 
-const TIMELINE: ParcelStatus[] = ["FORMED", "PACKED", "SHIPPED", "DELIVERED"];
+const TIMELINE: ParcelStatus[] = ["FORMED", "ASSEMBLED", "PACKED", "READY_TO_SHIP", "SHIPPED", "DELIVERED"];
 
 type FilterKey = "all" | "active" | "done";
 
@@ -190,9 +190,9 @@ export default async function ClientCabinetParcelsPage({
         .pc-dot--on { background: var(--cab-green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cab-green) 15%, transparent); }
         .pc-line { flex: 1; height: 3px; margin: 0 4px; border-radius: 2px; background: var(--cab-border-strong); }
         .pc-line--on { background: var(--cab-green); }
-        .pc-tlabels { display: flex; justify-content: space-between; margin-top: -4px; }
-        .pc-tlabels span { font-size: 9.5px; color: var(--cab-muted); flex: 1; text-align: left; }
-        .pc-tlabels span:last-child { flex: 0; text-align: right; white-space: nowrap; }
+        .pc-tlabels { display: flex; justify-content: space-between; margin-top: 1px; }
+        .pc-tlabels span { font-size: 9px; line-height: 1.2; color: var(--cab-muted); flex: 1; text-align: left; padding-right: 3px; word-break: break-word; }
+        .pc-tlabels span:last-child { flex: 0 0 auto; text-align: right; padding-right: 0; white-space: nowrap; }
 
         .pc-card-foot {
           display: flex; align-items: center; justify-content: space-between;

@@ -10,7 +10,14 @@ import { formatUsd, formatDate, formatNumber } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Посылка" };
 
-const TIMELINE: ParcelStatus[] = ["FORMED", "PACKED", "SHIPPED", "DELIVERED"];
+const TIMELINE: ParcelStatus[] = [
+  "FORMED",
+  "ASSEMBLED",
+  "PACKED",
+  "READY_TO_SHIP",
+  "SHIPPED",
+  "DELIVERED",
+];
 
 export default async function ClientCabinetParcelDetailPage({
   params,
@@ -228,9 +235,9 @@ export default async function ClientCabinetParcelDetailPage({
         .pd-dot--on { background: var(--cab-green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cab-green) 16%, transparent); }
         .pd-line { flex: 1; height: 3px; margin: 0 4px; border-radius: 2px; background: var(--cab-border-strong); }
         .pd-line--on { background: var(--cab-green); }
-        .pd-tlabels { display: flex; justify-content: space-between; }
-        .pd-tlabels span { font-size: 10px; color: var(--cab-muted); flex: 1; text-align: left; }
-        .pd-tlabels span:last-child { flex: 0; text-align: right; white-space: nowrap; }
+        .pd-tlabels { display: flex; justify-content: space-between; margin-top: 5px; }
+        .pd-tlabels span { font-size: 9.5px; line-height: 1.2; color: var(--cab-muted); flex: 1; text-align: left; padding-right: 4px; word-break: break-word; }
+        .pd-tlabels span:last-child { flex: 0 0 auto; text-align: right; padding-right: 0; white-space: nowrap; }
 
         .pd-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
         .pd-fact { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--cab-border); }

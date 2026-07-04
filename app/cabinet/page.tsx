@@ -10,7 +10,7 @@ import { formatUsd, formatDate } from "@/lib/utils";
 export const metadata: Metadata = { title: "Обзор" };
 
 const ACTIVE_STATUSES: ParcelStatus[] = ["FORMED", "ASSEMBLED", "PACKED", "READY_TO_SHIP", "SHIPPED"];
-const TIMELINE: ParcelStatus[] = ["FORMED", "PACKED", "SHIPPED", "DELIVERED"];
+const TIMELINE: ParcelStatus[] = ["FORMED", "ASSEMBLED", "PACKED", "READY_TO_SHIP", "SHIPPED", "DELIVERED"];
 
 function greetingName(client: {
   firstName: string | null;
@@ -246,9 +246,9 @@ export default async function ClientCabinetOverviewPage() {
         .ov-dot--on { background: var(--cab-green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cab-green) 16%, transparent); }
         .ov-line { flex: 1; height: 3px; margin: 0 4px; border-radius: 2px; background: var(--cab-border-strong); }
         .ov-line--on { background: var(--cab-green); }
-        .ov-timeline-labels { display: flex; justify-content: space-between; }
-        .ov-timeline-labels span { font-size: 10px; color: var(--cab-muted); flex: 1; text-align: left; }
-        .ov-timeline-labels span:last-child { flex: 0; text-align: right; white-space: nowrap; }
+        .ov-timeline-labels { display: flex; justify-content: space-between; margin-top: 4px; }
+        .ov-timeline-labels span { font-size: 9.5px; line-height: 1.2; color: var(--cab-muted); flex: 1; text-align: left; padding-right: 4px; word-break: break-word; }
+        .ov-timeline-labels span:last-child { flex: 0 0 auto; text-align: right; padding-right: 0; white-space: nowrap; }
 
         .ov-empty { align-items: center; text-align: center; gap: 6px; padding: 28px 16px; }
         .ov-empty-icon { color: var(--cab-muted); opacity: 0.6; }
