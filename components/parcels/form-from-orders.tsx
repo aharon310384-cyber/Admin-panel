@@ -50,8 +50,12 @@ export default function FormFromOrders({
       return;
     }
     setBusy(true); setErr(null);
-    await createParcelFromOrders([...selected]);
-    // редирект внутри action
+    const res = await createParcelFromOrders([...selected]);
+    // при успехе редирект происходит внутри action; сюда попадаем только при ошибке
+    if (res?.error) {
+      setErr(res.error);
+      setBusy(false);
+    }
   };
 
   if (rows.length === 0) {

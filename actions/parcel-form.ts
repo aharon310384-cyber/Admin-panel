@@ -46,17 +46,36 @@ async function calcDutyFor(
 }
 
 /** Оформление: собрать принятые заказы одного клиента в новую посылку. */
-export async function createParcelFromOrders(orderIds: string[]): Promise<void> {
+export async function createParcelFromOrders(orderIds: string[]): Promise<{ error: string } | void> {
   const session = await auth();
   if (!session) redirect("/login");
 
   const orders = await prisma.order.findMany({
     where: { id: { in: orderIds }, status: "RECEIVED", deletedAt: null },
   });
-  if (orders.length === 0) return;
+  if (orders.length === 0) return { error: "Нет принятых заказов для оформления" };
 
   const first = orders[0];
-  const number = await nextParcelNumber();
+
+  // Номер посылки: код клиента + сквозной номер + код страны доставки (напр. SM3956US)
+  const customer = await prisma.customer.findUnique({
+    where: { id: first.customerId },
+    select: { code: true },
+  });
+  if (!customer?.code) {
+    return { error: "У клиента не заполнен код — номер посылки собрать нельзя" };
+  }
+  const recipient = first.recipientId
+    ? await prisma.recipient.findUnique({
+        where: { id: first.recipientId },
+        select: { countryCode: true },
+      })
+    : null;
+  if (!recipient?.countryCode) {
+    return { error: "У получателя не указана страна доставки — заполните её перед оформлением" };
+  }
+
+  const number = await nextParcelNumber(customer.code, recipient.countryCode);
   const billable = round2(orders.reduce((s, o) => s + Number(o.actualWeightKg ?? 0), 0));
   const settings = await prisma.financeSettings.findFirst();
   const rate = Number(settings?.exchangeRateCnyPerUsd ?? 7.1);
