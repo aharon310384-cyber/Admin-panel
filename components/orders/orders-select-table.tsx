@@ -121,7 +121,8 @@ export default function OrdersSelectTable({
                   <tr
                     key={o.id}
                     className={`row-clickable ${disabled ? "row-dim" : ""}`}
-                    onClick={(e) => {
+                    title="Двойной клик — открыть"
+                    onDoubleClick={(e) => {
                       const t = e.target as HTMLElement;
                       if (t.closest("input,button,a,label")) return;
                       router.push(`/orders/${o.id}/edit`);

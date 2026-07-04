@@ -16,7 +16,8 @@ export default function TableRowLink({ href, className, children }: Props) {
   return (
     <tr
       className={classes}
-      onClick={(event) => {
+      title="Двойной клик — открыть"
+      onDoubleClick={(event) => {
         const target = event.target as HTMLElement;
         if (target.closest("button, a, input, label, select, textarea")) return;
         router.push(href);
