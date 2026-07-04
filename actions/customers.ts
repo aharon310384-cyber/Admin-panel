@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
@@ -18,6 +18,18 @@ const customerSchema = z.object({
   country: z.string().optional(),
   city: z.string().optional(),
   address: z.string().optional(),
+});
+
+const clientSchema = z.object({
+  code: z.string().trim().min(1, "Укажите код клиента"),
+  lastName: z.string().optional(),
+  firstName: z.string().optional(),
+  middleName: z.string().optional(),
+  email: z.string().email("Некорректный email").optional().or(z.literal("")),
+  telegramUsername: z.string().optional(),
+  phone: z.string().optional(),
+  country: z.string().optional(),
+  city: z.string().optional(),
 });
 
 const parsedRecipientSchema = z.object({
@@ -344,6 +356,98 @@ export async function createCustomer(formData: FormData) {
 
   const returnTo = (formData.get("returnTo") as string | null)?.trim();
   redirect(safeReturnTo(returnTo, customer.id) ?? `/recipients/${customer.id}`);
+}
+
+export async function createClient(formData: FormData) {
+  await requireAdmin();
+
+  const raw = {
+    code: formData.get("code"),
+    lastName: formData.get("lastName") || undefined,
+    firstName: formData.get("firstName") || undefined,
+    middleName: formData.get("middleName") || undefined,
+    email: formData.get("email"),
+    telegramUsername: formData.get("telegramUsername") || undefined,
+    phone: formData.get("phone") || undefined,
+    country: formData.get("country") || undefined,
+    city: formData.get("city") || undefined,
+  };
+
+  const parsed = clientSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors };
+  }
+
+  const {
+    code,
+    lastName,
+    firstName,
+    middleName,
+    email,
+    telegramUsername,
+    phone,
+    country,
+    city,
+  } = parsed.data;
+
+  // Код уникален (без учёта регистра) — проверяем среди активных клиентов заранее,
+  // чтобы вернуть понятную ошибку до попадания на unique-constraint БД.
+  const codeVariants = Array.from(new Set([code, code.toUpperCase(), code.toLowerCase()]));
+  const existing = await prisma.customer.findFirst({
+    where: { deletedAt: null, code: { in: codeVariants } },
+    select: { id: true },
+  });
+  if (existing) {
+    return { error: { code: ["Клиент с таким кодом уже существует"] } };
+  }
+
+  // Телеграм-ник храним без ведущего «@».
+  const telegram = telegramUsername?.trim().replace(/^@+/, "") || null;
+  // Поле name в БД обязательное: собираем из ФИО, при отсутствии — подставляем код клиента.
+  const fio = [lastName, firstName, middleName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+  const name = fio || code;
+
+  let customer;
+  try {
+    customer = await prisma.customer.create({
+      data: {
+        code,
+        name,
+        lastName: lastName?.trim() || null,
+        firstName: firstName?.trim() || null,
+        middleName: middleName?.trim() || null,
+        email: email || null,
+        telegramUsername: telegram,
+        phone: phone?.trim() || null,
+        country: country?.trim() || null,
+        city: city?.trim() || null,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const target = (error.meta?.target as string[] | undefined)?.join(", ") ?? "";
+      const field = target.includes("email") ? "email" : "code";
+      return {
+        error: {
+          [field]: [
+            field === "email"
+              ? "Клиент с таким email уже существует"
+              : "Клиент с таким кодом уже существует",
+          ],
+        },
+      };
+    }
+    throw error;
+  }
+
+  revalidatePath("/clients");
+  redirect(`/clients/${customer.id}`);
 }
 
 export async function deleteCustomer(id: string) {
