@@ -278,6 +278,11 @@ model Order {
   // услуга клиента
   detailedCheckRequested Boolean  @default(false) // «Детальная проверка и фотоотчёт»
   keepOriginalPackaging  Boolean  @default(true)  // «Оставить оригинальную упаковку» (по умолчанию включено)
+  // услуги посылки, выбранные на строке заказа (при оформлении переходят в посылку, OR по заказам)
+  consolidationRequested  Boolean @default(false) // «Консолидация» 0.3 $/кг
+  compactPackRequested    Boolean @default(false) // «Компактная упаковка» 0.5 $/кг
+  standardCheckRequested  Boolean @default(false) // «Стандартная проверка» 1 $/кг
+  reinforcedPackRequested Boolean @default(false) // «Усиленная упаковка» — сумму задаёт админ на посылке
   productUrl             String?
   imageUrl               String?
   // комментарий клиента к заказу (пожелания/примечания; ИИ тоже может заполнить)
