@@ -119,6 +119,11 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
 }
 
 export type ServiceOpts = {
+  actualWeightKg?: number;
+  billableWeightKg?: number;
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
   consolidation?: boolean;
   compactPack?: boolean;
   standardCheck?: boolean;
@@ -128,8 +133,11 @@ export type ServiceOpts = {
   discountPercent?: number;
 };
 
-/** Применить услуги и пересчитать квитанцию посылки. */
-export async function applyParcelServices(parcelId: string, opts: ServiceOpts): Promise<void> {
+/** Применить услуги, обновить вес и пересчитать квитанцию посылки. */
+export async function applyParcelServices(
+  parcelId: string,
+  opts: ServiceOpts,
+): Promise<{ ok: boolean; warning?: string }> {
   const session = await auth();
   if (!session) redirect("/login");
 
@@ -137,14 +145,46 @@ export async function applyParcelServices(parcelId: string, opts: ServiceOpts): 
     where: { id: parcelId },
     include: { orders: true },
   });
-  if (!parcel) return;
+  if (!parcel) return { ok: false };
 
   const { duty, passToClient } = await calcDutyFor(parcel.recipientId, parcel.orders);
   const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
 
-  const billable = Number(parcel.billableWeightKg ?? parcel.actualWeightKg ?? 0);
   const rate = Number(parcel.exchangeRateCnyPerUsd);
-  const shipping = Number(parcel.shippingCostUsd ?? 0);
+
+  // Тариф (пока по типу доставки — направление отложено); нужен для ставки и делителя объёмного веса
+  const tariff = parcel.deliveryType
+    ? await prisma.shippingTariff.findFirst({ where: { deliveryType: parcel.deliveryType, active: true } })
+    : null;
+
+  // Вес фактический вводится вручную
+  const actualWeightKg =
+    opts.actualWeightKg != null ? round2(opts.actualWeightKg) : Number(parcel.actualWeightKg ?? 0);
+
+  // Габариты и объёмный вес = Д × Ш × В (см) ÷ делитель (тариф или 6000)
+  const lengthCm = opts.lengthCm != null ? round2(opts.lengthCm) : Number(parcel.lengthCm ?? 0);
+  const widthCm = opts.widthCm != null ? round2(opts.widthCm) : Number(parcel.widthCm ?? 0);
+  const heightCm = opts.heightCm != null ? round2(opts.heightCm) : Number(parcel.heightCm ?? 0);
+  const divisor = tariff?.volumetricDivisor ?? 6000;
+  const volumetricWeightKg =
+    lengthCm > 0 && widthCm > 0 && heightCm > 0
+      ? round2((lengthCm * widthCm * heightCm) / divisor)
+      : 0;
+
+  // Расчётный вес: если перебит вручную (> 0) — берём его, иначе max(факт, объёмный)
+  const billable =
+    opts.billableWeightKg && opts.billableWeightKg > 0
+      ? round2(opts.billableWeightKg)
+      : Math.max(actualWeightKg, volumetricWeightKg);
+  let warning: string | undefined;
+  let shipping: number;
+  if (tariff) {
+    shipping = round2(billable * Number(tariff.pricePerKgUsd) + Number(tariff.handlingFeeUsd));
+  } else {
+    shipping = Number(parcel.shippingCostUsd ?? 0);
+    warning = "Тариф по типу доставки не найден — «Отправка» не пересчитана.";
+  }
+
   const declaredTotal = parcel.orders.reduce((s, o) => s + Number(o.declaredValueUsd ?? 0), 0);
   const detailedCount = parcel.orders.filter((o) => o.detailedCheckRequested).length;
 
@@ -175,6 +215,13 @@ export async function applyParcelServices(parcelId: string, opts: ServiceOpts): 
   await prisma.parcel.update({
     where: { id: parcelId },
     data: {
+      actualWeightKg,
+      volumetricWeightKg,
+      billableWeightKg: billable,
+      lengthCm,
+      widthCm,
+      heightCm,
+      shippingCostUsd: shipping,
       discountPercent,
       customsDutyEur: duty.applies ? duty.dutyEur : null,
       customsDutyUsd: duty.applies ? duty.dutyUsd : null,
@@ -182,6 +229,19 @@ export async function applyParcelServices(parcelId: string, opts: ServiceOpts): 
       totalUsd,
       totalCny: round2(totalUsd * rate),
     },
+  });
+  revalidatePath(`/parcels/${parcelId}`);
+  return { ok: true, warning };
+}
+
+/** Сохранить трек-номер отслеживания посылки (исходящий трек до получателя). */
+export async function setParcelTracking(parcelId: string, trackingNumber: string): Promise<void> {
+  const session = await auth();
+  if (!session) redirect("/login");
+  const trimmed = trackingNumber.trim();
+  await prisma.parcel.update({
+    where: { id: parcelId },
+    data: { trackingNumber: trimmed || null },
   });
   revalidatePath(`/parcels/${parcelId}`);
 }

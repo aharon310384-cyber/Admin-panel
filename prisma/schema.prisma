@@ -315,10 +315,13 @@ model Parcel {
   recipientId  String?
   deliveryType DeliveryType?
   status       ParcelStatus  @default(FORMED)
-  // веса
+  // веса и габариты
   actualWeightKg     Decimal?
-  volumetricWeightKg Decimal?
-  billableWeightKg   Decimal? // расчётный (фактический по умолчанию, ручной перебор)
+  volumetricWeightKg Decimal? // считается из габаритов ÷ делитель тарифа (или 6000)
+  billableWeightKg   Decimal? // расчётный (по умолчанию max(факт, объёмный), ручной перебор)
+  lengthCm           Decimal? // габарит Д
+  widthCm            Decimal? // габарит Ш
+  heightCm           Decimal? // габарит В
   // расчёт
   exchangeRateCnyPerUsd Decimal  @default(7.1) // зафиксирован при оплате
   shippingCostUsd       Decimal? // Отправка = billableWeightKg × ставка
