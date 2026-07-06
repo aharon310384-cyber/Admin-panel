@@ -96,6 +96,10 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
             actualWeightKg: order.actualWeightKg != null ? Number(order.actualWeightKg) : null,
             detailedCheckRequested: order.detailedCheckRequested,
             keepOriginalPackaging: order.keepOriginalPackaging,
+            consolidationRequested: order.consolidationRequested,
+            compactPackRequested: order.compactPackRequested,
+            standardCheckRequested: order.standardCheckRequested,
+            reinforcedPackRequested: order.reinforcedPackRequested,
           }}
         />
       </div>

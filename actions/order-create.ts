@@ -20,6 +20,10 @@ const schema = z.object({
   actualWeightKg: z.coerce.number().min(0).optional(),
   detailedCheckRequested: z.boolean().optional(),
   keepOriginalPackaging: z.boolean().optional(),
+  consolidationRequested: z.boolean().optional(),
+  compactPackRequested: z.boolean().optional(),
+  standardCheckRequested: z.boolean().optional(),
+  reinforcedPackRequested: z.boolean().optional(),
 });
 
 export async function createOrder(formData: FormData): Promise<void> {
@@ -31,6 +35,10 @@ export async function createOrder(formData: FormData): Promise<void> {
     ...raw,
     detailedCheckRequested: raw.detailedCheckRequested === "on",
     keepOriginalPackaging: raw.keepOriginalPackaging === "on",
+    consolidationRequested: raw.consolidationRequested === "on",
+    compactPackRequested: raw.compactPackRequested === "on",
+    standardCheckRequested: raw.standardCheckRequested === "on",
+    reinforcedPackRequested: raw.reinforcedPackRequested === "on",
   });
 
   const unit = data.unitPriceUsd ?? 0;
@@ -60,6 +68,10 @@ export async function createOrder(formData: FormData): Promise<void> {
       actualWeightKg: data.actualWeightKg ?? null,
       detailedCheckRequested: !!data.detailedCheckRequested,
       keepOriginalPackaging: !!data.keepOriginalPackaging,
+      consolidationRequested: !!data.consolidationRequested,
+      compactPackRequested: !!data.compactPackRequested,
+      standardCheckRequested: !!data.standardCheckRequested,
+      reinforcedPackRequested: !!data.reinforcedPackRequested,
       status: "NEW",
       authorId: author?.id ?? null,
     },

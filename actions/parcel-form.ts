@@ -13,6 +13,42 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 type DutySettings = { euDutyEnabled: boolean; euDutyPassToClient: boolean; exchangeRateCnyPerEur: number; exchangeRateCnyPerUsd: number };
 
+type OrderServiceFlags = {
+  keepOriginalPackaging: boolean;
+  detailedCheckRequested: boolean;
+  consolidationRequested: boolean;
+  compactPackRequested: boolean;
+  standardCheckRequested: boolean;
+  reinforcedPackRequested: boolean;
+};
+
+type ServiceLine = { code: string; name: string; priceUsd: number };
+
+/** Услуги посылки по флагам строк-заказов (OR по строкам). Вес — расчётный вес посылки. */
+function servicesFromOrders(orders: OrderServiceFlags[], billableWeightKg: number): ServiceLine[] {
+  const lines: ServiceLine[] = [];
+  if (orders.some((o) => o.consolidationRequested)) lines.push({ code: "CONSOLIDATION", name: "Консолидация", priceUsd: round2(billableWeightKg * 0.3) });
+  if (orders.some((o) => o.compactPackRequested)) lines.push({ code: "COMPACT_PACK", name: "Компактная упаковка", priceUsd: round2(billableWeightKg * 0.5) });
+  if (orders.some((o) => o.standardCheckRequested)) lines.push({ code: "STANDARD_CHECK", name: "Стандартная проверка на соответствие", priceUsd: round2(billableWeightKg * 1.0) });
+  const detailedCount = orders.filter((o) => o.detailedCheckRequested).length;
+  if (detailedCount > 0) lines.push({ code: "DETAILED_CHECK", name: "Детальная проверка и фотоотчёт", priceUsd: round2(detailedCount * 2.0) });
+  // сумму усиленной упаковки задаёт админ на посылке — при оформлении фиксируем пожелание строкой 0 $
+  if (orders.some((o) => o.reinforcedPackRequested)) lines.push({ code: "REINFORCED_PACK", name: "Усиленная упаковка", priceUsd: 0 });
+  if (orders.some((o) => o.keepOriginalPackaging)) lines.push({ code: "KEEP_ORIGINAL_PACK", name: "Оставить оригинальную упаковку", priceUsd: 0 });
+  return lines;
+}
+
+/** Перезаписать строки услуг посылки и вернуть их сумму. */
+async function saveParcelServices(parcelId: string, lines: ServiceLine[], rate: number): Promise<number> {
+  await prisma.parcelService.deleteMany({ where: { parcelId } });
+  for (const s of lines) {
+    await prisma.parcelService.create({
+      data: { parcelId, serviceCode: s.code, name: s.name, priceUsd: s.priceUsd, priceCny: round2(s.priceUsd * rate) },
+    });
+  }
+  return round2(lines.reduce((s, l) => s + l.priceUsd, 0));
+}
+
 /** Рассчитать пошлину ЕС для набора строк и страны получателя. */
 async function calcDutyFor(
   recipientId: string | null | undefined,
@@ -91,7 +127,10 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
 
   const { duty, passToClient } = await calcDutyFor(first.recipientId, orders);
   const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
-  const totalUsd = round2(shippingCostUsd + dutyInTotal);
+  // услуги, выбранные клиентом на строках заказов, переходят в посылку (OR по строкам)
+  const serviceLines = servicesFromOrders(orders, billable);
+  const servicesTotal = round2(serviceLines.reduce((s, l) => s + l.priceUsd, 0));
+  const totalUsd = round2(shippingCostUsd + servicesTotal + dutyInTotal);
 
   const parcel = await prisma.parcel.create({
     data: {
@@ -112,6 +151,7 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
       totalCny: round2(totalUsd * rate),
     },
   });
+  await saveParcelServices(parcel.id, serviceLines, rate);
   await prisma.order.updateMany({
     where: { id: { in: orders.map((o) => o.id) } },
     data: { parcelId: parcel.id, status: "FORMED" },
@@ -198,24 +238,22 @@ export async function applyParcelServices(
   const declaredTotal = parcel.orders.reduce((s, o) => s + Number(o.declaredValueUsd ?? 0), 0);
   const detailedCount = parcel.orders.filter((o) => o.detailedCheckRequested).length;
 
-  const services: { code: string; name: string; priceUsd: number }[] = [];
+  const services: ServiceLine[] = [];
   if (opts.consolidation) services.push({ code: "CONSOLIDATION", name: "Консолидация", priceUsd: round2(billable * 0.3) });
   if (opts.compactPack) services.push({ code: "COMPACT_PACK", name: "Компактная упаковка", priceUsd: round2(billable * 0.5) });
   if (opts.standardCheck) services.push({ code: "STANDARD_CHECK", name: "Стандартная проверка на соответствие", priceUsd: round2(billable * 1.0) });
   if (detailedCount > 0) services.push({ code: "DETAILED_CHECK", name: "Детальная проверка и фотоотчёт", priceUsd: round2(detailedCount * 2.0) });
-  if (opts.reinforcedPackUsd && opts.reinforcedPackUsd > 0) services.push({ code: "REINFORCED_PACK", name: "Усиленная упаковка", priceUsd: round2(opts.reinforcedPackUsd) });
+  if (opts.reinforcedPackUsd && opts.reinforcedPackUsd > 0) {
+    services.push({ code: "REINFORCED_PACK", name: "Усиленная упаковка", priceUsd: round2(opts.reinforcedPackUsd) });
+  } else if (parcel.orders.some((o) => o.reinforcedPackRequested)) {
+    // клиент просил усиленную упаковку, сумма ещё не задана — не теряем строку при пересчёте
+    services.push({ code: "REINFORCED_PACK", name: "Усиленная упаковка", priceUsd: 0 });
+  }
   if (opts.localDeliveryUsd && opts.localDeliveryUsd > 0) services.push({ code: "LOCAL_DELIVERY", name: "Доставка до склада", priceUsd: round2(opts.localDeliveryUsd) });
   if (opts.insurancePercent && opts.insurancePercent > 0) services.push({ code: "INSURANCE", name: "Дополнительная страховка", priceUsd: round2(declaredTotal * (opts.insurancePercent / 100)) });
+  if (parcel.orders.some((o) => o.keepOriginalPackaging)) services.push({ code: "KEEP_ORIGINAL_PACK", name: "Оставить оригинальную упаковку", priceUsd: 0 });
 
-  // сохраняем строки услуг
-  await prisma.parcelService.deleteMany({ where: { parcelId } });
-  for (const s of services) {
-    await prisma.parcelService.create({
-      data: { parcelId, serviceCode: s.code, name: s.name, priceUsd: s.priceUsd, priceCny: round2(s.priceUsd * rate) },
-    });
-  }
-
-  const servicesTotal = services.reduce((s, x) => s + x.priceUsd, 0);
+  const servicesTotal = await saveParcelServices(parcelId, services, rate);
   const subtotal = round2(shipping + servicesTotal);
   const discountPercent = opts.discountPercent ?? 0;
   // скидка — только на услуги Postmanfox; пошлина ЕС добавляется отдельно, после скидки

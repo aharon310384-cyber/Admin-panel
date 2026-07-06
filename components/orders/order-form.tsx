@@ -19,6 +19,10 @@ export type OrderInitial = {
   actualWeightKg: number | null;
   detailedCheckRequested: boolean;
   keepOriginalPackaging: boolean;
+  consolidationRequested: boolean;
+  compactPackRequested: boolean;
+  standardCheckRequested: boolean;
+  reinforcedPackRequested: boolean;
 };
 
 export default function OrderForm({
@@ -185,7 +189,24 @@ export default function OrderForm({
             <input name="detailedCheckRequested" type="checkbox" defaultChecked={initial?.detailedCheckRequested ?? false} />
             <span>Детальная проверка и фотоотчёт</span>
           </label>
+          <label className="of-check">
+            <input name="consolidationRequested" type="checkbox" defaultChecked={initial?.consolidationRequested ?? false} />
+            <span>Консолидация <em className="of-check-hint">0.3 $/кг</em></span>
+          </label>
+          <label className="of-check">
+            <input name="compactPackRequested" type="checkbox" defaultChecked={initial?.compactPackRequested ?? false} />
+            <span>Компактная упаковка <em className="of-check-hint">0.5 $/кг</em></span>
+          </label>
+          <label className="of-check">
+            <input name="standardCheckRequested" type="checkbox" defaultChecked={initial?.standardCheckRequested ?? false} />
+            <span>Стандартная проверка на соответствие <em className="of-check-hint">1 $/кг</em></span>
+          </label>
+          <label className="of-check">
+            <input name="reinforcedPackRequested" type="checkbox" defaultChecked={initial?.reinforcedPackRequested ?? false} />
+            <span>Усиленная упаковка <em className="of-check-hint">сумма по факту</em></span>
+          </label>
         </div>
+        <p className="of-svc-note">Услуги действуют на всю посылку — при оформлении объединяются по всем заказам в ней.</p>
       </fieldset>
 
       <div className="of-actions">
@@ -218,6 +239,8 @@ export default function OrderForm({
         .of-checks { display: flex; flex-direction: column; gap: 12px; }
         .of-check { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--color-text); cursor: pointer; }
         .of-check input { width: 16px; height: 16px; accent-color: var(--color-accent); cursor: pointer; }
+        .of-check-hint { font-style: normal; font-size: 11.5px; color: var(--color-muted); margin-left: 4px; }
+        .of-svc-note { margin: 12px 0 0; font-size: 11.5px; color: var(--color-muted); }
 
         .of-actions { display: flex; justify-content: flex-end; }
         .of-submit { padding: 11px 24px; background: var(--color-accent); color: var(--color-accent-fg); border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
