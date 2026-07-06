@@ -232,7 +232,7 @@ export default async function ClientCabinetOverviewPage() {
           background: linear-gradient(150deg, var(--cab-green), var(--cab-green-deep));
           box-shadow: 0 6px 14px color-mix(in srgb, var(--cab-green) 40%, transparent);
         }
-        .ov-hero-num { font-family: var(--font-space-grotesk), sans-serif; font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
+        .ov-hero-num { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
         .ov-hero-sub { font-size: 12.5px; color: var(--cab-muted); }
 
         .ov-latest { gap: 14px; }
