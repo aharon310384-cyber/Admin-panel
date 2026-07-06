@@ -89,6 +89,17 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
   const hsIncomplete = destinationIsEu && hasIncompleteHsCodes(parcel.orders);
   const dutyReason = duty.reason ? DUTY_REASON_LABEL[duty.reason] ?? duty.reason : null;
 
+  // Квитанция берёт СОХРАНЁННЫЕ значения (что реально выставлено и сведено в ИТОГО),
+  // а не живой расчёт — они синхронизируются кнопкой «Пересчитать квитанцию».
+  const billedDutyUsd = parcel.customsDutyUsd != null ? Number(parcel.customsDutyUsd) : 0;
+  const billedDutyEur = parcel.customsDutyEur != null ? Number(parcel.customsDutyEur) : 0;
+  const billedDutyLines = parcel.customsDutyLineCount ?? 0;
+  const billedDutyCny = Math.round(billedDutyUsd * rate * 100) / 100;
+  const showDutyInReceipt = billedDutyUsd > 0 && euDutyPassToClient;
+  const dutyPaidBySender = billedDutyUsd > 0 && !euDutyPassToClient;
+  // Расхождение живого расчёта и выставленного — подсказать «Пересчитать»
+  const dutyOutOfSync = Math.abs((euDutyPassToClient && duty.applies ? duty.dutyUsd : 0) - (showDutyInReceipt ? billedDutyUsd : 0)) > 0.01;
+
   // Даты отправки/доставки — из истории статусов
   const shippedAt = parcel.statusHistory.find((h) => h.status === "SHIPPED")?.createdAt ?? null;
   const deliveredAt = parcel.statusHistory.find((h) => h.status === "DELIVERED")?.createdAt ?? null;
@@ -203,11 +214,11 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                 {parcel.discountPercent && Number(parcel.discountPercent) > 0 ? (
                   <tr className="disc"><td>Скидка {Number(parcel.discountPercent)}%</td><td className="r" colSpan={2}>−</td></tr>
                 ) : null}
-                {hasDuty && euDutyPassToClient ? (
+                {showDutyInReceipt ? (
                   <tr>
-                    <td>Таможенная пошлина ЕС (€3 × {dutyLines})</td>
-                    <td className="r">{formatUsd(dutyUsd)}</td>
-                    <td className="r muted">€{dutyEur.toFixed(2)}</td>
+                    <td>Таможенная пошлина ЕС (€3 × {billedDutyLines} = €{billedDutyEur.toFixed(2)})</td>
+                    <td className="r">{formatUsd(billedDutyUsd)}</td>
+                    <td className="r muted">¥{billedDutyCny.toFixed(2)}</td>
                   </tr>
                 ) : null}
                 <tr className="total">
@@ -217,9 +228,12 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                 </tr>
               </tbody>
             </table>
-            <p className="hint">Курс: {rate} ¥/$</p>
-            {hasDuty && !euDutyPassToClient ? (
-              <p className="hint">Таможенная пошлина ЕС €{dutyEur.toFixed(2)} ({dutyLines} поз.) оплачивается отправителем — не включена в счёт.</p>
+            <p className="hint">Курс: {rate} ¥/$ · пошлина ЕС по курсу {finance.exchangeRateCnyPerEur} ¥/€</p>
+            {dutyPaidBySender ? (
+              <p className="hint">Таможенная пошлина ЕС €{billedDutyEur.toFixed(2)} ({billedDutyLines} поз.) оплачивается отправителем — не включена в счёт.</p>
+            ) : null}
+            {dutyOutOfSync ? (
+              <p className="warn">⚠ Таможенная пошлина изменилась — нажмите «Пересчитать квитанцию», чтобы обновить ИТОГО.</p>
             ) : null}
           </section>
 
