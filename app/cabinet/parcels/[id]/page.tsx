@@ -160,6 +160,23 @@ export default async function ClientCabinetParcelDetailPage({
 
       <section className="pd-card">
         <h2 className="pd-card-title">
+          <Radar size={15} className="pd-title-icon" />
+          Отслеживание
+        </h2>
+        {trackUrl ? (
+          <a className="pd-track" href={trackUrl} target="_blank" rel="noopener noreferrer">
+            <span className="pd-track-num">{parcel.trackingNumber}</span>
+            <span className="pd-track-go">
+              17track <ExternalLink size={13} />
+            </span>
+          </a>
+        ) : (
+          <p className="pd-track-none">Трек-номер пока не присвоен</p>
+        )}
+      </section>
+
+      <section className="pd-card">
+        <h2 className="pd-card-title">
           <ReceiptText size={15} className="pd-title-icon" />
           Квитанция
         </h2>
@@ -236,23 +253,6 @@ export default async function ClientCabinetParcelDetailPage({
             <span className="pd-fact-val">{formatDate(parcel.createdAt)}</span>
           </li>
         </ul>
-      </section>
-
-      <section className="pd-card">
-        <h2 className="pd-card-title">
-          <Radar size={15} className="pd-title-icon" />
-          Отслеживание
-        </h2>
-        {trackUrl ? (
-          <a className="pd-track" href={trackUrl} target="_blank" rel="noopener noreferrer">
-            <span className="pd-track-num">{parcel.trackingNumber}</span>
-            <span className="pd-track-go">
-              17track <ExternalLink size={13} />
-            </span>
-          </a>
-        ) : (
-          <p className="pd-track-none">Трек-номер пока не присвоен</p>
-        )}
       </section>
 
       {hasRecipient && (
