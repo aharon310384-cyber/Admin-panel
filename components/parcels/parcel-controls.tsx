@@ -33,6 +33,10 @@ type Props = {
     insurancePercent: string;
     discountPercent: string;
     trackingNumber: string;
+    euApplicable: boolean;
+    customsAutoLines: number;
+    customsManualLines: string;
+    customsPassMode: "default" | "client" | "sender";
   };
 };
 
@@ -59,6 +63,8 @@ export default function ParcelControls({ parcelId, status, isPaid, initial }: Pr
       localDeliveryUsd: Number(f.localDeliveryUsd) || 0,
       insurancePercent: Number(f.insurancePercent) || 0,
       discountPercent: Number(f.discountPercent) || 0,
+      customsDutyManualLines: f.customsManualLines.trim() === "" ? null : Math.max(0, Math.floor(Number(f.customsManualLines) || 0)),
+      customsDutyPassToClient: f.customsPassMode === "default" ? null : f.customsPassMode === "client",
     });
     setBusy(false);
     setMsg(r?.warning ?? null);
@@ -129,6 +135,26 @@ export default function ParcelControls({ parcelId, status, isPaid, initial }: Pr
         {msg && <p className="pc-err">{msg}</p>}
       </div>
 
+      {f.euApplicable && (
+        <div className="pc-block">
+          <h3 className="pc-h">Таможня ЕС</h3>
+          <label className="pc-field"><span>Типов товара</span>
+            <input className="pc-num" type="number" min="0" step="1" placeholder={`авто ${f.customsAutoLines}`}
+              value={f.customsManualLines} onChange={(e) => setF((p) => ({ ...p, customsManualLines: e.target.value }))} />
+          </label>
+          <p className="pc-hint">Пусто → авто по составу ({f.customsAutoLines}). Пошлина = €3 × число типов.</p>
+          <label className="pc-field pc-field--col"><span>Пошлину оплачивает</span>
+            <select className="pc-select" value={f.customsPassMode}
+              onChange={(e) => setF((p) => ({ ...p, customsPassMode: e.target.value as typeof p.customsPassMode }))}>
+              <option value="default">По настройке финансов</option>
+              <option value="client">Клиент (в счёт)</option>
+              <option value="sender">Отправитель (не в счёт)</option>
+            </select>
+          </label>
+          <p className="pc-hint">Применяется при пересчёте квитанции.</p>
+        </div>
+      )}
+
       <div className="pc-block">
         <h3 className="pc-h">Статус и отправка</h3>
         <p className="pc-status">Текущий: <b>{parcelStatusLabel(status)}</b></p>
@@ -167,6 +193,7 @@ export default function ParcelControls({ parcelId, status, isPaid, initial }: Pr
         .pc-check i, .pc-field i { font-style: normal; color: var(--color-muted); font-size: 12px; }
         .pc-status { margin: 0; font-size: 13px; color: var(--color-muted); }
         .pc-track { padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font-mono); background: var(--color-surface); }
+        .pc-select { padding: 7px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; background: var(--color-surface); color: var(--color-text); }
         .pc-btn { margin-top: 4px; padding: 9px 14px; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s, background 0.15s; }
         .pc-btn:disabled { opacity: 0.5; cursor: default; }
         .pc-btn--accent { color: var(--color-accent-fg); background: var(--color-accent); }

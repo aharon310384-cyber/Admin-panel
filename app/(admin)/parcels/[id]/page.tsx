@@ -6,7 +6,16 @@ import { prisma } from "@/lib/prisma";
 import { getFinanceSettings } from "@/lib/finance";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, orderStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
+import { computeEuCustomsDuty, hasIncompleteHsCodes } from "@/lib/eu-customs";
 import ParcelControls from "@/components/parcels/parcel-controls";
+
+const DUTY_REASON_LABEL: Record<string, string> = {
+  "not-enabled": "мера отключена в настройках финансов",
+  "not-eu": "получатель не в стране ЕС",
+  "no-orders": "в посылке нет товаров",
+  "out-of-window": "вне срока действия меры (01.07.2026–01.07.2028)",
+  "over-cap": "стоимость выше €150 — применяются обычные пошлины",
+};
 
 export const metadata: Metadata = { title: "Посылка" };
 
@@ -49,12 +58,36 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
   const dims = [parcel.lengthCm, parcel.widthCm, parcel.heightCm].map((d) => (d != null ? Number(d) : 0));
   const hasDims = dims.every((d) => d > 0);
 
-  // Таможенная пошлина ЕС: в счёт включается только при euDutyPassToClient
-  const { euDutyPassToClient } = await getFinanceSettings();
-  const dutyUsd = parcel.customsDutyUsd != null ? Number(parcel.customsDutyUsd) : 0;
-  const dutyEur = parcel.customsDutyEur != null ? Number(parcel.customsDutyEur) : 0;
-  const dutyLines = parcel.customsDutyLineCount ?? 0;
-  const hasDuty = dutyUsd > 0;
+  // Таможенная пошлина ЕС — считаем «вживую» для наглядного блока
+  const finance = await getFinanceSettings();
+  let destinationIsEu = false;
+  if (parcel.recipient?.countryCode) {
+    const country = await prisma.country.findUnique({
+      where: { code: parcel.recipient.countryCode },
+      select: { isEu: true },
+    });
+    destinationIsEu = country?.isEu ?? false;
+  }
+  const declaredValueUsd = parcel.orders.reduce((s, o) => s + Number(o.declaredValueUsd ?? 0), 0);
+  const duty = computeEuCustomsDuty({
+    enabled: finance.euDutyEnabled,
+    destinationIsEu,
+    declaredValueUsd,
+    exchangeRateCnyPerEur: finance.exchangeRateCnyPerEur,
+    exchangeRateCnyPerUsd: finance.exchangeRateCnyPerUsd,
+    orders: parcel.orders,
+    manualLineCount: parcel.customsDutyManualLines,
+  });
+  // «в счёт клиента»: переопределение на посылке приоритетнее глобальной настройки
+  const passToClient =
+    parcel.customsDutyPassToClient != null ? parcel.customsDutyPassToClient : finance.euDutyPassToClient;
+  const euDutyPassToClient = passToClient;
+  const dutyUsd = duty.dutyUsd;
+  const dutyEur = duty.dutyEur;
+  const dutyLines = duty.lineCount;
+  const hasDuty = duty.applies;
+  const hsIncomplete = destinationIsEu && hasIncompleteHsCodes(parcel.orders);
+  const dutyReason = duty.reason ? DUTY_REASON_LABEL[duty.reason] ?? duty.reason : null;
 
   // Даты отправки/доставки — из истории статусов
   const shippedAt = parcel.statusHistory.find((h) => h.status === "SHIPPED")?.createdAt ?? null;
@@ -190,6 +223,29 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
             ) : null}
           </section>
 
+          {/* Таможня ЕС */}
+          <section className="card">
+            <h2 className="card-title">Таможенная пошлина ЕС</h2>
+            {hasDuty ? (
+              <>
+                <div className="metrics metrics--3">
+                  <div className="metric"><span className="metric-v">{dutyLines}</span><span className="metric-l">типов товара</span></div>
+                  <div className="metric metric--accent"><span className="metric-v">€{dutyEur.toFixed(2)}</span><span className="metric-l">пошлина</span></div>
+                  <div className="metric"><span className="metric-v">{formatUsd(dutyUsd)}</span><span className="metric-l">в долларах</span></div>
+                </div>
+                <p className="hint">
+                  €3 × {dutyLines} {duty.manualLineCount != null ? "(ручной перебор)" : "(авто по составу)"} ·{" "}
+                  {euDutyPassToClient ? "включена в счёт клиента" : "оплачивает отправитель, в счёт не входит"}.
+                </p>
+                {hsIncomplete ? (
+                  <p className="warn">⚠ У части товаров не заполнен HS-код — число позиций посчитано по наименованиям, проверьте вручную.</p>
+                ) : null}
+              </>
+            ) : (
+              <p className="empty">Не применяется{dutyReason ? `: ${dutyReason}` : ""}.{destinationIsEu && duty.autoLineCount > 0 ? ` По составу — ${duty.autoLineCount} типов товара.` : ""}</p>
+            )}
+          </section>
+
           {/* Отслеживание */}
           <section className="card">
             <h2 className="card-title">Отслеживание</h2>
@@ -228,6 +284,11 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                 insurancePercent: "",
                 discountPercent: parcel.discountPercent ? String(Number(parcel.discountPercent)) : "",
                 trackingNumber: parcel.trackingNumber ?? "",
+                euApplicable: destinationIsEu && finance.euDutyEnabled,
+                customsAutoLines: duty.autoLineCount,
+                customsManualLines: parcel.customsDutyManualLines != null ? String(parcel.customsDutyManualLines) : "",
+                customsPassMode:
+                  parcel.customsDutyPassToClient == null ? "default" : parcel.customsDutyPassToClient ? "client" : "sender",
               }}
             />
           </section>
@@ -277,6 +338,8 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
         .hint { margin: 12px 0 0; font-size: 12px; color: var(--color-muted); line-height: 1.5; }
 
         .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .metrics--3 { grid-template-columns: repeat(3, 1fr); }
+        .warn { margin: 12px 0 0; font-size: 12.5px; color: var(--color-warning); background: var(--color-warning-bg); padding: 8px 10px; border-radius: var(--radius-sm); line-height: 1.45; }
         .metric { display: flex; flex-direction: column; gap: 3px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-surface) 60%, transparent); }
         .metric--accent { border-color: color-mix(in srgb, var(--color-accent) 40%, transparent); background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
         .metric-v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--color-text); }

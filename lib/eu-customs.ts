@@ -23,16 +23,17 @@ export type DutyOrderLine = {
 };
 
 /**
- * Число РАЗНЫХ тарифных позиций в посылке. База — HS-код; пока HS не заполнены,
- * fallback на наименование (id → текст). Одинаковые товары = одна позиция.
+ * Число РАЗНЫХ позиций в посылке = число разных ТИПОВ ТОВАРА.
+ * База — тип товара (наименование: id → текст), HS-код — вспомогательный ключ.
+ * Одинаковые товары считаются как одна позиция, разные типы — как отдельные.
  */
 export function countDistinctTariffLines(orders: DutyOrderLine[]): number {
   const keys = new Set<string>();
   for (const o of orders) {
     const key =
-      (o.hsCode && o.hsCode.trim()) ||
       (o.productNameId && `id:${o.productNameId}`) ||
       (o.productNameText && `txt:${o.productNameText.trim().toLowerCase()}`) ||
+      (o.hsCode && `hs:${o.hsCode.trim()}`) ||
       null;
     // строки без всякой идентификации считаем как одну отдельную позицию каждая
     keys.add(key ?? `anon:${keys.size}`);
@@ -52,12 +53,15 @@ export type DutyInput = {
   exchangeRateCnyPerEur: number; // курс EUR в юанях (¥ за €)
   exchangeRateCnyPerUsd: number; // основной курс (¥ за $) — для пересчёта € ↔ $
   orders: DutyOrderLine[];
+  manualLineCount?: number | null; // ручной перебор числа позиций (типов товара); null/undefined = авто
   now?: Date; // момент расчёта (по умолчанию текущий) — прокси даты отправки
 };
 
 export type DutyResult = {
   applies: boolean; // попадает ли посылка под €3-пошлину
-  lineCount: number; // число тарифных позиций
+  lineCount: number; // число тарифных позиций (типов товара)
+  autoLineCount: number; // авто-подсчёт по составу (для сравнения с ручным)
+  manualLineCount: number | null; // ручной перебор, если задан
   dutyEur: number; // сумма пошлины в €
   dutyUsd: number; // сумма пошлины в $
   reason?: "not-enabled" | "not-eu" | "no-orders" | "out-of-window" | "over-cap";
@@ -67,8 +71,13 @@ export type DutyResult = {
 export function computeEuCustomsDuty(input: DutyInput): DutyResult {
   const { enabled, destinationIsEu, declaredValueUsd, exchangeRateCnyPerEur, exchangeRateCnyPerUsd, orders } = input;
   const now = input.now ?? new Date();
+  const autoLineCount = countDistinctTariffLines(orders);
+  const manual =
+    input.manualLineCount != null && Number.isFinite(input.manualLineCount) && input.manualLineCount >= 0
+      ? Math.floor(input.manualLineCount)
+      : null;
   const none = (reason: DutyResult["reason"]): DutyResult => ({
-    applies: false, lineCount: 0, dutyEur: 0, dutyUsd: 0, reason,
+    applies: false, lineCount: 0, autoLineCount, manualLineCount: manual, dutyEur: 0, dutyUsd: 0, reason,
   });
 
   if (!enabled) return none("not-enabled");
@@ -85,8 +94,8 @@ export function computeEuCustomsDuty(input: DutyInput): DutyResult {
   // > €150 — режим обычных пошлин, фиксированный €3 не применяется
   if (declaredEur > EU_DUTY_VALUE_CAP_EUR) return none("over-cap");
 
-  const lineCount = countDistinctTariffLines(orders);
+  const lineCount = manual ?? autoLineCount; // ручной перебор приоритетнее авто
   const dutyEur = round2(lineCount * EU_DUTY_PER_ITEM_EUR);
   const dutyUsd = round2(dutyEur * rate);
-  return { applies: true, lineCount, dutyEur, dutyUsd };
+  return { applies: true, lineCount, autoLineCount, manualLineCount: manual, dutyEur, dutyUsd };
 }

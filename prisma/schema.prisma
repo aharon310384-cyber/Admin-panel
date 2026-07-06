@@ -329,7 +329,9 @@ model Parcel {
   // Таможенная пошлина ЕС — НЕ услуга Postmanfox, не попадает под скидку
   customsDutyEur        Decimal? // €3 × число тарифных позиций (если применимо)
   customsDutyUsd        Decimal? // конвертация пошлины в $ по курсу EUR
-  customsDutyLineCount  Int?     // сколько тарифных позиций учтено
+  customsDutyLineCount  Int?     // сколько тарифных позиций (типов товара) учтено
+  customsDutyManualLines Int?    // ручной перебор числа позиций (null = авто по составу)
+  customsDutyPassToClient Boolean? // переопределение «в счёт клиента» на уровне посылки (null = как в настройках)
   totalUsd              Decimal  @default(0)
   totalCny              Decimal  @default(0)
   // оплата

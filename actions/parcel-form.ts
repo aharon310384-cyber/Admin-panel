@@ -17,6 +17,7 @@ type DutySettings = { euDutyEnabled: boolean; euDutyPassToClient: boolean; excha
 async function calcDutyFor(
   recipientId: string | null | undefined,
   orders: (DutyOrderLine & { declaredValueUsd?: unknown })[],
+  opts?: { manualLineCount?: number | null; passToClientOverride?: boolean | null },
 ): Promise<{ duty: DutyResult; passToClient: boolean }> {
   const settings = (await prisma.financeSettings.findFirst()) as DutySettings | null;
   let destinationIsEu = false;
@@ -41,8 +42,12 @@ async function calcDutyFor(
     exchangeRateCnyPerEur: Number(settings?.exchangeRateCnyPerEur ?? 7.8),
     exchangeRateCnyPerUsd: Number(settings?.exchangeRateCnyPerUsd ?? 7.1),
     orders,
+    manualLineCount: opts?.manualLineCount ?? null,
   });
-  return { duty, passToClient: settings?.euDutyPassToClient ?? true };
+  // Переопределение на уровне посылки приоритетнее глобальной настройки
+  const passToClient =
+    opts?.passToClientOverride != null ? opts.passToClientOverride : settings?.euDutyPassToClient ?? true;
+  return { duty, passToClient };
 }
 
 /** Оформление: собрать принятые заказы одного клиента в новую посылку. */
@@ -131,6 +136,8 @@ export type ServiceOpts = {
   localDeliveryUsd?: number;
   insurancePercent?: number;
   discountPercent?: number;
+  customsDutyManualLines?: number | null; // ручной перебор числа позиций (типов товара); null = авто
+  customsDutyPassToClient?: boolean | null; // переопределение «в счёт клиента»; null = как в настройках
 };
 
 /** Применить услуги, обновить вес и пересчитать квитанцию посылки. */
@@ -147,7 +154,10 @@ export async function applyParcelServices(
   });
   if (!parcel) return { ok: false };
 
-  const { duty, passToClient } = await calcDutyFor(parcel.recipientId, parcel.orders);
+  const { duty, passToClient } = await calcDutyFor(parcel.recipientId, parcel.orders, {
+    manualLineCount: opts.customsDutyManualLines ?? null,
+    passToClientOverride: opts.customsDutyPassToClient ?? null,
+  });
   const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
 
   const rate = Number(parcel.exchangeRateCnyPerUsd);
@@ -226,6 +236,8 @@ export async function applyParcelServices(
       customsDutyEur: duty.applies ? duty.dutyEur : null,
       customsDutyUsd: duty.applies ? duty.dutyUsd : null,
       customsDutyLineCount: duty.applies ? duty.lineCount : null,
+      customsDutyManualLines: opts.customsDutyManualLines ?? null,
+      customsDutyPassToClient: opts.customsDutyPassToClient ?? null,
       totalUsd,
       totalCny: round2(totalUsd * rate),
     },
