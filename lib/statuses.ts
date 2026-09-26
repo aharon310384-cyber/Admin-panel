@@ -1,4 +1,4 @@
-import type { OrderStatus, ParcelStatus, DeliveryType } from "@prisma/client";
+import type { OrderStatus, ParcelStatus } from "@prisma/client";
 
 /** RU-названия статусов Заказа. */
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -23,12 +23,16 @@ export const PARCEL_STATUS_LABELS: Record<ParcelStatus, string> = {
   UTILIZED: "Утилизировано",
 };
 
-/** RU-названия видов доставки. */
-export const DELIVERY_TYPE_LABELS: Record<DeliveryType, string> = {
-  AUTO: "Авто",
+/**
+ * RU-названия видов доставки (fallback для синхронного отображения).
+ * Источник правды — справочник DeliveryMethod в БД; здесь статичная копия
+ * актуальных кодов, т.к. виды меняются крайне редко.
+ */
+export const DELIVERY_TYPE_LABELS: Record<string, string> = {
   AIR: "Авиа",
   SEA: "Море",
-  EMS: "EMS",
+  TRAIN: "Ж/Д",
+  TRUCK: "Авто",
 };
 
 /** Цвет статуса Заказа (для бейджей admin). */
@@ -65,6 +69,6 @@ export function orderStatusLabel(s: OrderStatus): string {
 export function parcelStatusLabel(s: ParcelStatus): string {
   return PARCEL_STATUS_LABELS[s] ?? s;
 }
-export function deliveryTypeLabel(d: DeliveryType | null | undefined): string {
+export function deliveryTypeLabel(d: string | null | undefined): string {
   return d ? DELIVERY_TYPE_LABELS[d] ?? d : "—";
 }

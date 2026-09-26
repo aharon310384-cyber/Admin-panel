@@ -29,10 +29,11 @@ const PARCEL_STATUS = {
 function mapDelivery(v) {
   if (!v) return null;
   const s = String(v).toLowerCase();
-  if (s.includes("ems")) return "EMS";
+  if (s.includes("ems")) return "AIR"; // EMS отдельным видом не выделяем — авиа
   if (s.includes("авиа") || s.includes("air")) return "AIR";
-  if (s.includes("авто") || s.includes("auto") || s.includes("груз")) return "AUTO";
+  if (s.includes("авто") || s.includes("auto") || s.includes("груз")) return "TRUCK";
   if (s.includes("море") || s.includes("sea")) return "SEA";
+  if (s.includes("ж/д") || s.includes("жд") || s.includes("train") || s.includes("rail")) return "TRAIN";
   return null;
 }
 

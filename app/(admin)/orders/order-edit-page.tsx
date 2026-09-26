@@ -32,7 +32,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
   }).format(order.createdAt);
   const authorLabel = order.author?.name ?? "—";
 
-  const [customers, recipients, productNames] = await Promise.all([
+  const [customers, recipients, productNames, deliveryMethods] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       select: { id: true, code: true, name: true },
@@ -47,6 +47,11 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
       where: { deletedAt: null },
       select: { id: true, code: true, nameRu: true, category: true, hsCode: true },
       orderBy: { nameRu: "asc" },
+    }),
+    prisma.deliveryMethod.findMany({
+      where: { active: true },
+      select: { code: true, nameRu: true },
+      orderBy: { sortOrder: "asc" },
     }),
   ]);
 
@@ -82,6 +87,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
           customers={customers}
           recipients={recipients}
           productNames={productNames}
+          deliveryMethods={deliveryMethods}
           action={update}
           submitLabel="Сохранить изменения"
           initial={{

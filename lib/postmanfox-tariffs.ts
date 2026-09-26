@@ -270,13 +270,15 @@ export function formatTariffDays(tariff: ShippingTariff): string {
 
 // ─────────── Виды доставки по стране назначения (для авто-подстановки) ───────────
 
-export type OrderDeliveryType = "AUTO" | "AIR" | "SEA" | "EMS";
+export type OrderDeliveryType = "AIR" | "SEA" | "TRAIN" | "TRUCK";
 
+// Транспортные режимы витринного каталога маппятся на коды справочника DeliveryMethod.
+// EMS исторически отдельного вида не имеет — относим к авиа (AIR).
 const MODE_TO_DELIVERY: Record<TransportMode, OrderDeliveryType | null> = {
-  auto: "AUTO",
+  auto: "TRUCK",
   air: "AIR",
   sea: "SEA",
-  ems: "EMS",
+  ems: "AIR",
   request: null,
 };
 

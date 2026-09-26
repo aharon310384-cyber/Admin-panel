@@ -6,6 +6,7 @@ import { createOrder } from "@/actions/order-create";
 type CustomerOpt = { id: string; code: string | null; name: string };
 type RecipientOpt = { id: string; customerId: string; name: string };
 type ProductNameOpt = { id: string; code: string; nameRu: string; category: string | null; hsCode: string | null };
+type DeliveryMethodOpt = { code: string; nameRu: string };
 
 export type OrderInitial = {
   customerId: string;
@@ -29,6 +30,7 @@ export default function OrderForm({
   customers,
   recipients,
   productNames = [],
+  deliveryMethods = [],
   action = createOrder,
   initial,
   submitLabel = "Создать заказ",
@@ -36,6 +38,7 @@ export default function OrderForm({
   customers: CustomerOpt[];
   recipients: RecipientOpt[];
   productNames?: ProductNameOpt[];
+  deliveryMethods?: DeliveryMethodOpt[];
   action?: (formData: FormData) => Promise<void>;
   initial?: OrderInitial;
   submitLabel?: string;
@@ -89,10 +92,9 @@ export default function OrderForm({
             <span className="of-label">Вид доставки</span>
             <select name="deliveryType" className="of-input" defaultValue={initial?.deliveryType ?? ""}>
               <option value="">—</option>
-              <option value="AUTO">Авто</option>
-              <option value="AIR">Авиа</option>
-              <option value="SEA">Море</option>
-              <option value="EMS">EMS</option>
+              {deliveryMethods.map((m) => (
+                <option key={m.code} value={m.code}>{m.nameRu}</option>
+              ))}
             </select>
           </label>
         </div>

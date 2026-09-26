@@ -19,6 +19,7 @@ import {
   Settings,
   Sparkles,
   Tags,
+  Truck,
   Users,
   Workflow,
   BarChart3,
@@ -58,6 +59,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/statuses", label: "Статусы", icon: Workflow },
       { href: "/services", label: "Услуги", icon: Sparkles },
       { href: "/tariffs", label: "Тарифы", icon: BadgeDollarSign },
+      { href: "/delivery-methods", label: "Виды доставки", icon: Truck },
     ],
   },
   {

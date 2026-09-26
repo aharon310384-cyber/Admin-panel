@@ -12,7 +12,7 @@ type RecipientOpt = { id: string; customerId: string; name: string; country: str
 type ProductNameOpt = { id: string; code: string; nameRu: string; category: string | null; hsCode: string | null };
 type CountryOpt = { code: string; nameRu: string };
 
-type DeliveryValue = "" | "AUTO" | "AIR" | "SEA" | "EMS";
+type DeliveryValue = "" | "AIR" | "SEA" | "TRAIN" | "TRUCK";
 
 type Row = {
   productNameText: string;
@@ -27,10 +27,10 @@ type Row = {
 
 const DELIVERY_OPTS: { value: DeliveryValue; label: string }[] = [
   { value: "", label: "—" },
-  { value: "AUTO", label: "Авто" },
   { value: "AIR", label: "Авиа" },
   { value: "SEA", label: "Море" },
-  { value: "EMS", label: "EMS" },
+  { value: "TRAIN", label: "Ж/Д" },
+  { value: "TRUCK", label: "Авто" },
 ];
 
 const norm = (s: string) => s.trim().toLowerCase();

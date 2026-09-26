@@ -10,7 +10,7 @@ import { resolveProductCatalog } from "@/lib/products";
 const schema = z.object({
   customerId: z.string().min(1, "Выберите клиента"),
   recipientId: z.string().optional(),
-  deliveryType: z.enum(["AUTO", "AIR", "SEA", "EMS"]).optional(),
+  deliveryType: z.enum(["AIR", "SEA", "TRAIN", "TRUCK"]).optional(),
   productNameId: z.string().optional(),
   productNameText: z.string().trim().min(1, "Укажите наименование"),
   trackNumber: z.string().trim().optional(),

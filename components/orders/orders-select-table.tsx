@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Send } from "lucide-react";
-import type { DeliveryType, OrderStatus } from "@prisma/client";
+import type { OrderStatus } from "@prisma/client";
 import SortableHeader from "@/components/ui/sortable-header";
 import { formatUsd, formatNumber } from "@/lib/utils";
 import { orderStatusLabel, deliveryTypeLabel, ORDER_STATUS_COLOR } from "@/lib/statuses";
@@ -22,7 +22,7 @@ export type OrderRow = {
   unitPriceUsd: number | null;
   declaredValueUsd: number | null;
   actualWeightKg: number | null;
-  deliveryType: DeliveryType | null;
+  deliveryType: string | null;
   status: OrderStatus;
   parcelId: string | null;
   createdAtLabel: string;

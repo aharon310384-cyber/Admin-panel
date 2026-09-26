@@ -11,7 +11,7 @@ const CUSTOMERS = [
 const NAMES = ["Кепка", "Футболка", "Кроссовки", "Сумка", "Куртка", "Джинсы", "Ремень"];
 const TRACKS = ["YT4521339001CN", "SF1882443120CN", "JD0099218833CN", "YT4521339002CN"];
 const STATUSES = ["NEW", "IN_RECEIVING_QUEUE", "RECEIVED", "FORMED"];
-const DELIVERY = ["AUTO", "AIR", "SEA", "EMS"];
+const DELIVERY = ["AIR", "SEA", "TRAIN", "TRUCK"];
 
 function pick(a, i) { return a[i % a.length]; }
 

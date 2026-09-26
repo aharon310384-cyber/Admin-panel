@@ -20,11 +20,20 @@ enum UserRole {
   WAREHOUSE // склад (Фаза 2)
 }
 
-enum DeliveryType {
-  AUTO // авто
-  AIR  // авиа
-  SEA  // море
-  EMS
+// Справочник видов доставки (заменил enum DeliveryType).
+// Значения-коды: AIR, SEA, TRAIN, TRUCK. Привязка к Order/Parcel/ShippingTariff по code.
+model DeliveryMethod {
+  code      String   @id // AIR | SEA | TRAIN | TRUCK
+  nameRu    String
+  nameEn    String?
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders  Order[]
+  parcels Parcel[]
+  tariffs ShippingTariff[]
 }
 
 // Статусы ЗАКАЗА-строки (до оформления в посылку). RETURNED/UTILIZED — сквозные.
@@ -138,7 +147,8 @@ model ProductName {
 model ShippingTariff {
   id             String        @id @default(cuid())
   direction      String        // страна/направление (Россия, Украина, EMS-группа…)
-  deliveryType   DeliveryType
+  deliveryType   String
+  deliveryMethod DeliveryMethod @relation(fields: [deliveryType], references: [code])
   pricePerKgUsd  Decimal       // ставка $/кг
   handlingFeeUsd Decimal       @default(0) // оформление $
   minDays        Int?
@@ -261,7 +271,8 @@ model Order {
   id           String        @id @default(cuid())
   customerId   String        // владелец/плательщик
   recipientId  String?       // куда везём (переносится в посылку при оформлении)
-  deliveryType DeliveryType?
+  deliveryType   String?
+  deliveryMethod DeliveryMethod? @relation(fields: [deliveryType], references: [code])
   // товар
   productNameId          String?
   productNameText        String?  // снимок/свободный ввод
@@ -318,7 +329,8 @@ model Parcel {
   number       String        @unique // генерируется при оформлении
   customerId   String
   recipientId  String?
-  deliveryType DeliveryType?
+  deliveryType   String?
+  deliveryMethod DeliveryMethod? @relation(fields: [deliveryType], references: [code])
   status       ParcelStatus  @default(FORMED)
   // веса и габариты
   actualWeightKg     Decimal?

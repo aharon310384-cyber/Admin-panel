@@ -39,7 +39,7 @@ const draftSchema = z.object({
 const bulkSchema = z.object({
   customerId: z.string().min(1, "Выберите клиента"),
   recipientId: z.string().optional().nullable(),
-  deliveryType: z.enum(["AUTO", "AIR", "SEA", "EMS"]).optional().nullable(),
+  deliveryType: z.enum(["AIR", "SEA", "TRAIN", "TRUCK"]).optional().nullable(),
   orders: z.array(draftSchema).min(1, "Нет заказов для создания"),
 });
 
