@@ -29,11 +29,17 @@ export default function TelegramEntryPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, password }),
       });
-      const data = (await res.json()) as { status?: string };
+      const data = (await res.json().catch(() => ({}))) as { status?: string; retryIn?: string };
       if (data.status === "ok") {
         window.location.replace("/cabinet");
       } else {
-        setFormError("Неверный код клиента или пароль");
+        setFormError(
+          data.status === "locked"
+            ? `Слишком много неудачных попыток. Попробуйте через ${data.retryIn ?? "15 минут"}.`
+            : res.status === 429
+              ? "Слишком много попыток. Подождите минуту и попробуйте снова."
+              : "Неверный код клиента или пароль"
+        );
         setSubmitting(false);
       }
     } catch {

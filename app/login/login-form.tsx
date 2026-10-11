@@ -36,7 +36,11 @@ export default function LoginForm() {
     });
 
     if (result?.error) {
-      toast.error("Неверный email или пароль");
+      toast.error(
+        result.code === "locked"
+          ? "Слишком много неудачных попыток. Вход временно заблокирован, попробуйте через 15 минут."
+          : "Неверный email или пароль"
+      );
       return;
     }
 
