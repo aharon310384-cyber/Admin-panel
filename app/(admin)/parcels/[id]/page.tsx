@@ -131,7 +131,7 @@ export default async function ParcelDetailPage({
               </div>
             )}
             <div className="info-row">
-              <dt>Международный трек-номер</dt>
+              <dt>Трек-номер посылки</dt>
               <dd className="mono">
                 {parcel.parcelNumberLooksValid ? parcel.parcelNumber : "Номер не указан"}
               </dd>

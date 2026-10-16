@@ -101,7 +101,7 @@ export default async function ParcelsPage({
                 <th>Статус</th>
                 <th>Расчет $</th>
                 <th>К оплате ¥</th>
-                <th>Международный трек</th>
+                <th>Трек-номер посылки</th>
                 <th>Дата</th>
                 <th></th>
               </tr>

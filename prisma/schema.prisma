@@ -199,20 +199,21 @@ model DocumentCounter {
 // ─── 1. Склад: заказ поступил ───────────────────────────────────────────────
 
 /// Заказ (ZK): одна коробка от продавца.
-/// sellerTrackNumber — трек-номер заказа (китайская служба: SF, J&T…); под одним треком может быть несколько заказов.
+/// incomingTrackNumber — входящий трек-номер (китайская служба: SF, J&T…), не путать с номером документа ZK-…;
+/// под одним входящим треком может быть несколько заказов.
 model Order {
-  id                String      @id @default(cuid())
-  number            String      @unique
-  status            OrderStatus @default(NEW)
-  customerId        String
-  sellerTrackNumber String?
-  description       String?
-  parcelTaskId      String?
-  note              String?
-  createdById       String
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  deletedAt         DateTime?
+  id                  String      @id @default(cuid())
+  number              String      @unique
+  status              OrderStatus @default(NEW)
+  customerId          String
+  incomingTrackNumber String?
+  description         String?
+  parcelTaskId        String?
+  note                String?
+  createdById         String
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  deletedAt           DateTime?
 
   customer      Customer       @relation(fields: [customerId], references: [id])
   createdBy     User           @relation(fields: [createdById], references: [id])
@@ -223,30 +224,30 @@ model Order {
 
   @@index([status])
   @@index([customerId])
-  @@index([sellerTrackNumber])
+  @@index([incomingTrackNumber])
   @@index([parcelTaskId])
   @@index([createdAt])
 }
 
 /// Сортировка (SR): коробку опознали по маркировке и отнесли к клиенту и заказу.
 model Sorting {
-  id                String    @id @default(cuid())
-  number            String    @unique
-  orderId           String?   @unique
-  sellerTrackNumber String?
-  customerId        String?
-  clientIdentified  Boolean   @default(false)
-  note              String?
-  createdById       String
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  deletedAt         DateTime?
+  id                  String    @id @default(cuid())
+  number              String    @unique
+  orderId             String?   @unique
+  incomingTrackNumber String?
+  customerId          String?
+  clientIdentified    Boolean   @default(false)
+  note                String?
+  createdById         String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
 
   order     Order?    @relation(fields: [orderId], references: [id])
   customer  Customer? @relation(fields: [customerId], references: [id])
   createdBy User      @relation(fields: [createdById], references: [id])
 
-  @@index([sellerTrackNumber])
+  @@index([incomingTrackNumber])
   @@index([customerId])
   @@index([createdAt])
 }
@@ -390,7 +391,7 @@ model Weighing {
   createdBy  User       @relation(fields: [createdById], references: [id])
 }
 
-/// Посылка (PS). parcelNumber — международный трек-номер посылки.
+/// Посылка (PS). parcelNumber — трек-номер посылки (международный: LC…MG, EV…CN…), не путать с номером документа PS-…
 model Parcel {
   id                     String       @id @default(cuid())
   number                 String       @unique
