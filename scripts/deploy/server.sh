@@ -55,6 +55,24 @@ pm2_state() {
     });' "$PM2_NAME"
 }
 
+# Все процессы PM2 на сервере (кроме админки там работает multi-agent) — чтобы после перезагрузки было видно, что поднялось всё.
+pm2_all() {
+  pm2 jlist 2>/dev/null | node -e '
+    let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      try {
+        const l = JSON.parse(s.slice(s.indexOf("[")));
+        console.log(l.map((p) => `${p.name} ${(p.pm2_env || {}).status}`).join(", ") || "нет");
+      } catch { console.log("не удалось прочитать"); }
+    });'
+}
+
+# Список, который PM2 поднимет после перезагрузки (сохраняется командой pm2 save).
+pm2_saved() {
+  local dump="${PM2_HOME:-$HOME/.pm2}/dump.pm2"
+  [ -f "$dump" ] || { echo "не сохранён"; return; }
+  echo "$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).map((p) => p.name).join(", ") || "пусто")' "$dump" 2>/dev/null || echo "не удалось прочитать") (сохранён $(date -r "$dump" +%F))"
+}
+
 status() {
   local missing
   missing=$(missing_tools)
@@ -76,6 +94,8 @@ status() {
   echo "Последний бэкап: $(ls -1t backups/*.db 2>/dev/null | head -1 | xargs -r basename)"
   echo "== Приложение"
   echo "PM2 $PM2_NAME: $(pm2_state)"
+  echo "Все процессы PM2: $(pm2_all)"
+  echo "Поднимутся после перезагрузки: $(pm2_saved)"
   local boot
   boot=$(systemctl is-enabled pm2-root 2>/dev/null || true)
   [ -z "$boot" ] || [ "$boot" = "not-found" ] && boot="не настроен"
