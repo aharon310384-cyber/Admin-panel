@@ -86,12 +86,12 @@ export default async function ProductNamesPage({
     ...(search
       ? {
           OR: [
-            { code: { contains: search } },
-            { nameRu: { contains: search } },
-            { nameEn: { contains: search } },
-            { nameCn: { contains: search } },
-            { category: { contains: search } },
-            { hsCode: { contains: search } },
+            { code: { contains: search, mode: "insensitive" } },
+            { nameRu: { contains: search, mode: "insensitive" } },
+            { nameEn: { contains: search, mode: "insensitive" } },
+            { nameCn: { contains: search, mode: "insensitive" } },
+            { category: { contains: search, mode: "insensitive" } },
+            { hsCode: { contains: search, mode: "insensitive" } },
           ],
         }
       : {}),
