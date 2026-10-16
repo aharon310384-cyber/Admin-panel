@@ -8,7 +8,7 @@
 - React 19
 - Auth.js / NextAuth
 - Prisma ORM
-- SQLite для локальной разработки
+- PostgreSQL 16
 
 ## Быстрый старт
 
@@ -18,9 +18,15 @@
 npm install
 ```
 
-2. Создать `.env` на основе `.env.example`.
+2. Установить PostgreSQL (Linux: `apt install postgresql`, Windows: установщик с postgresql.org) и создать базу:
 
-3. Подготовить Prisma Client и локальную базу:
+```bash
+sudo -u postgres psql -c "CREATE ROLE postmanfox LOGIN PASSWORD 'postmanfox'" -c "CREATE DATABASE postmanfox OWNER postmanfox ENCODING 'UTF8' TEMPLATE template0"
+```
+
+3. Создать `.env` на основе `.env.example`.
+
+4. Подготовить Prisma Client и базу:
 
 ```bash
 npm run db:generate
@@ -28,13 +34,13 @@ npm run db:push
 npm run db:seed
 ```
 
-4. Запустить проект:
+5. Запустить проект:
 
 ```bash
 npm run dev -- --port 3000
 ```
 
-5. Проверить сборку:
+6. Проверить сборку:
 
 ```bash
 npm run lint
@@ -59,9 +65,12 @@ npm run db:upgrade:document-flow
 
 Заказы получают номера `ZK-…`, прежние номера посылок становятся номерами задач, посылки — `PS-…`. Повторный запуск ничего не меняет. Подробности — `docs/product/документооборот.md`.
 
+## База данных
+
+PostgreSQL, адрес — `DATABASE_URL` в `.env`. До 2026-10 база была SQLite (`data/postmanfox.db`). Рабочий сервер переводится командой `postgres` задачи «Сервер», перенос данных — `prisma/sqlite-to-postgres.ts`, см. `docs/deploy/автодеплой.md`.
+
 ## Локальные данные
 
-- Основная база разработки: `data/admin-panel.db`
 - Загруженные изображения по умолчанию: `public/uploads`
 - Временные папки `.next`, `.tools`, `.recovery`, `Downloads` и локальные логи не предназначены для релиза.
 

@@ -1,5 +1,7 @@
 # Деплой Postmanfox-system на Timeweb через Docker
 
+> **Устарело (2026-10).** Рабочий сервер работает без Docker: PM2, `/opt/postmanfox`, база PostgreSQL. Обновление и переход на PostgreSQL — `docs/deploy/автодеплой.md`. Этот документ — исходный план с SQLite в Docker.
+
 Пошаговая инструкция для деплоя проекта (Next.js 15 + Prisma 6 + SQLite + NextAuth v5 + Telegram) на хостинг Timeweb через Docker.
 
 > Подготовлено под реальное состояние репозитория:
