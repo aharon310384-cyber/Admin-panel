@@ -132,6 +132,18 @@ async function main() {
       source.set(model.name, await delegate(sqlite, model.name).findMany());
     }
 
+    // PostgreSQL не принимает в тексте нулевой символ (\u0000), SQLite принимает. Находим заранее,
+    // чтобы в журнале было видно, где он, а не только «ошибка записи».
+    stage = "проверка текста";
+    const withNul: string[] = [];
+    for (const model of models) {
+      for (const field of model.fields.filter((item) => item.kind === "scalar" && item.type === "String")) {
+        const count = source.get(model.name)!.filter((row) => typeof row[field.name] === "string" && (row[field.name] as string).includes("\u0000")).length;
+        if (count) withNul.push(`${model.name}.${field.name} — строк: ${count}`);
+      }
+    }
+    if (withNul.length) throw new CopyError(`В SQLite есть текст с нулевым символом, PostgreSQL его не примет: ${withNul.join("; ")}`);
+
     // Запись и сверка в одной транзакции: если сверка не прошла, в PostgreSQL не остаётся ничего.
     const total = await pg.$transaction(
       async (tx) => {
@@ -188,7 +200,10 @@ async function main() {
 
 main().catch((error) => {
   writeFileSync(path.join(DIR, "error.log"), `${stage}\n${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`, { mode: 0o600 });
-  const code = error instanceof Prisma.PrismaClientKnownRequestError ? `, код Prisma ${error.code}` : "";
+  // В meta бывают названия таблиц и полей — их показать можно, значения — нет.
+  const meta = error instanceof Prisma.PrismaClientKnownRequestError ? (error.meta ?? {}) : {};
+  const where = ["modelName", "field_name", "target", "column"].flatMap((key) => (meta[key] ? [`${key}: ${String(meta[key])}`] : []));
+  const code = error instanceof Prisma.PrismaClientKnownRequestError ? `, код Prisma ${error.code}${where.length ? ` (${where.join(", ")})` : ""}` : "";
   const reason = error instanceof CopyError ? error.message : `${error instanceof Error ? error.constructor.name : "ошибка"}${code}`;
   console.error(`Перенос не выполнен (${stage}): ${reason}. Полный текст: node_modules/.prisma-sqlite/error.log`);
   process.exit(1);
