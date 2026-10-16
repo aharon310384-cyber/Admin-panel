@@ -1,7 +1,8 @@
 # Обслуживание рабочего сервера по кнопке: Actions → «Сервер» → Run workflow.
 #   status — посмотреть состояние (ничего не меняет);
 #   deploy — выкатить refactor/model-v2 (бэкап базы, схема, обновления данных, сборка, запуск; при ошибке — откат кода);
-#   postgres — один раз: перевести базу с SQLite на PostgreSQL (при ошибке — возврат на SQLite).
+#   postgres — один раз: перевести базу с SQLite на PostgreSQL (при ошибке — возврат на SQLite);
+#   cleanup — самоочистка журналов (PM2 и системный журнал), показывает, что занимает место.
 # На сервере ключ может выполнить только /usr/local/bin/postmanfox-ci → scripts/deploy/server.sh.
 # Настройка ключа и секретов — docs/deploy/автодеплой.md.
 name: Сервер
@@ -10,12 +11,13 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: "status — посмотреть состояние, deploy — выкатить refactor/model-v2, postgres — один раз перевести базу на PostgreSQL"
+        description: "status — посмотреть состояние, deploy — выкатить refactor/model-v2, postgres — один раз перевести базу на PostgreSQL, cleanup — самоочистка журналов"
         type: choice
         options:
           - status
           - deploy
           - postgres
+          - cleanup
         default: status
 
 permissions:
