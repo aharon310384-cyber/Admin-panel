@@ -6,6 +6,8 @@
 #   status  — только смотрит: версия кода, база, PM2, диск, бэкап, ответ админки.
 #   deploy  — бэкап базы → остановка админки → новый код → схема БД → обновления данных → сборка → запуск.
 #             При ошибке код возвращается к прежней версии, админка собирается и запускается снова.
+#   postgres — один раз: перевод базы с SQLite на PostgreSQL (установка, перенос и сверка данных, новый код).
+#             При ошибке админка возвращается на SQLite и прежний код. Файл SQLite не меняется.
 #
 # Журнал задачи виден в GitHub Actions, а репозиторий публичный: не выводить секреты, адреса, пути к данным.
 set -Eeuo pipefail
@@ -14,6 +16,8 @@ APP=/opt/postmanfox
 BRANCH=refactor/model-v2
 PM2_NAME=postmanfox
 HEALTH_URL=http://127.0.0.1:45371/login
+PG_NAME=postmanfox        # и база, и пользователь PostgreSQL
+PG_MARK=postmanfox-admin  # комментарий к ним: так скрипт отличает свои от чужих
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
@@ -73,6 +77,77 @@ pm2_saved() {
   echo "$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).map((p) => p.name).join(", ") || "пусто")' "$dump" 2>/dev/null || echo "не удалось прочитать") (сохранён $(date -r "$dump" +%F))"
 }
 
+# DATABASE_URL из .env, без кавычек.
+env_url() {
+  grep -E '^DATABASE_URL=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d "\"'" || true
+}
+
+db_kind() {
+  case "$(env_url)" in
+    file:*) echo sqlite ;;
+    postgres*) echo postgresql ;;
+    *) echo unknown ;;
+  esac
+}
+
+# Провайдер базы в schema.prisma указанной версии кода: sqlite или postgresql.
+schema_kind() {
+  git show "$1:prisma/schema.prisma" 2>/dev/null |
+    awk '/^datasource /{d=1} d && $1 == "provider" {gsub(/"/, "", $3); print $3; exit}'
+}
+
+# Путь к файлу SQLite. Относительный путь Prisma считает от каталога prisma/.
+sqlite_path() {
+  local p
+  p=$(env_url)
+  p=${p#file:}
+  case "$p" in /*) ;; *) p="$APP/prisma/$p" ;; esac
+  realpath -m "$p"
+}
+
+# Адрес PostgreSQL для psql и pg_dump: без ?schema=…, которого они не понимают.
+pg_url() {
+  local u
+  u=$(env_url)
+  echo "${u%%\?*}"
+}
+
+# Команда от имени postgres — администратора PostgreSQL.
+as_postgres() {
+  (cd / && runuser -u postgres -- "$@")
+}
+
+# PID админки в PM2 и всех её дочерних процессов.
+pm2_tree() {
+  local root
+  root=$(pm2 pid "$PM2_NAME" 2>/dev/null | tail -1)
+  [ -n "$root" ] && [ "$root" != 0 ] || return 0
+  ps -eo pid=,ppid= | awk -v r="$root" '{ parent[$1] = $2 }
+    END { for (p in parent) { q = p; while (q + 0 != r + 0 && (q in parent) && q + 0 > 1) q = parent[q]; if (q + 0 == r + 0) print p } }'
+}
+
+# Кто кроме админки держит открытым файл базы SQLite.
+sqlite_users() {
+  local db=$1 own fd pid
+  own=" $(pm2_tree | tr '\n' ' ') "
+  for fd in /proc/[0-9]*/fd/*; do
+    [ "$(readlink "$fd" 2>/dev/null)" = "$db" ] || continue
+    pid=${fd#/proc/}
+    pid=${pid%%/*}
+    case "$own" in *" $pid "*) continue ;; esac
+    echo "$(cat "/proc/$pid/comm" 2>/dev/null) (pid $pid)"
+  done | sort -u | paste -sd, -
+}
+
+# Задан ли DATABASE_URL в окружении процессов админки (тогда он важнее .env и смена базы не сработает).
+env_overrides_db() {
+  local pid
+  for pid in $(pm2_tree); do
+    tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | grep -q '^DATABASE_URL=' && return 0
+  done
+  return 1
+}
+
 status() {
   local missing
   missing=$(missing_tools)
@@ -84,14 +159,27 @@ status() {
   echo "Отстаёт от GitHub на коммитов: $(git rev-list --count "HEAD..origin/$BRANCH")"
   echo "Изменённых отслеживаемых файлов: $(git status --porcelain --untracked-files=no | wc -l)"
   echo "== База"
-  local url
-  url=$(grep -E '^DATABASE_URL=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' || true)
-  case "$url" in
-    file:*) echo "SQLite, $(du -h data/postmanfox.db 2>/dev/null | cut -f1)";;
-    postgres*) echo "PostgreSQL";;
-    *) echo "не удалось определить";;
+  case "$(db_kind)" in
+    sqlite) echo "SQLite, $(du -h "$(sqlite_path)" 2>/dev/null | cut -f1)" ;;
+    postgresql) echo "PostgreSQL $(psql -XAtq "$(pg_url)" -c "select current_setting('server_version') || ', ' || pg_size_pretty(pg_database_size(current_database()))" 2>/dev/null || echo "— не отвечает")" ;;
+    *) echo "не удалось определить" ;;
   esac
-  echo "Последний бэкап: $(ls -1t backups/*.db 2>/dev/null | head -1 | xargs -r basename)"
+  echo "Последний бэкап: $(ls -1t backups/postmanfox-*.db backups/postmanfox-*.dump 2>/dev/null | head -1 | xargs -r basename)"
+  echo "Бэкапов: $(ls -1 backups/postmanfox-*.db backups/postmanfox-*.dump 2>/dev/null | wc -l), самый старый: $(ls -1tr backups/postmanfox-*.db backups/postmanfox-*.dump 2>/dev/null | head -1 | xargs -r basename)"
+  local cron
+  cron=$( { crontab -l 2>/dev/null; cat /etc/crontab /etc/cron.d/* 2>/dev/null; } | grep -v '^[[:space:]]*#' | grep -F backup-db.sh | head -1 || true)
+  if [ -z "$cron" ]; then
+    echo "Ночной бэкап в cron: не настроен"
+  elif ! [ -x backup-db.sh ] && ! grep -qE '(bash|sh)[[:space:]]+[^[:space:]]*backup-db\.sh' <<<"$cron"; then
+    echo "Ночной бэкап в cron: есть, но backup-db.sh не исполняемый — cron не сможет его запустить"
+  else
+    echo "Ночной бэкап в cron: есть ($(awk '{printf "%02d:%02d", $2, $1}' <<<"$cron"))"
+  fi
+  if command -v psql >/dev/null 2>&1; then
+    echo "PostgreSQL на сервере: установлен, служба $(systemctl is-active postgresql 2>/dev/null || true)"
+  else
+    echo "PostgreSQL на сервере: не установлен"
+  fi
   echo "== Приложение"
   echo "PM2 $PM2_NAME: $(pm2_state)"
   echo "Все процессы PM2: $(pm2_all)"
@@ -110,6 +198,8 @@ status() {
 
 OLD=""
 LOCK_CHANGED=0
+ENV_BACKUP=""  # копия .env до перехода на PostgreSQL; при откате возвращается на место
+ACTION="Деплой"
 
 rebuild_and_start() {
   if [ "$LOCK_CHANGED" = 1 ]; then npm ci --no-audit --no-fund; fi
@@ -122,10 +212,15 @@ rollback() {
   trap - ERR
   echo
   echo "!! Ошибка. Возвращаю код к $(git log -1 --format='%h' "$OLD") и запускаю админку."
-  echo "!! База не откатывается: свежий бэкап лежит в backups/."
+  if [ -n "$ENV_BACKUP" ]; then
+    cat "$ENV_BACKUP" > .env
+    echo "!! Админка возвращается на SQLite. Файл SQLite не менялся."
+  else
+    echo "!! База не откатывается: свежий бэкап лежит в backups/."
+  fi
   git reset -q --hard "$OLD"
   if rebuild_and_start && wait_healthy; then
-    echo "!! Прежняя версия снова работает. Деплой не выполнен."
+    echo "!! Прежняя версия снова работает. $ACTION не выполнен."
   else
     echo "!! Прежняя версия не поднялась — нужен ручной разбор в консоли."
   fi
@@ -151,6 +246,11 @@ deploy() {
     exit 0
   fi
   if ! git diff --quiet "$OLD" "$new" -- package-lock.json; then LOCK_CHANGED=1; fi
+  if [ "$(schema_kind "$new")" != "$(db_kind)" ]; then
+    echo "Новая версия работает с базой $(schema_kind "$new"), а на сервере база $(db_kind) — деплой остановлен."
+    [ "$(db_kind)" = sqlite ] && echo "Для перехода на PostgreSQL — команда postgres."
+    exit 1
+  fi
 
   echo "== Будет выкачено"
   git log --format='%h %ad %s' --date=short "$OLD..$new"
@@ -186,8 +286,127 @@ deploy() {
   echo "== Готово: $(git log -1 --format='%h %s'), админка отвечает $(health_code)"
 }
 
+postgres_migrate() {
+  ACTION="Переход на PostgreSQL"
+  local missing
+  missing=$(missing_tools)
+  [ -z "$missing" ] || { echo "Не найдены программы:$missing — переход остановлен."; exit 1; }
+  [ "$(git branch --show-current)" = "$BRANCH" ] || { echo "На сервере не ветка $BRANCH — переход остановлен."; exit 1; }
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "На сервере есть изменённые файлы — переход остановлен, чтобы их не потерять:"
+    git status --short --untracked-files=no
+    exit 1
+  fi
+  if [ "$(db_kind)" != sqlite ]; then
+    echo "Админка уже не на SQLite (база: $(db_kind)) — переход не нужен."
+    exit 1
+  fi
+  local new db users
+  new=$(git rev-parse "origin/$BRANCH")
+  if [ "$(schema_kind "$new")" != postgresql ]; then
+    echo "В GitHub программа ещё на SQLite — сначала слейте изменения перехода на PostgreSQL."
+    exit 1
+  fi
+  db=$(sqlite_path)
+  [ -f "$db" ] || { echo "Не найден файл базы SQLite — переход остановлен."; exit 1; }
+  users=$(sqlite_users "$db")
+  if [ -n "$users" ]; then
+    echo "Базу SQLite кроме админки держит открытой: $users — переход остановлен."
+    echo "После перехода эта программа осталась бы на старой базе. Нужно сначала разобраться, что это."
+    exit 1
+  fi
+  if env_overrides_db; then
+    echo "DATABASE_URL задан в окружении процесса админки (PM2), а не только в .env — переход остановлен:"
+    echo "админка осталась бы на SQLite. Нужно убрать DATABASE_URL из настроек PM2."
+    exit 1
+  fi
+  OLD=$(git rev-parse HEAD)
+  if ! git diff --quiet "$OLD" "$new" -- package-lock.json; then LOCK_CHANGED=1; fi
+
+  echo "== PostgreSQL"
+  if ! command -v psql >/dev/null 2>&1; then
+    echo "Установка PostgreSQL…"
+    DEBIAN_FRONTEND=noninteractive apt-get -qq -o DPkg::Lock::Timeout=600 update
+    DEBIAN_FRONTEND=noninteractive apt-get -qq -o DPkg::Lock::Timeout=600 install -y postgresql >/dev/null
+  fi
+  systemctl enable --now postgresql >/dev/null 2>&1 || true
+  for _ in $(seq 1 30); do pg_isready -q -h 127.0.0.1 && break; sleep 1; done
+  pg_isready -q -h 127.0.0.1 || { echo "PostgreSQL не запустился — переход остановлен."; exit 1; }
+  echo "Версия: $(as_postgres psql -XAtqc 'show server_version')"
+
+  # База и пользователь postmanfox. Если такие уже есть и созданы не этим скриптом — ничего не трогаем.
+  local role_mark db_mark password
+  role_mark=$(as_postgres psql -XAtqc "select coalesce(shobj_description(oid, 'pg_authid'), '-') from pg_roles where rolname = '$PG_NAME'")
+  db_mark=$(as_postgres psql -XAtqc "select coalesce(shobj_description(oid, 'pg_database'), '-') from pg_database where datname = '$PG_NAME'")
+  if { [ -n "$role_mark" ] && [ "$role_mark" != "$PG_MARK" ]; } || { [ -n "$db_mark" ] && [ "$db_mark" != "$PG_MARK" ]; }; then
+    echo "В PostgreSQL уже есть база или пользователь $PG_NAME, созданные не этим скриптом — переход остановлен, чтобы их не задеть."
+    exit 1
+  fi
+  # Пароль только в .env, в журнал не выводится.
+  password=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
+  # Админка ещё на SQLite, значит база postmanfox в PostgreSQL не используется: остатки прошлой попытки удаляем.
+  as_postgres psql -XAq -v ON_ERROR_STOP=1 -v pw="$password" >/dev/null <<SQL
+SET client_min_messages = warning;
+SELECT 'CREATE ROLE $PG_NAME LOGIN' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$PG_NAME') \gexec
+ALTER ROLE $PG_NAME WITH LOGIN PASSWORD :'pw';
+COMMENT ON ROLE $PG_NAME IS '$PG_MARK';
+DROP DATABASE IF EXISTS $PG_NAME WITH (FORCE);
+CREATE DATABASE $PG_NAME OWNER $PG_NAME TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C.UTF-8' LC_CTYPE 'C.UTF-8';
+COMMENT ON DATABASE $PG_NAME IS '$PG_MARK';
+SQL
+  local url="postgresql://$PG_NAME:$password@127.0.0.1:5432/$PG_NAME?schema=public"
+  psql -XAtq "${url%%\?*}" -c 'select 1' >/dev/null || { echo "Не удалось подключиться к новой базе — переход остановлен."; exit 1; }
+  echo "База $PG_NAME готова."
+
+  echo "== Будет выкачено"
+  git log --format='%h %ad %s' --date=short "$OLD..$new"
+
+  echo "== Остановка админки"
+  pm2 stop "$PM2_NAME" >/dev/null
+  mkdir -p backups
+  ENV_BACKUP=backups/env-before-postgres
+  install -m 600 .env "$ENV_BACKUP"
+  trap rollback ERR
+
+  echo "== Бэкап SQLite"
+  bash backup-db.sh
+
+  echo "== Новый код"
+  git merge --ff-only -q "origin/$BRANCH"
+  if [ "$LOCK_CHANGED" = 1 ]; then
+    echo "== Зависимости изменились — установка"
+    npm ci --no-audit --no-fund
+  fi
+
+  echo "== Таблицы в PostgreSQL"
+  awk -v url="$url" '/^DATABASE_URL=/ { if (!done) print "DATABASE_URL=\"" url "\""; done = 1; next } { print }' "$ENV_BACKUP" > .env
+  npx prisma db push
+
+  echo "== Перенос данных из SQLite"
+  SQLITE_URL="file:$db" npm run -s db:copy-from-sqlite
+
+  echo "== Обновления данных"
+  npm run --if-present db:upgrade
+
+  echo "== Сборка"
+  npm run build
+
+  echo "== Запуск"
+  pm2 start "$PM2_NAME" >/dev/null
+  wait_healthy || { echo "Админка не ответила после запуска."; false; }
+  if env_overrides_db; then echo "Админка запустилась с DATABASE_URL не из .env."; false; fi
+  trap - ERR
+
+  echo "== Первый бэкап PostgreSQL"
+  bash backup-db.sh || echo "!! Бэкап PostgreSQL не получился — админка работает, но backup-db.sh нужно проверить."
+
+  echo "== Готово: админка работает на PostgreSQL, $(git log -1 --format='%h %s'), отвечает $(health_code)"
+  echo "Файл SQLite оставлен на месте и больше не используется. Копия .env до перехода: $ENV_BACKUP."
+}
+
 case "${1:-status}" in
   status) status ;;
   deploy) deploy ;;
-  *) echo "Неизвестная команда: ${1}. Доступны: status, deploy."; exit 2 ;;
+  postgres) postgres_migrate ;;
+  *) echo "Неизвестная команда: ${1}. Доступны: status, deploy, postgres."; exit 2 ;;
 esac

@@ -17,7 +17,7 @@ export default async function ReceivingPage({
     where: {
       deletedAt: null,
       status: { in: ["NEW", "IN_RECEIVING_QUEUE"] },
-      ...(trackQuery ? { trackNumber: { contains: trackQuery } } : {}),
+      ...(trackQuery ? { trackNumber: { contains: trackQuery, mode: "insensitive" } } : {}),
     },
     include: { customer: { select: { name: true, code: true } } },
     orderBy: { createdAt: "asc" },
