@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:upgrade": "npm run db:upgrade:document-flow",
     "db:upgrade:document-flow": "tsx prisma/upgrade-document-flow.ts",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

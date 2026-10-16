@@ -1,0 +1,47 @@
+# Обслуживание рабочего сервера по кнопке: Actions → «Сервер» → Run workflow.
+#   status — посмотреть состояние (ничего не меняет);
+#   deploy — выкатить refactor/model-v2 (бэкап базы, схема, обновления данных, сборка, запуск; при ошибке — откат кода).
+# На сервере ключ может выполнить только /usr/local/bin/postmanfox-ci → scripts/deploy/server.sh.
+# Настройка ключа и секретов — docs/deploy/автодеплой.md.
+name: Сервер
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "status — посмотреть состояние, deploy — выкатить refactor/model-v2"
+        type: choice
+        options:
+          - status
+          - deploy
+        default: status
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-server
+  cancel-in-progress: false
+
+jobs:
+  server:
+    name: ${{ inputs.command }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Ключ SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+
+      - name: Команда на сервере
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          COMMAND: ${{ inputs.command }}
+        run: ssh -o BatchMode=yes -o ServerAliveInterval=30 "$USER_NAME@$HOST" "$COMMAND"
