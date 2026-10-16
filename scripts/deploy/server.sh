@@ -199,6 +199,7 @@ status() {
 OLD=""
 LOCK_CHANGED=0
 ENV_BACKUP=""  # копия .env до перехода на PostgreSQL; при откате возвращается на место
+ACTION="Деплой"
 
 rebuild_and_start() {
   if [ "$LOCK_CHANGED" = 1 ]; then npm ci --no-audit --no-fund; fi
@@ -219,7 +220,7 @@ rollback() {
   fi
   git reset -q --hard "$OLD"
   if rebuild_and_start && wait_healthy; then
-    echo "!! Прежняя версия снова работает. Деплой не выполнен."
+    echo "!! Прежняя версия снова работает. $ACTION не выполнен."
   else
     echo "!! Прежняя версия не поднялась — нужен ручной разбор в консоли."
   fi
@@ -286,6 +287,7 @@ deploy() {
 }
 
 postgres_migrate() {
+  ACTION="Переход на PostgreSQL"
   local missing
   missing=$(missing_tools)
   [ -z "$missing" ] || { echo "Не найдены программы:$missing — переход остановлен."; exit 1; }
@@ -344,6 +346,7 @@ postgres_migrate() {
   password=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
   # Админка ещё на SQLite, значит база postmanfox в PostgreSQL не используется: остатки прошлой попытки удаляем.
   as_postgres psql -XAq -v ON_ERROR_STOP=1 -v pw="$password" >/dev/null <<SQL
+SET client_min_messages = warning;
 SELECT 'CREATE ROLE $PG_NAME LOGIN' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$PG_NAME') \gexec
 ALTER ROLE $PG_NAME WITH LOGIN PASSWORD :'pw';
 COMMENT ON ROLE $PG_NAME IS '$PG_MARK';
