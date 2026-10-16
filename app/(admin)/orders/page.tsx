@@ -11,6 +11,7 @@ export const metadata: Metadata = { title: "Заказы" };
 
 const SORT_FIELDS = [
   "customerCode",
+  "number",
   "productNameText",
   "trackNumber",
   "quantity",
@@ -28,6 +29,8 @@ function orderOrderBy(field: SortField, dir: SortDirection): Prisma.OrderOrderBy
   switch (field) {
     case "customerCode":
       return { customer: { code: dir } };
+    case "number":
+      return { number: dir };
     case "recipientName":
       return { recipient: { name: dir } };
     case "productNameText":
@@ -77,6 +80,7 @@ export default async function OrdersPage({
 
   const rows: OrderRow[] = orders.map((o) => ({
     id: o.id,
+    number: o.number,
     customerId: o.customerId,
     customerCode: o.customer.code,
     recipientId: o.recipientId,

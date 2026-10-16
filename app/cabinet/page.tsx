@@ -4,6 +4,7 @@ import { ArrowRight, Package, Plus, Truck, Wallet } from "lucide-react";
 import type { ParcelStatus, Prisma } from "@prisma/client";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
 import { prisma } from "@/lib/prisma";
+import { clientParcelNumber } from "@/lib/parcel-number";
 import StatusPill, { statusLabel } from "@/components/cabinet/status-pill";
 import { formatUsd, formatDate } from "@/lib/utils";
 
@@ -44,6 +45,7 @@ export default async function ClientCabinetOverviewPage() {
         select: {
           id: true,
           number: true,
+          parcelTask: { select: { number: true } },
           status: true,
           totalUsd: true,
           isPaid: true,
@@ -109,7 +111,7 @@ export default async function ClientCabinetOverviewPage() {
           <div className="ov-latest-head">
             <div>
               <span className="ov-card-label">Последняя посылка</span>
-              <span className="ov-latest-num">{latest.number}</span>
+              <span className="ov-latest-num">{clientParcelNumber(latest)}</span>
             </div>
             <StatusPill status={latest.status} />
           </div>
@@ -157,7 +159,7 @@ export default async function ClientCabinetOverviewPage() {
             {parcels.map((p) => (
               <li key={p.id}>
                 <Link href={`/cabinet/parcels/${p.id}`} className="ov-row">
-                  <span className="ov-row-num">{p.number}</span>
+                  <span className="ov-row-num">{clientParcelNumber(p)}</span>
                   <span className="ov-row-status"><StatusPill status={p.status} /></span>
                   <span className="ov-row-date">{formatDate(p.createdAt)}</span>
                   <span className="ov-row-sum">{formatUsd(p.totalUsd)}</span>

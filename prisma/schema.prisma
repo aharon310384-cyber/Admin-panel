@@ -77,6 +77,46 @@ enum LostItemStatus {
   UTILIZED    // Утилизировано
 }
 
+// Статусы задачи на формирование посылки. «В работе» = IN_PROGRESS.
+enum ParcelTaskStatus {
+  NEW         // Создана
+  IN_PROGRESS // В работе
+  ASSEMBLED   // Собрана
+  PACKED      // Упакована
+  WEIGHED     // Взвешена
+  COMPLETED   // Посылка сформирована
+  CANCELED    // Отменена
+}
+
+enum ReceivingCondition {
+  INTACT  // Целый
+  DAMAGED // Повреждён
+}
+
+enum Currency {
+  CNY
+  USD
+}
+
+enum AgentPayoutStatus {
+  PENDING  // Ожидает оплаты
+  PAID     // Оплачена
+  CANCELED // Отменена
+}
+
+enum TopUpRequestStatus {
+  PENDING  // Ожидает оплаты
+  PAID     // Оплачена
+  CANCELED // Отменена
+}
+
+// Основание изменения долга клиента
+enum LedgerReason {
+  PARCEL_CHARGE // начисление за посылку
+  PAYMENT       // оплата (распределение)
+  ADJUSTMENT    // ручная корректировка
+}
+
 // ─────────────────────────── СОТРУДНИКИ ───────────────────────────
 
 model User {
@@ -95,6 +135,24 @@ model User {
   lostItems           LostItem[]
   ordersCreated       Order[]               @relation("OrderAuthor")
   recipientsCreated   Recipient[]           @relation("RecipientAuthor")
+
+  // документы, которые оформил сотрудник
+  sortings           Sorting[]
+  receivings         Receiving[]
+  placements         Placement[]
+  parcelTasks        ParcelTask[]
+  assemblies         Assembly[]
+  packings           Packing[]
+  weighings          Weighing[]
+  boxes              Box[]
+  manifests          Manifest[]
+  awbs               Awb[]
+  agentInvoices      AgentInvoice[]
+  agentPayouts       AgentPayout[]
+  topUpRequests      TopUpRequest[]
+  payments           Payment[]
+  paymentAllocations PaymentAllocation[]
+  ledgerEntries      ClientLedger[]
 }
 
 // ─────────────────────────── СПРАВОЧНИКИ ───────────────────────────
@@ -224,6 +282,11 @@ model Customer {
   parcels         Parcel[]
   localDeliveries LocalDelivery[]
   lostItems       LostItem[]
+  sortings        Sorting[]
+  parcelTasks     ParcelTask[]
+  topUpRequests   TopUpRequest[]
+  payments        Payment[]
+  ledgerEntries   ClientLedger[]
 
   @@index([code])
   @@index([phone])
@@ -269,6 +332,7 @@ model Recipient {
 
 model Order {
   id           String        @id @default(cuid())
+  number       String?       @unique // номер документа ZK-000001 (lib/document-numbers.ts)
   customerId   String        // владелец/плательщик
   recipientId  String?       // куда везём (переносится в посылку при оформлении)
   deliveryType   String?
@@ -279,7 +343,7 @@ model Order {
   category               String?
   hsCode                 String?  // Фаза 2
   declaredValueUsd       Decimal? // объявленная стоимость = unitPrice × quantity
-  trackNumber            String?  // китайский трек, НЕ уникален
+  trackNumber            String?  // входящий трек-номер (китайская служба), НЕ уникален
   quantity               Int      @default(1)
   unitPriceCny           Decimal?
   unitPriceUsd           Decimal?
@@ -300,6 +364,9 @@ model Order {
   customerComment        String?
   // процесс
   status       OrderStatus @default(NEW)
+  sortingId    String?     // документ «Сортировка» коробки
+  receivingId  String?     // документ «Приём заказа» коробки
+  parcelTaskId String?     // задача на формирование посылки (заполняется при оформлении)
   parcelId     String?     // заполняется при оформлении
   authorId     String?     // кто создал заказ (заполняется автоматически)
   createdAt    DateTime    @default(now())
@@ -311,11 +378,18 @@ model Order {
   productName     ProductName?         @relation(fields: [productNameId], references: [id])
   parcel          Parcel?              @relation(fields: [parcelId], references: [id])
   author          User?                @relation("OrderAuthor", fields: [authorId], references: [id])
+  sorting         Sorting?             @relation(fields: [sortingId], references: [id])
+  receiving       Receiving?           @relation(fields: [receivingId], references: [id])
+  parcelTask      ParcelTask?          @relation(fields: [parcelTaskId], references: [id])
   statusHistory   OrderStatusHistory[]
   localDeliveries LocalDelivery[]
+  assemblyItems   AssemblyItem[]
 
   @@index([customerId])
   @@index([recipientId])
+  @@index([sortingId])
+  @@index([receivingId])
+  @@index([parcelTaskId])
   @@index([parcelId])
   @@index([status])
   @@index([trackNumber])
@@ -326,7 +400,9 @@ model Order {
 
 model Parcel {
   id           String        @id @default(cuid())
-  number       String        @unique // генерируется при оформлении
+  number       String        @unique // PS-000001 (lib/document-numbers.ts); номер вида SM3956US — у задачи
+  parcelTaskId String?       @unique // задача на формирование посылки
+  boxId        String?       // короб (комплектация коробов)
   customerId   String
   recipientId  String?
   deliveryType   String?
@@ -356,19 +432,24 @@ model Parcel {
   paidAt        DateTime?
   paymentTiming PaymentTiming @default(BEFORE) // из тарифа
   // отслеживание
-  trackingNumber String?
+  trackingNumber String?  // трек-номер посылки (международный)
   notes          String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  customer      Customer              @relation(fields: [customerId], references: [id])
-  recipient     Recipient?            @relation(fields: [recipientId], references: [id])
-  orders        Order[]               // строки-заказы внутри
-  services      ParcelService[]
-  statusHistory ParcelStatusHistory[]
+  customer        Customer                @relation(fields: [customerId], references: [id])
+  recipient       Recipient?              @relation(fields: [recipientId], references: [id])
+  parcelTask      ParcelTask?             @relation(fields: [parcelTaskId], references: [id])
+  box             Box?                    @relation(fields: [boxId], references: [id])
+  orders          Order[]                 // строки-заказы внутри
+  services        ParcelService[]
+  statusHistory   ParcelStatusHistory[]
+  allocationItems PaymentAllocationItem[]
+  ledgerEntries   ClientLedger[]
 
   @@index([customerId])
+  @@index([boxId])
   @@index([recipientId])
   @@index([status])
   @@index([number])
@@ -433,6 +514,431 @@ model LostItem {
 
   @@index([status])
   @@index([trackNumber])
+}
+
+// ─────────────────────────── ДОКУМЕНТООБОРОТ ───────────────────────────
+// Цепочка документов и правила: docs/product/документооборот.md.
+// У всех документов: номер с префиксом (lib/document-numbers.ts), автор, примечание, мягкое удаление.
+// АРМы, которые создают документы этапов и переключают статусы, — следующий этап.
+
+/// Последний выданный номер по каждому префиксу документа
+model DocumentCounter {
+  prefix    String   @id
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+/// Ячейка хранения на складе (для раскладки)
+model StorageCell {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  note      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  placements Placement[]
+}
+
+/// Агент (подрядчик): авиаперевозчик, брокер, служба доставки
+model Agent {
+  id        String    @id @default(cuid())
+  name      String
+  kind      String?
+  contacts  String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  invoices AgentInvoice[]
+
+  @@index([name])
+}
+
+// ── Склад: коробка поступила. Документы — по коробке (входящему трек-номеру),
+//    охватывают все заказы-строки из неё (Order.sortingId / Order.receivingId).
+
+/// Сортировка (SR): коробку опознали по маркировке и отнесли к клиенту
+model Sorting {
+  id               String    @id @default(cuid())
+  number           String    @unique
+  trackNumber      String?   // входящий трек-номер коробки
+  customerId       String?   // определённый клиент
+  clientIdentified Boolean   @default(false)
+  note             String?
+  createdById      String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  customer  Customer? @relation(fields: [customerId], references: [id])
+  createdBy User      @relation(fields: [createdById], references: [id])
+  orders    Order[]
+
+  @@index([trackNumber])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+/// Приём заказа (PR)
+model Receiving {
+  id          String             @id @default(cuid())
+  number      String             @unique
+  trackNumber String?            // входящий трек-номер коробки
+  placesCount Int                @default(1)
+  weightKg    Decimal?
+  condition   ReceivingCondition @default(INTACT)
+  photoUrl    String?
+  note        String?
+  createdById String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  deletedAt   DateTime?
+
+  createdBy User       @relation(fields: [createdById], references: [id])
+  orders    Order[]
+  placement Placement?
+
+  @@index([trackNumber])
+  @@index([createdAt])
+}
+
+/// Раскладка (RS): принятую коробку положили в ячейку хранения
+model Placement {
+  id          String    @id @default(cuid())
+  number      String    @unique
+  receivingId String    @unique
+  cellId      String
+  note        String?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  receiving Receiving   @relation(fields: [receivingId], references: [id])
+  cell      StorageCell @relation(fields: [cellId], references: [id])
+  createdBy User        @relation(fields: [createdById], references: [id])
+
+  @@index([cellId])
+}
+
+// ── Склад: из заказов формируют посылку
+
+/// Задача на формирование посылки. Номер как в Excel: код клиента + сквозной номер + страна (SM3956US).
+/// Приписки к номеру из Excel («01 DHL», «Sea») — в note.
+model ParcelTask {
+  id                 String           @id @default(cuid())
+  number             String           @unique
+  status             ParcelTaskStatus @default(NEW)
+  customerId         String
+  destinationCountry String?
+  note               String?
+  createdById        String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+
+  customer  Customer  @relation(fields: [customerId], references: [id])
+  createdBy User      @relation(fields: [createdById], references: [id])
+  orders    Order[]
+  assembly  Assembly?
+  packing   Packing?
+  weighing  Weighing?
+  parcel    Parcel?
+
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+/// Сборка (SB): какие заказы задачи собраны и все ли найдены
+model Assembly {
+  id           String    @id @default(cuid())
+  number       String    @unique
+  parcelTaskId String    @unique
+  allFound     Boolean   @default(false)
+  note         String?
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  parcelTask ParcelTask     @relation(fields: [parcelTaskId], references: [id])
+  createdBy  User           @relation(fields: [createdById], references: [id])
+  items      AssemblyItem[]
+}
+
+/// Строка сборки: заказ и отметка, найден ли он
+model AssemblyItem {
+  id         String  @id @default(cuid())
+  assemblyId String
+  orderId    String
+  found      Boolean @default(true)
+
+  assembly Assembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  order    Order    @relation(fields: [orderId], references: [id])
+
+  @@unique([assemblyId, orderId])
+  @@index([orderId])
+}
+
+/// Упаковка (UP)
+model Packing {
+  id            String    @id @default(cuid())
+  number        String    @unique
+  parcelTaskId  String    @unique
+  packagingType String?
+  placesCount   Int       @default(1)
+  note          String?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  parcelTask ParcelTask @relation(fields: [parcelTaskId], references: [id])
+  createdBy  User       @relation(fields: [createdById], references: [id])
+}
+
+/// Взвешивание (VZ)
+model Weighing {
+  id                 String    @id @default(cuid())
+  number             String    @unique
+  parcelTaskId       String    @unique
+  weightKg           Decimal
+  lengthCm           Decimal?
+  widthCm            Decimal?
+  heightCm           Decimal?
+  volumetricWeightKg Decimal?
+  note               String?
+  createdById        String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  parcelTask ParcelTask @relation(fields: [parcelTaskId], references: [id])
+  createdBy  User       @relation(fields: [createdById], references: [id])
+}
+
+// ── Отправка и расходы
+
+/// Комплектация коробов (KR): короб, в который уложены посылки (Parcel.boxId)
+model Box {
+  id          String    @id @default(cuid())
+  number      String    @unique
+  manifestId  String?
+  weightKg    Decimal?
+  note        String?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  manifest  Manifest? @relation(fields: [manifestId], references: [id])
+  createdBy User      @relation(fields: [createdById], references: [id])
+  parcels   Parcel[]
+
+  @@index([manifestId])
+}
+
+/// Реестр отправки (RO): какие коробы уходят одной отправкой
+model Manifest {
+  id                 String    @id @default(cuid())
+  number             String    @unique
+  shipDate           DateTime?
+  destinationCountry String?
+  note               String?
+  createdById        String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  createdBy User  @relation(fields: [createdById], references: [id])
+  boxes     Box[]
+  awbs      Awb[]
+
+  @@index([shipDate])
+}
+
+/// Документы AWB (AW). awbNumber — номер авианакладной у перевозчика
+model Awb {
+  id            String    @id @default(cuid())
+  number        String    @unique
+  manifestId    String
+  awbNumber     String?
+  carrier       String?
+  flightNumber  String?
+  departureDate DateTime?
+  note          String?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  manifest  Manifest       @relation(fields: [manifestId], references: [id])
+  createdBy User           @relation(fields: [createdById], references: [id])
+  invoices  AgentInvoice[]
+
+  @@index([manifestId])
+  @@index([awbNumber])
+}
+
+/// Счёт на оплату услуг (SA): входящий счёт агента по AWB
+model AgentInvoice {
+  id             String    @id @default(cuid())
+  number         String    @unique
+  agentId        String
+  awbId          String
+  externalNumber String?   // номер счёта у агента
+  invoiceDate    DateTime?
+  amount         Decimal
+  currency       Currency  @default(CNY)
+  note           String?
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  agent     Agent         @relation(fields: [agentId], references: [id])
+  awb       Awb           @relation(fields: [awbId], references: [id])
+  createdBy User          @relation(fields: [createdById], references: [id])
+  payouts   AgentPayout[]
+
+  @@index([agentId])
+  @@index([awbId])
+}
+
+/// Заявка на выплату агенту (VA). Несколько заявок на счёт — частичная оплата
+model AgentPayout {
+  id             String            @id @default(cuid())
+  number         String            @unique
+  agentInvoiceId String
+  amount         Decimal
+  currency       Currency          @default(CNY)
+  status         AgentPayoutStatus @default(PENDING)
+  paidAt         DateTime?
+  note           String?
+  createdById    String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  agentInvoice AgentInvoice @relation(fields: [agentInvoiceId], references: [id])
+  createdBy    User         @relation(fields: [createdById], references: [id])
+
+  @@index([agentInvoiceId])
+  @@index([status])
+}
+
+// ── Деньги клиента
+
+/// Заявка на пополнение баланса клиента (PB)
+model TopUpRequest {
+  id          String             @id @default(cuid())
+  number      String             @unique
+  customerId  String
+  amount      Decimal
+  currency    Currency           @default(CNY)
+  status      TopUpRequestStatus @default(PENDING)
+  note        String?
+  createdById String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  deletedAt   DateTime?
+
+  customer  Customer  @relation(fields: [customerId], references: [id])
+  createdBy User      @relation(fields: [createdById], references: [id])
+  payments  Payment[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+/// Приход ДС (PD): поступившие от клиента деньги
+model Payment {
+  id             String    @id @default(cuid())
+  number         String    @unique
+  customerId     String
+  topUpRequestId String?
+  amount         Decimal
+  currency       Currency  @default(CNY)
+  method         String?   // Alipay, WeChat, банк, наличные…
+  receivedAt     DateTime  @default(now())
+  note           String?
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  customer     Customer            @relation(fields: [customerId], references: [id])
+  topUpRequest TopUpRequest?       @relation(fields: [topUpRequestId], references: [id])
+  createdBy    User                @relation(fields: [createdById], references: [id])
+  allocations  PaymentAllocation[]
+
+  @@index([customerId])
+  @@index([topUpRequestId])
+  @@index([receivedAt])
+}
+
+/// Распределение оплат по посылкам (RP): какая часть прихода закрывает какую посылку.
+/// Когда распределённые суммы покрывают посылку, она отмечается оплаченной (lib/parcel-payment.ts).
+model PaymentAllocation {
+  id          String    @id @default(cuid())
+  number      String    @unique
+  paymentId   String
+  note        String?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  payment       Payment                 @relation(fields: [paymentId], references: [id])
+  createdBy     User                    @relation(fields: [createdById], references: [id])
+  items         PaymentAllocationItem[]
+  ledgerEntries ClientLedger[]
+
+  @@index([paymentId])
+}
+
+/// Строка распределения: посылка и сумма в валюте прихода
+model PaymentAllocationItem {
+  id           String  @id @default(cuid())
+  allocationId String
+  parcelId     String
+  amount       Decimal
+
+  allocation PaymentAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  parcel     Parcel            @relation(fields: [parcelId], references: [id])
+
+  @@unique([allocationId, parcelId])
+  @@index([parcelId])
+}
+
+/// Изменение долга клиента (DK): amount > 0 — долг вырос, amount < 0 — уменьшился.
+/// Долг клиента = сумма строк.
+model ClientLedger {
+  id                  String       @id @default(cuid())
+  number              String       @unique
+  customerId          String
+  amount              Decimal
+  currency            Currency     @default(CNY)
+  reason              LedgerReason
+  parcelId            String?
+  paymentAllocationId String?
+  note                String?
+  createdById         String
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  deletedAt           DateTime?
+
+  customer          Customer           @relation(fields: [customerId], references: [id])
+  parcel            Parcel?            @relation(fields: [parcelId], references: [id])
+  paymentAllocation PaymentAllocation? @relation(fields: [paymentAllocationId], references: [id])
+  createdBy         User               @relation(fields: [createdById], references: [id])
+
+  @@index([customerId])
+  @@index([parcelId])
+  @@index([paymentAllocationId])
 }
 
 // ─────────────────────────── ИСТОРИЯ СТАТУСОВ ───────────────────────────

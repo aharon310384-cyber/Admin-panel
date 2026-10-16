@@ -106,6 +106,7 @@ export default function PaymentsTab({ data, filter, sortField, sortDir }: Props)
                 <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
                 <th><SortableHeader label="Дата" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
                 <th><SortableHeader label="Номер" href={sortHref("number")} active={sortField === "number"} direction={sortDir} /></th>
+                <th>Задача</th>
                 <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
                 <th className="num"><SortableHeader label="Расчёт $" href={sortHref("totalUsd")} active={sortField === "totalUsd"} direction={sortDir} align="right" /></th>
                 <th className="num"><SortableHeader label="Курс" href={sortHref("exchangeRate")} active={sortField === "exchangeRate"} direction={sortDir} align="right" /></th>
@@ -119,6 +120,7 @@ export default function PaymentsTab({ data, filter, sortField, sortDir }: Props)
                   <td><span className="code-pill">{row.customerCode ?? "—"}</span></td>
                   <td className="text-muted">{formatDateTime(row.createdAt)}</td>
                   <td className="mono link">{row.number}</td>
+                  <td className="mono text-muted">{row.taskNumber ?? "—"}</td>
                   <td>
                     <ParcelStatusBadge status={row.status} />
                   </td>
@@ -144,7 +146,7 @@ export default function PaymentsTab({ data, filter, sortField, sortDir }: Props)
               ))}
               {data.rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="table-empty">
+                  <td colSpan={9} className="table-empty">
                     Посылок не найдено
                   </td>
                 </tr>

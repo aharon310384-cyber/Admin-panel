@@ -4,6 +4,7 @@ import { Package, Plus } from "lucide-react";
 import type { ParcelStatus, Prisma } from "@prisma/client";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
 import { prisma } from "@/lib/prisma";
+import { clientParcelNumber } from "@/lib/parcel-number";
 import StatusPill, { statusLabel } from "@/components/cabinet/status-pill";
 import { formatUsd, formatDate } from "@/lib/utils";
 
@@ -50,6 +51,7 @@ export default async function ClientCabinetParcelsPage({
     select: {
       id: true,
       number: true,
+      parcelTask: { select: { number: true } },
       status: true,
       totalUsd: true,
       isPaid: true,
@@ -94,7 +96,7 @@ export default async function ClientCabinetParcelsPage({
                 <Link href={`/cabinet/parcels/${p.id}`} className="pc-card">
                 <div className="pc-card-head">
                   <div className="pc-card-id">
-                    <span className="pc-num">{p.number}</span>
+                    <span className="pc-num">{clientParcelNumber(p)}</span>
                     <span className="pc-meta">
                       {p._count.orders} поз. · {formatDate(p.createdAt)}
                     </span>

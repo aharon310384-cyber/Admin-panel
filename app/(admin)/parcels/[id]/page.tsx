@@ -37,6 +37,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
     include: {
       customer: true,
       recipient: true,
+      parcelTask: { select: { number: true, note: true } },
       orders: { orderBy: { createdAt: "asc" } },
       services: { orderBy: { id: "asc" } },
       statusHistory: { orderBy: { createdAt: "asc" } },
@@ -125,8 +126,10 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
             {parcel.isPaid && <span className="badge badge--paid">Оплачено</span>}
           </div>
           <p className="subline">
+            {parcel.parcelTask && <>задача <span className="mono">{parcel.parcelTask.number}</span> · </>}
             {deliveryTypeLabel(parcel.deliveryType)} · расчётный вес {formatNumber(billable)} кг · создана {formatDateTime(parcel.createdAt)}
           </p>
+          {parcel.parcelTask?.note && <p className="subline">Примечание задачи: {parcel.parcelTask.note}</p>}
         </div>
       </div>
 
@@ -264,7 +267,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
           <section className="card">
             <h2 className="card-title">Отслеживание</h2>
             <dl className="info-list">
-              <div className="info-row"><dt>Трек-номер</dt><dd>
+              <div className="info-row"><dt>Трек-номер посылки</dt><dd>
                 {parcel.trackingNumber ? (
                   <a className="link track-link" href={trackUrl!} target="_blank" rel="noopener noreferrer">
                     <span className="mono">{parcel.trackingNumber}</span> <ExternalLink size={13} />

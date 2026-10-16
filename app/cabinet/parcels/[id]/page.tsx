@@ -16,6 +16,7 @@ import type { ParcelStatus } from "@prisma/client";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
 import { getFinanceSettings } from "@/lib/finance";
 import { prisma } from "@/lib/prisma";
+import { clientParcelNumber } from "@/lib/parcel-number";
 import { deliveryTypeLabel } from "@/lib/statuses";
 import StatusPill, { statusLabel } from "@/components/cabinet/status-pill";
 import { formatUsd, formatDate, formatNumber } from "@/lib/utils";
@@ -55,6 +56,7 @@ export default async function ClientCabinetParcelDetailPage({
     select: {
       id: true,
       number: true,
+      parcelTask: { select: { number: true } },
       trackingNumber: true,
       status: true,
       deliveryType: true,
@@ -126,7 +128,7 @@ export default async function ClientCabinetParcelDetailPage({
           <StatusPill status={parcel.status} />
         </div>
         <span className="pd-hero-label">Посылка</span>
-        <h1 className="pd-num">{parcel.number}</h1>
+        <h1 className="pd-num">{clientParcelNumber(parcel)}</h1>
         <div className="pd-hero-meta">
           <span className="pd-chip">{deliveryTypeLabel(parcel.deliveryType)}</span>
           <span className="pd-hero-date">создана {formatDate(parcel.createdAt)}</span>

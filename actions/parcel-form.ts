@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ParcelStatus } from "@prisma/client";
+import type { ParcelStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { nextParcelNumber } from "@/lib/parcel-number";
+import { nextParcelTaskNumber } from "@/lib/parcel-number";
+import { nextDocumentNumber } from "@/lib/document-numbers";
 import { notifyParcelStatusChange, notifyParcelPaid } from "@/lib/notify";
 import { computeEuCustomsDuty, type DutyOrderLine, type DutyResult } from "@/lib/eu-customs";
 
@@ -39,10 +40,15 @@ function servicesFromOrders(orders: OrderServiceFlags[], billableWeightKg: numbe
 }
 
 /** Перезаписать строки услуг посылки и вернуть их сумму. */
-async function saveParcelServices(parcelId: string, lines: ServiceLine[], rate: number): Promise<number> {
-  await prisma.parcelService.deleteMany({ where: { parcelId } });
+async function saveParcelServices(
+  parcelId: string,
+  lines: ServiceLine[],
+  rate: number,
+  db: Prisma.TransactionClient = prisma,
+): Promise<number> {
+  await db.parcelService.deleteMany({ where: { parcelId } });
   for (const s of lines) {
-    await prisma.parcelService.create({
+    await db.parcelService.create({
       data: { parcelId, serviceCode: s.code, name: s.name, priceUsd: s.priceUsd, priceCny: round2(s.priceUsd * rate) },
     });
   }
@@ -86,7 +92,11 @@ async function calcDutyFor(
   return { duty, passToClient };
 }
 
-/** Оформление: собрать принятые заказы одного клиента в новую посылку. */
+/**
+ * Оформление: собрать принятые заказы одного клиента в задачу на формирование посылки
+ * (номер SM3956US) и посылку (номер PS-000001). Пока АРМы этапов не готовы,
+ * задача и посылка создаются вместе.
+ */
 export async function createParcelFromOrders(orderIds: string[]): Promise<{ error: string } | void> {
   const session = await auth();
   if (!session) redirect("/login");
@@ -98,13 +108,13 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
 
   const first = orders[0];
 
-  // Номер посылки: код клиента + сквозной номер + код страны доставки (напр. SM3956US)
+  // Номер задачи: код клиента + сквозной номер + код страны доставки (напр. SM3956US)
   const customer = await prisma.customer.findUnique({
     where: { id: first.customerId },
     select: { code: true },
   });
   if (!customer?.code) {
-    return { error: "У клиента не заполнен код — номер посылки собрать нельзя" };
+    return { error: "У клиента не заполнен код — номер задачи собрать нельзя" };
   }
   const recipient = first.recipientId
     ? await prisma.recipient.findUnique({
@@ -116,7 +126,7 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
     return { error: "У получателя не указана страна доставки — заполните её перед оформлением" };
   }
 
-  const number = await nextParcelNumber(customer.code, recipient.countryCode);
+  const taskNumber = await nextParcelTaskNumber(customer.code, recipient.countryCode);
   const billable = round2(orders.reduce((s, o) => s + Number(o.actualWeightKg ?? 0), 0));
   const settings = await prisma.financeSettings.findFirst();
   const rate = Number(settings?.exchangeRateCnyPerUsd ?? 7.1);
@@ -132,32 +142,44 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
   const servicesTotal = round2(serviceLines.reduce((s, l) => s + l.priceUsd, 0));
   const totalUsd = round2(shippingCostUsd + servicesTotal + dutyInTotal);
 
-  const parcel = await prisma.parcel.create({
-    data: {
-      number,
-      customerId: first.customerId,
-      recipientId: first.recipientId,
-      deliveryType: first.deliveryType,
-      status: "FORMED",
-      actualWeightKg: billable,
-      billableWeightKg: billable,
-      exchangeRateCnyPerUsd: rate,
-      paymentTiming: tariff?.paymentTiming ?? "BEFORE",
-      shippingCostUsd,
-      customsDutyEur: duty.applies ? duty.dutyEur : null,
-      customsDutyUsd: duty.applies ? duty.dutyUsd : null,
-      customsDutyLineCount: duty.applies ? duty.lineCount : null,
-      totalUsd,
-      totalCny: round2(totalUsd * rate),
-    },
-  });
-  await saveParcelServices(parcel.id, serviceLines, rate);
-  await prisma.order.updateMany({
-    where: { id: { in: orders.map((o) => o.id) } },
-    data: { parcelId: parcel.id, status: "FORMED" },
-  });
-  await prisma.parcelStatusHistory.create({
-    data: { parcelId: parcel.id, status: "FORMED", changedBy: session.user.id },
+  const parcel = await prisma.$transaction(async (tx) => {
+    const task = await tx.parcelTask.create({
+      data: {
+        number: taskNumber,
+        customerId: first.customerId,
+        destinationCountry: recipient.countryCode!.toUpperCase(),
+        createdById: session.user.id,
+      },
+    });
+    const created = await tx.parcel.create({
+      data: {
+        number: await nextDocumentNumber(tx, "parcel"),
+        parcelTaskId: task.id,
+        customerId: first.customerId,
+        recipientId: first.recipientId,
+        deliveryType: first.deliveryType,
+        status: "FORMED",
+        actualWeightKg: billable,
+        billableWeightKg: billable,
+        exchangeRateCnyPerUsd: rate,
+        paymentTiming: tariff?.paymentTiming ?? "BEFORE",
+        shippingCostUsd,
+        customsDutyEur: duty.applies ? duty.dutyEur : null,
+        customsDutyUsd: duty.applies ? duty.dutyUsd : null,
+        customsDutyLineCount: duty.applies ? duty.lineCount : null,
+        totalUsd,
+        totalCny: round2(totalUsd * rate),
+      },
+    });
+    await tx.order.updateMany({
+      where: { id: { in: orders.map((o) => o.id) } },
+      data: { parcelId: created.id, parcelTaskId: task.id, status: "FORMED" },
+    });
+    await tx.parcelStatusHistory.create({
+      data: { parcelId: created.id, status: "FORMED", changedBy: session.user.id },
+    });
+    await saveParcelServices(created.id, serviceLines, rate, tx);
+    return created;
   });
 
   redirect(`/parcels/${parcel.id}`);

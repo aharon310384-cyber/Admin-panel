@@ -64,6 +64,7 @@ export async function getRatesStats(currentRate: number): Promise<RatesStats> {
 export type PaymentRow = {
   id: string;
   number: string;
+  taskNumber: string | null;
   customerName: string;
   customerCode: string | null;
   createdAt: Date;
@@ -151,7 +152,7 @@ export async function getPaymentsRegistry({
   const [rows, total, paidAgg, unpaidAgg] = await Promise.all([
     prisma.parcel.findMany({
       where,
-      include: { customer: true },
+      include: { customer: true, parcelTask: { select: { number: true } } },
       orderBy: paymentsOrderBy(sortField, sortDir),
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -173,6 +174,7 @@ export async function getPaymentsRegistry({
     rows: rows.map((row) => ({
       id: row.id,
       number: row.number,
+      taskNumber: row.parcelTask?.number ?? null,
       customerName: row.customer.name,
       customerCode: row.customer.code,
       createdAt: row.createdAt,
