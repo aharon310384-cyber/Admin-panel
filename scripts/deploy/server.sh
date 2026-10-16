@@ -8,6 +8,7 @@
 #             При ошибке код возвращается к прежней версии, админка собирается и запускается снова.
 #   postgres — один раз: перевод базы с SQLite на PostgreSQL (установка, перенос и сверка данных, новый код).
 #             При ошибке админка возвращается на SQLite и прежний код. Файл SQLite не меняется.
+#   cleanup — самоочистка журналов: PM2 — через logrotate, системный журнал — не больше 300 МБ. Повторять можно.
 #
 # Журнал задачи виден в GitHub Actions, а репозиторий публичный: не выводить секреты, адреса, пути к данным.
 set -Eeuo pipefail
@@ -18,6 +19,9 @@ PM2_NAME=postmanfox
 HEALTH_URL=http://127.0.0.1:45371/login
 PG_NAME=postmanfox        # и база, и пользователь PostgreSQL
 PG_MARK=postmanfox-admin  # комментарий к ним: так скрипт отличает свои от чужих
+LOGROTATE_CONF=/etc/logrotate.d/postmanfox-pm2
+JOURNALD_CONF=/etc/systemd/journald.conf.d/postmanfox.conf
+JOURNAL_MAX=300M
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
@@ -211,6 +215,47 @@ pm2_restart_with_db() {
   env -i HOME="$HOME" PATH="$PATH" DATABASE_URL="$1" pm2 restart "$PM2_NAME" --update-env >/dev/null
 }
 
+# Размер папок или файлов, вместе. Нет таких — «—».
+size_of() {
+  local existing=() path
+  for path in "$@"; do [ -e "$path" ] && existing+=("$path"); done
+  [ ${#existing[@]} -gt 0 ] || { echo "—"; return; }
+  du -shc "${existing[@]}" 2>/dev/null | tail -1 | cut -f1
+}
+
+# Папка программы multi-agent из настроек PM2 (пусто, если это корень или домашняя папка — их не считаем).
+agent_dir() {
+  local dir
+  dir=$(pm2 jlist 2>/dev/null | node -e '
+    let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      try {
+        const p = JSON.parse(s.slice(s.indexOf("["))).find((x) => x.name === "multi-agent");
+        console.log((p && p.pm2_env && p.pm2_env.pm_cwd) || "");
+      } catch {}
+    });' || true)
+  case "$dir" in "" | / | /root | "$HOME" | "$APP") return ;; esac
+  echo "$dir"
+}
+
+# Что занимает место на диске. Только подписи и размеры, без путей к данным.
+disk_report() {
+  local pm2_home=${PM2_HOME:-$HOME/.pm2} journal agent swap
+  df -h / | awk 'NR==2 {print "Диск: занято " $5 " (" $3 " из " $2 "), свободно " $4}'
+  echo "  Журналы PM2 (админка, multi-agent): $(size_of "$pm2_home/logs" "$pm2_home/pm2.log")"
+  journal=$(journalctl --disk-usage 2>/dev/null | grep -oE '[0-9.]+[BKMGT]' | head -1 || true)
+  echo "  Системный журнал: ${journal:-—}"
+  echo "  Остальные журналы системы: $(du -sh --exclude=journal /var/log 2>/dev/null | cut -f1 || echo —)"
+  echo "  Админка — программа и сборка: $(size_of "$APP/node_modules" "$APP/.next")"
+  echo "  Админка — бэкапы: $(size_of "$APP/backups")"
+  echo "  База PostgreSQL: $(size_of /var/lib/postgresql)"
+  agent=$(agent_dir)
+  [ -z "$agent" ] || echo "  multi-agent — папка программы: $(size_of "$agent")"
+  echo "  Кэш npm и apt: $(size_of "$HOME/.npm" /var/cache/apt)"
+  swap=$(swapon --show=SIZE --noheadings --bytes 2>/dev/null | awk '{s += $1} END {if (s) printf "%.1fG", s / 1073741824}' || true)
+  echo "  Файл подкачки: ${swap:-нет}"
+  echo "  Система (/usr): $(size_of /usr)"
+}
+
 status() {
   local missing
   missing=$(missing_tools)
@@ -256,7 +301,8 @@ status() {
   echo "Админка отвечает: $(health_code)"
   echo "== Сервер"
   echo "Node $(node -v 2>/dev/null), npm $(npm -v 2>/dev/null)"
-  df -h / | awk 'NR==2 {print "Диск: занято " $5 ", свободно " $4}'
+  disk_report
+  echo "Самоочистка журналов: PM2 — $([ -f "$LOGROTATE_CONF" ] && echo настроена || echo нет), системный журнал — $([ -f "$JOURNALD_CONF" ] && echo "не больше $JOURNAL_MAX" || echo "по умолчанию Ubuntu")"
   echo "Свободная память: $(free -m | awk '/^Mem:/ {print $7}') МБ"
   if [ -f /var/run/reboot-required ]; then echo "Нужна перезагрузка: да"; else echo "Нужна перезагрузка: нет"; fi
 }
@@ -498,9 +544,61 @@ SQL
   echo "Файл SQLite оставлен на месте и больше не используется. Копия .env до перехода: $ENV_BACKUP."
 }
 
+# Самоочистка журналов. Админку не останавливает. Повторный запуск ничего не портит.
+cleanup() {
+  local pm2_home=${PM2_HOME:-$HOME/.pm2}
+  echo "== Было"
+  disk_report
+
+  echo "== Журналы PM2: каждый день или от 20 МБ — в сжатую копию, хранятся 14 копий"
+  if ! command -v logrotate >/dev/null 2>&1; then
+    DEBIAN_FRONTEND=noninteractive apt-get -qq -o DPkg::Lock::Timeout=600 install -y logrotate >/dev/null
+  fi
+  # copytruncate: PM2 держит файлы журналов открытыми, поэтому журнал копируется и обнуляется на месте.
+  cat > "$LOGROTATE_CONF" <<EOF
+# Самоочистка журналов PM2 (админка, multi-agent). Ставит команда cleanup из scripts/deploy/server.sh.
+$pm2_home/logs/*.log $pm2_home/pm2.log {
+  daily
+  maxsize 20M
+  rotate 14
+  compress
+  missingok
+  notifempty
+  copytruncate
+}
+EOF
+  if ! logrotate -d "$LOGROTATE_CONF" >/dev/null 2>&1; then
+    rm -f "$LOGROTATE_CONF"
+    echo "logrotate не принял настройку — остановлено, ничего не изменено."
+    exit 1
+  fi
+  # Сразу убрать в сжатые копии то, что уже накопилось.
+  logrotate -f "$LOGROTATE_CONF"
+  # Ubuntu запускает logrotate раз в сутки таймером systemd — убедиться, что он включён.
+  systemctl enable --now logrotate.timer >/dev/null 2>&1 || true
+  local timer
+  timer=$(systemctl is-enabled logrotate.timer 2>/dev/null || true)
+  echo "Готово. Дальше logrotate запускается сам, раз в сутки (таймер: ${timer:-не удалось узнать})."
+
+  echo "== Системный журнал: не больше $JOURNAL_MAX"
+  mkdir -p "$(dirname "$JOURNALD_CONF")"
+  printf '# Ставит команда cleanup из scripts/deploy/server.sh.\n[Journal]\nSystemMaxUse=%s\n' "$JOURNAL_MAX" > "$JOURNALD_CONF"
+  systemctl restart systemd-journald
+  journalctl --vacuum-size="$JOURNAL_MAX" >/dev/null 2>&1 || true
+  echo "Готово."
+
+  echo "== Кэш скачанных пакетов apt"
+  apt-get clean
+  echo "Очищен."
+
+  echo "== Стало"
+  disk_report
+}
+
 case "${1:-status}" in
   status) status ;;
   deploy) deploy ;;
   postgres) postgres_migrate ;;
-  *) echo "Неизвестная команда: ${1}. Доступны: status, deploy, postgres."; exit 2 ;;
+  cleanup) cleanup ;;
+  *) echo "Неизвестная команда: ${1}. Доступны: status, deploy, postgres, cleanup."; exit 2 ;;
 esac
