@@ -397,6 +397,9 @@ SQL
   if env_overrides_db; then echo "Админка запустилась с DATABASE_URL не из .env."; false; fi
   trap - ERR
 
+  echo "== Первый бэкап PostgreSQL"
+  bash backup-db.sh || echo "!! Бэкап PostgreSQL не получился — админка работает, но backup-db.sh нужно проверить."
+
   echo "== Готово: админка работает на PostgreSQL, $(git log -1 --format='%h %s'), отвечает $(health_code)"
   echo "Файл SQLite оставлен на месте и больше не используется. Копия .env до перехода: $ENV_BACKUP."
 }
