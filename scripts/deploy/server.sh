@@ -96,10 +96,9 @@ schema_kind() {
     awk '/^datasource /{d=1} d && $1 == "provider" {gsub(/"/, "", $3); print $3; exit}'
 }
 
-# Путь к файлу SQLite. Относительный путь Prisma считает от каталога prisma/.
+# Путь к файлу SQLite (по умолчанию из .env). Относительный путь Prisma считает от каталога prisma/.
 sqlite_path() {
-  local p
-  p=$(env_url)
+  local p=${1-$(env_url)}
   p=${p#file:}
   case "$p" in /*) ;; *) p="$APP/prisma/$p" ;; esac
   realpath -m "$p"
@@ -139,13 +138,77 @@ sqlite_users() {
   done | sort -u | paste -sd, -
 }
 
-# Задан ли DATABASE_URL в окружении процессов админки (тогда он важнее .env и смена базы не сработает).
-env_overrides_db() {
-  local pid
+db_kind_of() {
+  case "$1" in
+    file:*) echo SQLite ;;
+    postgres*) echo PostgreSQL ;;
+    "") echo нет ;;
+    *) echo неизвестно ;;
+  esac
+}
+
+# Одна ли база у двух DATABASE_URL. У SQLite сравниваются пути к файлу.
+same_db() {
+  if [[ $1 == file:* && $2 == file:* ]]; then
+    [ "$(sqlite_path "$1")" = "$(sqlite_path "$2")" ]
+  else
+    [ "$1" = "$2" ]
+  fi
+}
+
+# DATABASE_URL в сохранённых настройках процессов PM2, строки «имя<TAB>значение» (пусто — не задан).
+# Он важнее .env: Next.js и Prisma не перезаписывают уже заданные переменные.
+# Значения только для сравнений внутри скрипта — в журнал не выводить, там бывает пароль.
+pm2_db_urls() {
+  pm2 jlist 2>/dev/null | node -e '
+    let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      try {
+        for (const p of JSON.parse(s.slice(s.indexOf("[")))) {
+          const e = p.pm2_env || {};
+          console.log(`${p.name}\t${(e.env && e.env.DATABASE_URL) || e.DATABASE_URL || ""}`);
+        }
+      } catch {}
+    });'
+}
+
+# Для status: у кого из процессов PM2 задан DATABASE_URL и та ли это база, что у админки.
+pm2_db_report() {
+  local name url line out="" admin
+  admin=$(env_url)
+  while IFS=$'\t' read -r name url; do
+    [ -n "$name" ] || continue
+    if [ -z "$url" ]; then
+      line="$name — нет"
+    elif same_db "$url" "$admin"; then
+      line="$name — $(db_kind_of "$url"), та же база, что в .env админки"
+    elif [[ $url == *postmanfox.db* ]]; then
+      line="$name — SQLite, файл postmanfox.db, как у админки"
+    else
+      line="$name — $(db_kind_of "$url"), другая база"
+    fi
+    out="${out:+$out; }$line"
+  done < <(pm2_db_urls)
+  echo "${out:-не удалось прочитать}"
+}
+
+# Задан ли DATABASE_URL у самого PM2 (демона): его наследуют все процессы.
+pm2_daemon_has_db() {
+  [ -n "$PM2_DAEMON" ] && tr '\0' '\n' < "/proc/$PM2_DAEMON/environ" 2>/dev/null | grep -q '^DATABASE_URL='
+}
+
+# Процессы админки видят DATABASE_URL только такой или не видят вовсе (тогда берут из .env).
+app_db_url_is() {
+  local pid value
   for pid in $(pm2_tree); do
-    tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | grep -q '^DATABASE_URL=' && return 0
+    value=$(tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | sed -n 's/^DATABASE_URL=//p' | head -1 || true)
+    [ -z "$value" ] || [ "$value" = "$1" ] || return 1
   done
-  return 1
+}
+
+# Перезапуск админки с другим DATABASE_URL в настройках PM2. Остальные переменные PM2 сохраняет;
+# env -i — чтобы в настройки не попало окружение этого SSH-сеанса.
+pm2_restart_with_db() {
+  env -i HOME="$HOME" PATH="$PATH" DATABASE_URL="$1" pm2 restart "$PM2_NAME" --update-env >/dev/null
 }
 
 status() {
@@ -184,6 +247,8 @@ status() {
   echo "PM2 $PM2_NAME: $(pm2_state)"
   echo "Все процессы PM2: $(pm2_all)"
   echo "Поднимутся после перезагрузки: $(pm2_saved)"
+  echo "DATABASE_URL в настройках PM2: $(pm2_db_report)"
+  echo "DATABASE_URL у самого PM2: $(pm2_daemon_has_db && echo есть || echo нет)"
   local boot
   boot=$(systemctl is-enabled pm2-root 2>/dev/null || true)
   [ -z "$boot" ] || [ "$boot" = "not-found" ] && boot="не настроен"
@@ -200,12 +265,17 @@ OLD=""
 LOCK_CHANGED=0
 ENV_BACKUP=""  # копия .env до перехода на PostgreSQL; при откате возвращается на место
 ACTION="Деплой"
+PM2_RESTORE_URL=""  # DATABASE_URL, который был в настройках PM2; при откате возвращается
 
 rebuild_and_start() {
   if [ "$LOCK_CHANGED" = 1 ]; then npm ci --no-audit --no-fund; fi
   npx prisma generate
   npm run build
-  pm2 start "$PM2_NAME"
+  if [ -n "$PM2_RESTORE_URL" ]; then
+    pm2_restart_with_db "$PM2_RESTORE_URL"
+  else
+    pm2 start "$PM2_NAME"
+  fi
 }
 
 rollback() {
@@ -315,9 +385,25 @@ postgres_migrate() {
     echo "После перехода эта программа осталась бы на старой базе. Нужно сначала разобраться, что это."
     exit 1
   fi
-  if env_overrides_db; then
-    echo "DATABASE_URL задан в окружении процесса админки (PM2), а не только в .env — переход остановлен:"
-    echo "админка осталась бы на SQLite. Нужно убрать DATABASE_URL из настроек PM2."
+  if pm2_daemon_has_db; then
+    echo "DATABASE_URL задан в окружении самого PM2 — переход остановлен: админка взяла бы его, а не .env."
+    exit 1
+  fi
+  # Если адрес базы записан и в настройках PM2 админки, при запуске он меняется и там.
+  local pm2_url others
+  pm2_url=$(pm2_db_urls | awk -F'\t' -v n="$PM2_NAME" '$1 == n { print $2; exit }')
+  if [ -n "$pm2_url" ] && ! same_db "$pm2_url" "$(env_url)"; then
+    echo "В настройках PM2 у админки указана другая база, чем в .env — переход остановлен."
+    exit 1
+  fi
+  others=$(pm2_db_urls | while IFS=$'\t' read -r name url; do
+    if [ "$name" != "$PM2_NAME" ] && [ -n "$url" ] && { same_db "$url" "$(env_url)" || [[ $url == *postmanfox.db* ]]; }; then
+      echo "$name"
+    fi
+  done | paste -sd, -)
+  if [ -n "$others" ]; then
+    echo "В настройках PM2 у $others указана база админки (SQLite) — переход остановлен."
+    echo "После перехода эта программа осталась бы на старой базе. Нужно решить, нужна ли ей база админки."
     exit 1
   fi
   OLD=$(git rev-parse HEAD)
@@ -392,10 +478,18 @@ SQL
   npm run build
 
   echo "== Запуск"
-  pm2 start "$PM2_NAME" >/dev/null
+  if [ -n "$pm2_url" ]; then
+    echo "Адрес базы записан и в настройках PM2 — меняю и там."
+    PM2_RESTORE_URL=$pm2_url
+    pm2_restart_with_db "$url"
+  else
+    pm2 start "$PM2_NAME" >/dev/null
+  fi
   wait_healthy || { echo "Админка не ответила после запуска."; false; }
-  if env_overrides_db; then echo "Админка запустилась с DATABASE_URL не из .env."; false; fi
+  app_db_url_is "$url" || { echo "Админка запустилась не с новой базой."; false; }
   trap - ERR
+  # Сохранить настройки PM2, чтобы после перезагрузки админка поднялась с новой базой.
+  [ -z "$pm2_url" ] || pm2 save >/dev/null
 
   echo "== Первый бэкап PostgreSQL"
   bash backup-db.sh || echo "!! Бэкап PostgreSQL не получился — админка работает, но backup-db.sh нужно проверить."
