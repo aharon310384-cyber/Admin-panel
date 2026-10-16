@@ -166,7 +166,7 @@ export default function ParcelControls({ parcelId, status, isPaid, initial }: Pr
         <button className={`pc-btn ${isPaid ? "pc-btn--paid" : "pc-btn--outline"}`} disabled={busy} onClick={togglePaid}>
           {isPaid ? "✓ Оплачено (снять)" : "Отметить оплаченным"}
         </button>
-        <label className="pc-field pc-field--col"><span>Трек отслеживания</span>
+        <label className="pc-field pc-field--col"><span>Трек-номер посылки</span>
           <input className="pc-track" type="text" placeholder="напр. RS123456789CN"
             value={track} onChange={(e) => setTrack(e.target.value)} />
         </label>

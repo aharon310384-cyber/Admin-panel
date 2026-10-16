@@ -11,6 +11,7 @@ import { orderStatusLabel, deliveryTypeLabel, ORDER_STATUS_COLOR } from "@/lib/s
 
 export type OrderRow = {
   id: string;
+  number: string | null;
   customerId: string;
   customerCode: string | null;
   recipientId: string | null;
@@ -99,8 +100,9 @@ export default function OrdersSelectTable({
               <tr>
                 <th className="cell-narrow" aria-label="Выбор" />
                 <th><SortableHeader label="Клиент" href={sortHrefs.customerCode} active={sortField === "customerCode"} direction={sortDir} /></th>
+                <th><SortableHeader label="Номер" href={sortHrefs.number} active={sortField === "number"} direction={sortDir} /></th>
                 <th><SortableHeader label="Наименование" href={sortHrefs.productNameText} active={sortField === "productNameText"} direction={sortDir} /></th>
-                <th><SortableHeader label="Трек-номер" href={sortHrefs.trackNumber} active={sortField === "trackNumber"} direction={sortDir} /></th>
+                <th><SortableHeader label="Входящий трек-номер" href={sortHrefs.trackNumber} active={sortField === "trackNumber"} direction={sortDir} /></th>
                 <th>Комментарий</th>
                 <th><SortableHeader label="Кол-во" href={sortHrefs.quantity} active={sortField === "quantity"} direction={sortDir} /></th>
                 <th><SortableHeader label="Цена $" href={sortHrefs.unitPriceUsd} active={sortField === "unitPriceUsd"} direction={sortDir} /></th>
@@ -141,6 +143,7 @@ export default function OrdersSelectTable({
                       />
                     </td>
                     <td><span className="code-pill">{dash(o.customerCode)}</span></td>
+                    <td className="mono text-muted">{dash(o.number)}</td>
                     <td className="strong">{dash(o.productNameText)}</td>
                     <td className="mono text-muted">{dash(o.trackNumber)}</td>
                     <td className="text-muted comment" title={o.customerComment ?? undefined}>{dash(o.customerComment)}</td>
@@ -157,7 +160,7 @@ export default function OrdersSelectTable({
               })}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="table-empty">Заказов пока нет</td>
+                  <td colSpan={14} className="table-empty">Заказов пока нет</td>
                 </tr>
               )}
             </tbody>

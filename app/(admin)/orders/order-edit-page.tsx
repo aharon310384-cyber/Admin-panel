@@ -66,7 +66,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
             К заказам
           </Link>
           <h1 className="page-title">Редактирование заказа</h1>
-          <p className="page-subtitle">Один заказ = один товар + один трек-номер</p>
+          <p className="page-subtitle">Один заказ = один товар + один входящий трек-номер</p>
         </div>
         <DeleteOrderButton productId={id} deleteAction={deleteOrder} />
       </div>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { nextDocumentNumber } from "@/lib/document-numbers";
 import { requireAdmin } from "@/lib/server-helpers";
 import { parseOrdersFromText, type ParsedOrderDraft } from "@/lib/ai-order-parser";
 
@@ -96,27 +97,30 @@ export async function createOrdersBulk(
       select: { id: true, nameRu: true, category: true, hsCode: true },
     });
 
-    await prisma.order.create({
-      data: {
-        customerId: data.customerId,
-        recipientId,
-        deliveryType: data.deliveryType ?? null,
-        productNameId: match?.id ?? null,
-        productNameText: match?.nameRu ?? draft.productNameText,
-        category: match?.category ?? null,
-        hsCode: match?.hsCode ?? null,
-        trackNumber: draft.trackNumber || null,
-        customerComment: draft.customerComment || null,
-        quantity: draft.quantity,
-        unitPriceCny: draft.unitPriceCny ?? null,
-        unitPriceUsd: draft.unitPriceUsd ?? null,
-        declaredValueUsd: draft.unitPriceUsd != null ? declaredValueUsd : null,
-        detailedCheckRequested: draft.detailedCheckRequested ?? false,
-        keepOriginalPackaging: draft.keepOriginalPackaging ?? true,
-        status: "NEW",
-        authorId,
-      },
-    });
+    await prisma.$transaction(async (tx) =>
+      tx.order.create({
+        data: {
+          number: await nextDocumentNumber(tx, "order"),
+          customerId: data.customerId,
+          recipientId,
+          deliveryType: data.deliveryType ?? null,
+          productNameId: match?.id ?? null,
+          productNameText: match?.nameRu ?? draft.productNameText,
+          category: match?.category ?? null,
+          hsCode: match?.hsCode ?? null,
+          trackNumber: draft.trackNumber || null,
+          customerComment: draft.customerComment || null,
+          quantity: draft.quantity,
+          unitPriceCny: draft.unitPriceCny ?? null,
+          unitPriceUsd: draft.unitPriceUsd ?? null,
+          declaredValueUsd: draft.unitPriceUsd != null ? declaredValueUsd : null,
+          detailedCheckRequested: draft.detailedCheckRequested ?? false,
+          keepOriginalPackaging: draft.keepOriginalPackaging ?? true,
+          status: "NEW",
+          authorId,
+        },
+      })
+    );
     created += 1;
   }
 

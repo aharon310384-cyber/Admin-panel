@@ -393,7 +393,7 @@ export default function OrderBulkImport({
                     ) : null}
                   </label>
                   <label className="bi-field bi-field--wide">
-                    <span className="bi-label">Трек-номер (Китай)</span>
+                    <span className="bi-label">Входящий трек-номер</span>
                     <input className="bi-input bi-input--mono" value={r.trackNumber ?? ""} onChange={(e) => updateRow(i, { trackNumber: e.target.value || null })} placeholder="SF…" />
                   </label>
                   <label className="bi-field bi-field--wide">

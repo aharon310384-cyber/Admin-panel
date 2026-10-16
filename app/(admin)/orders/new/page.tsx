@@ -36,7 +36,7 @@ export default async function NewOrderPage() {
         К заказам
       </Link>
       <h1 className="page-title">Новый заказ</h1>
-      <p className="page-subtitle">Один заказ = один товар + один трек-номер. Несколько трек-номеров — несколько заказов.</p>
+      <p className="page-subtitle">Один заказ = один товар + один входящий трек-номер. Несколько входящих трек-номеров — несколько заказов.</p>
 
       <OrderBulkImport customers={customers} recipients={recipients} productNames={productNames} countries={countries} />
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { nextDocumentNumber } from "@/lib/document-numbers";
 import { auth } from "@/auth";
 import { resolveProductCatalog } from "@/lib/products";
 
@@ -51,31 +52,34 @@ export async function createOrder(formData: FormData): Promise<void> {
     ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true } })
     : null;
 
-  await prisma.order.create({
-    data: {
-      customerId: data.customerId,
-      recipientId: data.recipientId || null,
-      deliveryType: data.deliveryType ?? null,
-      productNameId: catalog?.id ?? null,
-      productNameText: catalog?.nameRu ?? data.productNameText,
-      category: catalog?.category ?? null,
-      hsCode: catalog?.hsCode ?? null,
-      trackNumber: data.trackNumber || null,
-      customerComment: data.customerComment || null,
-      quantity: data.quantity,
-      unitPriceUsd: data.unitPriceUsd ?? null,
-      declaredValueUsd: data.unitPriceUsd ? declaredValueUsd : null,
-      actualWeightKg: data.actualWeightKg ?? null,
-      detailedCheckRequested: !!data.detailedCheckRequested,
-      keepOriginalPackaging: !!data.keepOriginalPackaging,
-      consolidationRequested: !!data.consolidationRequested,
-      compactPackRequested: !!data.compactPackRequested,
-      standardCheckRequested: !!data.standardCheckRequested,
-      reinforcedPackRequested: !!data.reinforcedPackRequested,
-      status: "NEW",
-      authorId: author?.id ?? null,
-    },
-  });
+  await prisma.$transaction(async (tx) =>
+    tx.order.create({
+      data: {
+        number: await nextDocumentNumber(tx, "order"),
+        customerId: data.customerId,
+        recipientId: data.recipientId || null,
+        deliveryType: data.deliveryType ?? null,
+        productNameId: catalog?.id ?? null,
+        productNameText: catalog?.nameRu ?? data.productNameText,
+        category: catalog?.category ?? null,
+        hsCode: catalog?.hsCode ?? null,
+        trackNumber: data.trackNumber || null,
+        customerComment: data.customerComment || null,
+        quantity: data.quantity,
+        unitPriceUsd: data.unitPriceUsd ?? null,
+        declaredValueUsd: data.unitPriceUsd ? declaredValueUsd : null,
+        actualWeightKg: data.actualWeightKg ?? null,
+        detailedCheckRequested: !!data.detailedCheckRequested,
+        keepOriginalPackaging: !!data.keepOriginalPackaging,
+        consolidationRequested: !!data.consolidationRequested,
+        compactPackRequested: !!data.compactPackRequested,
+        standardCheckRequested: !!data.standardCheckRequested,
+        reinforcedPackRequested: !!data.reinforcedPackRequested,
+        status: "NEW",
+        authorId: author?.id ?? null,
+      },
+    })
+  );
 
   revalidatePath("/orders");
   redirect("/orders");

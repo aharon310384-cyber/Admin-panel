@@ -47,7 +47,7 @@ export default async function ReceivingPage({
         <input
           type="search"
           name="track"
-          placeholder="Поиск по трек-номеру…"
+          placeholder="Поиск по входящему трек-номеру…"
           defaultValue={trackQuery ?? ""}
           className="search-input"
         />

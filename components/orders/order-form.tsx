@@ -140,7 +140,7 @@ export default function OrderForm({
           </label>
 
           <label className="of-field of-field--wide">
-            <span className="of-label">Трек-номер (Китай)</span>
+            <span className="of-label">Входящий трек-номер</span>
             <input name="trackNumber" className="of-input of-input--mono" placeholder="SF…" defaultValue={initial?.trackNumber ?? ""} />
           </label>
 

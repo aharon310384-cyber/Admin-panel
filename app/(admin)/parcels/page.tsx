@@ -12,6 +12,7 @@ export const metadata: Metadata = { title: "Посылки" };
 const SORT_FIELDS = [
   "customerCode",
   "number",
+  "taskNumber",
   "status",
   "recipientName",
   "deliveryType",
@@ -33,6 +34,8 @@ function parcelOrderBy(field: SortField, dir: SortDirection): Prisma.ParcelOrder
       return { orders: { _count: dir } };
     case "number":
       return { number: dir };
+    case "taskNumber":
+      return { parcelTask: { number: dir } };
     case "status":
       return { status: dir };
     case "deliveryType":
@@ -59,7 +62,7 @@ export default async function ParcelsPage({
 
   const parcels = await prisma.parcel.findMany({
     where: { deletedAt: null },
-    include: { customer: { select: { name: true, code: true } }, recipient: { select: { name: true } }, _count: { select: { orders: true } } },
+    include: { customer: { select: { name: true, code: true } }, recipient: { select: { name: true } }, parcelTask: { select: { number: true } }, _count: { select: { orders: true } } },
     orderBy: parcelOrderBy(sortField, sortDir),
     take: 200,
   });
@@ -85,6 +88,7 @@ export default async function ParcelsPage({
               <tr>
                 <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
                 <th><SortableHeader label="Номер" href={sortHref("number")} active={sortField === "number"} direction={sortDir} /></th>
+                <th><SortableHeader label="Задача" href={sortHref("taskNumber")} active={sortField === "taskNumber"} direction={sortDir} /></th>
                 <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
                 <th><SortableHeader label="Получатель" href={sortHref("recipientName")} active={sortField === "recipientName"} direction={sortDir} /></th>
                 <th><SortableHeader label="Доставка" href={sortHref("deliveryType")} active={sortField === "deliveryType"} direction={sortDir} /></th>
@@ -100,6 +104,7 @@ export default async function ParcelsPage({
                 <tr key={p.id}>
                   <td><span className="code-pill">{p.customer.code ?? "—"}</span></td>
                   <td><Link href={`/parcels/${p.id}`} className="num">{p.number}</Link></td>
+                  <td className="task-num">{p.parcelTask?.number ?? "—"}</td>
                   <td><span className={`st st--${PARCEL_STATUS_COLOR[p.status]}`}>{parcelStatusLabel(p.status)}</span></td>
                   <td className="text-muted">{p.recipient?.name ?? "—"}</td>
                   <td className="text-muted">{deliveryTypeLabel(p.deliveryType)}</td>
@@ -111,7 +116,7 @@ export default async function ParcelsPage({
                 </tr>
               ))}
               {parcels.length === 0 && (
-                <tr><td colSpan={10} className="table-empty">Посылок пока нет</td></tr>
+                <tr><td colSpan={11} className="table-empty">Посылок пока нет</td></tr>
               )}
             </tbody>
           </table>
@@ -133,6 +138,7 @@ export default async function ParcelsPage({
         .table tbody tr:last-child td { border-bottom: none; }
         .table tbody tr:hover td { background: var(--color-muted-bg); }
         .num { font-family: var(--font-mono); font-weight: 600; color: var(--color-accent); text-decoration: none; }
+        .task-num { font-family: var(--font-mono); color: var(--color-text-secondary); }
         .st { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
         .st--new { color: var(--color-status-new); background: var(--color-status-new-bg); }
         .st--assembled { color: var(--color-status-assembled); background: var(--color-status-assembled-bg); }
