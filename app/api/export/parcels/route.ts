@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { ORDER_STATUS_LABELS } from "@/types";
+import { PARCEL_STATUS_LABELS } from "@/types";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -10,7 +10,7 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const orders = await prisma.order.findMany({
+  const parcels = await prisma.parcel.findMany({
     where: { deletedAt: null },
     include: { customer: true },
     orderBy: { createdAt: "desc" },
@@ -18,7 +18,7 @@ export async function GET() {
 
   const rows = [
     [
-      "Номер заказа",
+      "Номер посылки",
       "Получатель",
       "Email",
       "Статус",
@@ -26,14 +26,14 @@ export async function GET() {
       "Курс USD/CNY",
       "К оплате CNY",
       "Оплата",
-      "Номер посылки",
+      "Трек-номер",
       "Дата",
     ],
-    ...orders.map((o) => [
+    ...parcels.map((o) => [
       o.number,
       o.recipientName || o.customer.name,
       o.customer.email ?? "",
-      ORDER_STATUS_LABELS[o.status],
+      PARCEL_STATUS_LABELS[o.status],
       Number(o.totalUsd || o.total).toFixed(2),
       Number(o.exchangeRateCnyPerUsd).toFixed(4),
       Number(o.totalCny).toFixed(2),
@@ -52,7 +52,7 @@ export async function GET() {
   return new Response(`\uFEFF${csv}`, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="orders-${format(new Date(), "yyyy-MM-dd")}.csv"`,
+      "Content-Disposition": `attachment; filename="parcels-${format(new Date(), "yyyy-MM-dd")}.csv"`,
     },
   });
 }

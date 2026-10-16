@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import type { OrderStatus } from "@prisma/client";
+import type { ParcelStatus } from "@prisma/client";
 
 const itemSchema = z.object({
   productId: z.string().min(1),
@@ -13,7 +13,7 @@ const itemSchema = z.object({
   price: z.coerce.number().positive(),
 });
 
-const createOrderSchema = z.object({
+const createParcelSchema = z.object({
   customerId: z.string().min(1, "Выберите получателя"),
   exchangeRateCnyPerUsd: z.coerce
     .number()
@@ -38,7 +38,7 @@ function calculateTotalCny(
   return totalUsd * exchangeRateCnyPerUsd + localDeliveryCny - discountCny;
 }
 
-export async function createOrder(formData: FormData) {
+export async function createParcel(formData: FormData) {
   const session = await auth();
   if (!session) redirect("/login");
 
@@ -49,7 +49,7 @@ export async function createOrder(formData: FormData) {
     return { error: { items: ["Неверный формат позиций"] } };
   }
 
-  const parsed = createOrderSchema.safeParse({
+  const parsed = createParcelSchema.safeParse({
     customerId: formData.get("customerId"),
     exchangeRateCnyPerUsd: formData.get("exchangeRateCnyPerUsd") || 7.1,
     notes: formData.get("notes"),
@@ -60,7 +60,7 @@ export async function createOrder(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const count = await prisma.order.count();
+  const count = await prisma.parcel.count();
   const number = `ORD-${String(2024000 + count + 1).padStart(7, "0")}`;
   const total = parsed.data.items.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -68,7 +68,7 @@ export async function createOrder(formData: FormData) {
   );
   const totalCny = calculateTotalCny(total, parsed.data.exchangeRateCnyPerUsd);
 
-  const order = await prisma.order.create({
+  const parcel = await prisma.parcel.create({
     data: {
       number,
       customerId: parsed.data.customerId,
@@ -90,12 +90,12 @@ export async function createOrder(formData: FormData) {
     },
   });
 
-  revalidatePath("/orders");
-  redirect(`/orders/${order.id}`);
+  revalidatePath("/parcels");
+  redirect(`/parcels/${parcel.id}`);
 }
 
-export async function updateOrderExchangeRate(
-  orderId: string,
+export async function updateParcelExchangeRate(
+  parcelId: string,
   formData: FormData
 ) {
   const session = await auth();
@@ -111,8 +111,8 @@ export async function updateOrderExchangeRate(
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
+  const parcel = await prisma.parcel.findUnique({
+    where: { id: parcelId },
     select: {
       total: true,
       totalUsd: true,
@@ -121,66 +121,66 @@ export async function updateOrderExchangeRate(
     },
   });
 
-  if (!order) {
-    throw new Error("Заказ не найден");
+  if (!parcel) {
+    throw new Error("Посылка не найдена");
   }
 
-  const totalUsd = Number(order.totalUsd || order.total || 0);
+  const totalUsd = Number(parcel.totalUsd || parcel.total || 0);
   const totalCny = calculateTotalCny(
     totalUsd,
     parsed.data.exchangeRateCnyPerUsd,
-    Number(order.localDeliveryCny ?? 0),
-    Number(order.discountCny ?? 0)
+    Number(parcel.localDeliveryCny ?? 0),
+    Number(parcel.discountCny ?? 0)
   );
 
-  await prisma.order.update({
-    where: { id: orderId },
+  await prisma.parcel.update({
+    where: { id: parcelId },
     data: {
       exchangeRateCnyPerUsd: parsed.data.exchangeRateCnyPerUsd,
       totalCny,
     },
   });
 
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
+  revalidatePath(`/parcels/${parcelId}`);
+  revalidatePath("/parcels");
 }
 
-export async function updateOrderStatus(
-  orderId: string,
-  status: OrderStatus,
+export async function updateParcelStatus(
+  parcelId: string,
+  status: ParcelStatus,
   note?: string
 ) {
   const session = await auth();
   if (!session) redirect("/login");
 
-  await prisma.order.update({
-    where: { id: orderId },
+  await prisma.parcel.update({
+    where: { id: parcelId },
     data: { status },
   });
 
-  await prisma.orderStatusHistory.create({
+  await prisma.parcelStatusHistory.create({
     data: {
-      orderId,
+      parcelId,
       status,
       changedBy: session.user.id,
       note: note ?? null,
     },
   });
 
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
+  revalidatePath(`/parcels/${parcelId}`);
+  revalidatePath("/parcels");
 }
 
-export async function deleteOrder(orderId: string) {
+export async function deleteParcel(parcelId: string) {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN") {
     throw new Error("Нет доступа");
   }
 
-  await prisma.order.update({
-    where: { id: orderId },
+  await prisma.parcel.update({
+    where: { id: parcelId },
     data: { deletedAt: new Date() },
   });
 
-  revalidatePath("/orders");
+  revalidatePath("/parcels");
 }

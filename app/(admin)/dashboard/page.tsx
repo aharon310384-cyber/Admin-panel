@@ -9,8 +9,8 @@ import {
   Truck,
   Users,
 } from "lucide-react";
-import OrdersChart from "@/components/ui/orders-chart";
-import { OrderStatusBadge } from "@/components/ui/status-badge";
+import ParcelsChart from "@/components/ui/parcels-chart";
+import { ParcelStatusBadge } from "@/components/ui/status-badge";
 import { startOfDay, startOfWeek, subDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Операции" };
 
 const LOGISTICS_INSIGHTS = [
   "Получатели из листа «Клиенты»",
-  "Заказы OS / LR / tracking из «ALL 6»",
+  "Посылки OS / LR / tracking из «ALL 6»",
   "Вес, упаковка, скидки, CNY/USD и прибыль",
 ];
 
@@ -27,17 +27,17 @@ async function getDashboardData() {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
 
   const [
-    ordersToday,
+    parcelsToday,
     weekRevenue,
     activeCustomers,
-    recentOrders,
+    recentParcels,
     topProducts,
-    weeklyOrders,
+    weeklyParcels,
   ] = await Promise.all([
-    prisma.order.count({
+    prisma.parcel.count({
       where: { createdAt: { gte: today }, deletedAt: null },
     }),
-    prisma.order.aggregate({
+    prisma.parcel.aggregate({
       where: {
         createdAt: { gte: weekStart },
         deletedAt: null,
@@ -48,16 +48,16 @@ async function getDashboardData() {
     prisma.customer.count({
       where: {
         deletedAt: null,
-        orders: { some: { deletedAt: null } },
+        parcels: { some: { deletedAt: null } },
       },
     }),
-    prisma.order.findMany({
+    prisma.parcel.findMany({
       where: { deletedAt: null },
       include: { customer: true },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
-    prisma.orderItem.groupBy({
+    prisma.parcelItem.groupBy({
       by: ["productId"],
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
@@ -67,7 +67,7 @@ async function getDashboardData() {
       Array.from({ length: 7 }, (_, i) => {
         const day = startOfDay(subDays(new Date(), 6 - i));
         const nextDay = startOfDay(subDays(new Date(), 5 - i));
-        return prisma.order.count({
+        return prisma.parcel.count({
           where: {
             createdAt: { gte: day, lt: nextDay },
             deletedAt: null,
@@ -92,12 +92,12 @@ async function getDashboardData() {
   }));
 
   return {
-    ordersToday,
+    parcelsToday,
     weekRevenue: Number(weekRevenue._sum.totalCny ?? 0),
     activeCustomers,
-    recentOrders,
+    recentParcels,
     topProductsWithNames,
-    weeklyOrders,
+    weeklyParcels,
   };
 }
 
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="page-title">Операции PostmanFox</h1>
           <p className="page-subtitle">
-            Рабочий центр заказов, {session?.user.name}
+            Рабочий центр посылок, {session?.user.name}
           </p>
         </div>
       </div>
@@ -122,8 +122,8 @@ export default async function DashboardPage() {
             <Truck size={20} />
           </div>
           <div className="metric-body">
-            <p className="metric-label">Заказов сегодня</p>
-            <p className="metric-value">{data.ordersToday}</p>
+            <p className="metric-label">Посылок сегодня</p>
+            <p className="metric-value">{data.parcelsToday}</p>
           </div>
         </div>
 
@@ -164,8 +164,8 @@ export default async function DashboardPage() {
       </div>
 
       <div className="card">
-        <h2 className="card-title">Заказы за последние 7 дней</h2>
-        <OrdersChart data={data.weeklyOrders} />
+        <h2 className="card-title">Посылки за последние 7 дней</h2>
+        <ParcelsChart data={data.weeklyParcels} />
       </div>
 
       <div className="dashboard-grid">
@@ -190,7 +190,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="card card--wide">
-          <h2 className="card-title">Последние заказы</h2>
+          <h2 className="card-title">Последние посылки</h2>
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -202,24 +202,24 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.recentOrders.map((order) => (
-                  <tr key={order.id}>
+                {data.recentParcels.map((parcel) => (
+                  <tr key={parcel.id}>
                     <td>
-                      <Link href={`/orders/${order.id}`} className="link">
-                        {order.number}
+                      <Link href={`/parcels/${parcel.id}`} className="link">
+                        {parcel.number}
                       </Link>
                     </td>
-                    <td>{order.recipientName || order.customer.name}</td>
+                    <td>{parcel.recipientName || parcel.customer.name}</td>
                     <td>
-                      <OrderStatusBadge status={order.status} />
+                      <ParcelStatusBadge status={parcel.status} />
                     </td>
-                    <td className="tabular">{formatCny(order.totalCny)}</td>
+                    <td className="tabular">{formatCny(parcel.totalCny)}</td>
                   </tr>
                 ))}
-                {data.recentOrders.length === 0 && (
+                {data.recentParcels.length === 0 && (
                   <tr>
                     <td colSpan={4} className="empty-text" style={{ textAlign: "center" }}>
-                      Заказов пока нет
+                      Посылок пока нет
                     </td>
                   </tr>
                 )}

@@ -20,7 +20,7 @@ import type { UserRole } from "@prisma/client";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Операции", icon: LayoutDashboard },
-  { href: "/orders", label: "Заказы", icon: Truck },
+  { href: "/parcels", label: "Посылки", icon: Truck },
   { href: "/customers", label: "Получатели", icon: Users },
   { href: "/products", label: "Услуги", icon: PackageCheck },
 ];

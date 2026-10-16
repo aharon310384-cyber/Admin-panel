@@ -103,13 +103,13 @@ export async function archiveProduct(id: string) {
 export async function deleteProduct(id: string) {
   await requireAdmin();
 
-  const hasOrders = await prisma.orderItem.findFirst({
+  const hasOrders = await prisma.parcelItem.findFirst({
     where: { productId: id },
   });
 
   if (hasOrders) {
     return {
-      error: "Нельзя удалить услугу, которая уже используется в заказах. Используйте архивирование.",
+      error: "Нельзя удалить услугу, которая уже используется в посылках. Используйте архивирование.",
     };
   }
 

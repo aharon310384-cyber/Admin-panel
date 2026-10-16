@@ -3,10 +3,10 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useState } from "react";
 import { Search, X, ChevronDown } from "lucide-react";
-import { ORDER_STATUS_LABELS, ORDER_STATUS_TONE } from "@/types";
-import type { OrderStatus } from "@prisma/client";
+import { PARCEL_STATUS_LABELS, PARCEL_STATUS_TONE } from "@/types";
+import type { ParcelStatus } from "@prisma/client";
 
-const STATUSES: OrderStatus[] = [
+const STATUSES: ParcelStatus[] = [
   "NEW",
   "PROCESSING",
   "PAID",
@@ -17,7 +17,7 @@ const STATUSES: OrderStatus[] = [
   "CANCELED",
 ];
 
-export default function OrdersFilters() {
+export default function ParcelsFilters() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -57,7 +57,7 @@ export default function OrdersFilters() {
           <Search size={15} className="search-icon" />
           <input
             type="search"
-            placeholder="Поиск по номеру заказа, получателю или посылке..."
+            placeholder="Поиск по номеру посылки, получателю или трек-номеру..."
             defaultValue={search}
             className="search-input"
             onChange={(e) => setParam("search", e.target.value)}
@@ -104,17 +104,17 @@ export default function OrdersFilters() {
                 <button
                   type="button"
                   key={s}
-                  className={`status-filter-chip status-filter-chip--${ORDER_STATUS_TONE[s]} ${status === s ? "status-filter-chip--selected" : ""}`}
+                  className={`status-filter-chip status-filter-chip--${PARCEL_STATUS_TONE[s]} ${status === s ? "status-filter-chip--selected" : ""}`}
                   onClick={() => setParam("status", s)}
                 >
-                  {ORDER_STATUS_LABELS[s]}
+                  {PARCEL_STATUS_LABELS[s]}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="filter-group">
-            <label className="filter-label">Дата заказа</label>
+            <label className="filter-label">Дата посылки</label>
             <div className="date-range">
               <input
                 type="date"

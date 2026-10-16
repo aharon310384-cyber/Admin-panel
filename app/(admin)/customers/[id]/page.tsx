@@ -4,7 +4,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatCny, formatDateTime } from "@/lib/utils";
-import { OrderStatusBadge } from "@/components/ui/status-badge";
+import { ParcelStatusBadge } from "@/components/ui/status-badge";
 import { deleteCustomer } from "@/actions/customers";
 import DeleteCustomerButton from "./delete-customer-button";
 
@@ -22,7 +22,7 @@ export default async function CustomerDetailPage({
   const customer = await prisma.customer.findFirst({
     where: { id, deletedAt: null },
     include: {
-      orders: {
+      parcels: {
         where: { deletedAt: null },
         include: { items: true },
         orderBy: { createdAt: "desc" },
@@ -32,7 +32,7 @@ export default async function CustomerDetailPage({
 
   if (!customer) notFound();
 
-  const totalSpent = customer.orders
+  const totalSpent = customer.parcels
     .filter((o) => o.status !== "CANCELED")
     .reduce((sum, o) => sum + Number(o.totalCny), 0);
 
@@ -76,8 +76,8 @@ export default async function CustomerDetailPage({
           <h2 className="card-title">Статистика</h2>
           <div className="stats-grid">
             <div className="stat">
-              <p className="stat-label">Всего заказов</p>
-              <p className="stat-value">{customer.orders.length}</p>
+              <p className="stat-label">Всего посылок</p>
+              <p className="stat-value">{customer.parcels.length}</p>
             </div>
             <div className="stat">
               <p className="stat-label">Сумма оплат</p>
@@ -87,7 +87,7 @@ export default async function CustomerDetailPage({
         </div>
 
         <div className="card card--full">
-          <h2 className="card-title">История заказов</h2>
+          <h2 className="card-title">История посылок</h2>
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -100,23 +100,23 @@ export default async function CustomerDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {customer.orders.map((order) => (
-                  <tr key={order.id}>
+                {customer.parcels.map((parcel) => (
+                  <tr key={parcel.id}>
                     <td>
-                      <Link href={`/orders/${order.id}`} className="link">
-                        {order.number}
+                      <Link href={`/parcels/${parcel.id}`} className="link">
+                        {parcel.number}
                       </Link>
                     </td>
                     <td>
-                      <OrderStatusBadge status={order.status} />
+                      <ParcelStatusBadge status={parcel.status} />
                     </td>
-                    <td className="tabular">{order.items.length}</td>
-                    <td className="tabular">{formatCny(order.totalCny)}</td>
-                    <td className="text-muted">{formatDateTime(order.createdAt)}</td>
+                    <td className="tabular">{parcel.items.length}</td>
+                    <td className="tabular">{formatCny(parcel.totalCny)}</td>
+                    <td className="text-muted">{formatDateTime(parcel.createdAt)}</td>
                   </tr>
                 ))}
-                {customer.orders.length === 0 && (
-                  <tr><td colSpan={5} className="table-empty">Заказов нет</td></tr>
+                {customer.parcels.length === 0 && (
+                  <tr><td colSpan={5} className="table-empty">Посылок нет</td></tr>
                 )}
               </tbody>
             </table>

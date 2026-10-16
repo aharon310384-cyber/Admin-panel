@@ -4,14 +4,14 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { createOrder } from "@/actions/orders";
+import { createParcel } from "@/actions/parcels";
 import { formatCny, formatUsd } from "@/lib/utils";
 
 type Customer = { id: string; name: string; email: string | null };
 type Product = { id: string; name: string; sku: string; price: number };
 type Item = { productId: string; quantity: number; price: number };
 
-export default function OrderForm({
+export default function ParcelForm({
   customers,
   products,
 }: {
@@ -52,7 +52,7 @@ export default function OrderForm({
     formData.set("items", JSON.stringify(items));
 
     startTransition(async () => {
-      const result = await createOrder(formData);
+      const result = await createParcel(formData);
       if (result?.error) {
         setError(result.error as Record<string, string[]>);
         toast.error("Проверьте заполнение формы");
@@ -61,7 +61,7 @@ export default function OrderForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="order-form">
+    <form onSubmit={handleSubmit} className="parcel-form">
       <div className="card">
         <h2 className="section-title">Получатель</h2>
         <div className="field">
@@ -194,25 +194,25 @@ export default function OrderForm({
           <textarea
             name="notes"
             className="field-input field-textarea"
-            placeholder="Комментарий к заказу..."
+            placeholder="Комментарий к посылке..."
             rows={3}
           />
         </div>
       </div>
 
       <div className="form-actions">
-        <Link href="/orders" className="btn-secondary">Отмена</Link>
+        <Link href="/parcels" className="btn-secondary">Отмена</Link>
         <button type="submit" disabled={isPending} className="btn-primary">
           {isPending ? (
             <><Loader2 size={15} className="spin" /> Создание...</>
           ) : (
-            "Создать заказ"
+            "Создать посылку"
           )}
         </button>
       </div>
 
       <style>{`
-        .order-form { display: flex; flex-direction: column; gap: 20px; }
+        .parcel-form { display: flex; flex-direction: column; gap: 20px; }
 
         .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 24px; box-shadow: var(--shadow-card); }
 

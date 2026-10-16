@@ -4,11 +4,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { updateOrderExchangeRate } from "@/actions/orders";
+import { updateParcelExchangeRate } from "@/actions/parcels";
 import { formatCny, formatUsd } from "@/lib/utils";
 
 type ExchangeRateFormProps = {
-  orderId: string;
+  parcelId: string;
   totalUsd: number;
   totalCny: number;
   exchangeRateCnyPerUsd: number;
@@ -18,7 +18,7 @@ type ExchangeRateFormProps = {
 };
 
 export default function ExchangeRateForm({
-  orderId,
+  parcelId,
   totalUsd,
   totalCny,
   exchangeRateCnyPerUsd,
@@ -33,7 +33,7 @@ export default function ExchangeRateForm({
 
   const handleSubmit = (formData: FormData) => {
     startTransition(async () => {
-      const result = await updateOrderExchangeRate(orderId, formData);
+      const result = await updateParcelExchangeRate(parcelId, formData);
       if (result?.error?.exchangeRateCnyPerUsd?.[0]) {
         toast.error(result.error.exchangeRateCnyPerUsd[0]);
         return;

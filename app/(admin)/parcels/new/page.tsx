@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import OrderForm from "../order-form";
+import ParcelForm from "../parcel-form";
 
-export const metadata: Metadata = { title: "Новый заказ" };
+export const metadata: Metadata = { title: "Новая посылка" };
 
-export default async function NewOrderPage() {
+export default async function NewParcelPage() {
   const [customers, products] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
@@ -29,15 +29,15 @@ export default async function NewOrderPage() {
       <div className="page-header">
         <div>
           <div className="breadcrumb">
-            <Link href="/orders" className="breadcrumb-link">Заказы</Link>
+            <Link href="/parcels" className="breadcrumb-link">Посылки</Link>
             <span className="breadcrumb-sep">/</span>
-            <span>Новый заказ</span>
+            <span>Новая посылка</span>
           </div>
-          <h1 className="page-title">Новый заказ</h1>
+          <h1 className="page-title">Новая посылка</h1>
         </div>
       </div>
 
-      <OrderForm customers={customers} products={productsForForm} />
+      <ParcelForm customers={customers} products={productsForForm} />
 
       <style>{`
         .page { display: flex; flex-direction: column; gap: 24px; }

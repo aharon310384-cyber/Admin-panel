@@ -15,7 +15,7 @@ type DataPoint = {
   count: number;
 };
 
-export default function OrdersChart({ data }: { data: DataPoint[] }) {
+export default function ParcelsChart({ data }: { data: DataPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={180}>
       <LineChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
@@ -40,7 +40,7 @@ export default function OrdersChart({ data }: { data: DataPoint[] }) {
             fontSize: 12,
             color: "var(--color-text)",
           }}
-          formatter={(value: number) => [value, "Заказов"]}
+          formatter={(value: number) => [value, "Посылок"]}
         />
         <Line
           type="monotone"

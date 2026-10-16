@@ -1,8 +1,8 @@
-import type { OrderStatus, UserRole } from "@prisma/client";
+import type { ParcelStatus, UserRole } from "@prisma/client";
 
-export type { OrderStatus, UserRole };
+export type { ParcelStatus, UserRole };
 
-export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+export const PARCEL_STATUS_LABELS: Record<ParcelStatus, string> = {
   NEW: "Ожидает оплаты",
   PROCESSING: "На складе",
   SHIPPED: "Отправлено",
@@ -13,7 +13,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   RETURNED_UNPAID: "Возврат не оплачен",
 };
 
-export const ORDER_STATUS_FLOW: OrderStatus[] = [
+export const PARCEL_STATUS_FLOW: ParcelStatus[] = [
   "NEW",
   "PROCESSING",
   "PAID",
@@ -23,7 +23,7 @@ export const ORDER_STATUS_FLOW: OrderStatus[] = [
   "RETURNED_UNPAID",
 ];
 
-export const ORDER_STATUS_TONE: Record<OrderStatus, string> = {
+export const PARCEL_STATUS_TONE: Record<ParcelStatus, string> = {
   NEW: "new",
   PROCESSING: "processing",
   SHIPPED: "shipped",

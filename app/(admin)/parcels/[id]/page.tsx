@@ -4,15 +4,15 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatCny, formatDateTime, formatUsd } from "@/lib/utils";
-import { ORDER_STATUS_TONE } from "@/types";
-import { OrderStatusBadge } from "@/components/ui/status-badge";
-import { updateOrderStatus, deleteOrder } from "@/actions/orders";
-import OrderActions from "./order-actions";
+import { PARCEL_STATUS_TONE } from "@/types";
+import { ParcelStatusBadge } from "@/components/ui/status-badge";
+import { updateParcelStatus, deleteParcel } from "@/actions/parcels";
+import ParcelActions from "./parcel-actions";
 import ExchangeRateForm from "./exchange-rate-form";
 
-export const metadata: Metadata = { title: "Заказ" };
+export const metadata: Metadata = { title: "Посылка" };
 
-export default async function OrderDetailPage({
+export default async function ParcelDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -20,7 +20,7 @@ export default async function OrderDetailPage({
   const { id } = await params;
   const session = await auth();
 
-  const order = await prisma.order.findFirst({
+  const parcel = await prisma.parcel.findFirst({
     where: { id, deletedAt: null },
     include: {
       customer: true,
@@ -32,109 +32,109 @@ export default async function OrderDetailPage({
     },
   });
 
-  if (!order) notFound();
+  if (!parcel) notFound();
 
   const isAdmin = session?.user.role === "ADMIN";
-  const totalUsd = Number(order.totalUsd || order.total || 0);
-  const totalCny = Number(order.totalCny || 0);
-  const exchangeRateCnyPerUsd = Number(order.exchangeRateCnyPerUsd || 7.1);
-  const localDeliveryCny = Number(order.localDeliveryCny ?? 0);
-  const discountCny = Number(order.discountCny ?? 0);
+  const totalUsd = Number(parcel.totalUsd || parcel.total || 0);
+  const totalCny = Number(parcel.totalCny || 0);
+  const exchangeRateCnyPerUsd = Number(parcel.exchangeRateCnyPerUsd || 7.1);
+  const localDeliveryCny = Number(parcel.localDeliveryCny ?? 0);
+  const discountCny = Number(parcel.discountCny ?? 0);
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
           <div className="breadcrumb">
-            <Link href="/orders" className="breadcrumb-link">Заказы</Link>
+            <Link href="/parcels" className="breadcrumb-link">Посылки</Link>
             <span className="breadcrumb-sep">/</span>
-            <span>{order.number}</span>
+            <span>{parcel.number}</span>
           </div>
-          <h1 className="page-title">{order.number}</h1>
-          <OrderStatusBadge status={order.status} className="page-status" />
+          <h1 className="page-title">{parcel.number}</h1>
+          <ParcelStatusBadge status={parcel.status} className="page-status" />
         </div>
 
-        <OrderActions
-          orderId={order.id}
-          currentStatus={order.status}
+        <ParcelActions
+          parcelId={parcel.id}
+          currentStatus={parcel.status}
           isAdmin={isAdmin}
-          updateStatus={updateOrderStatus}
-          deleteOrderAction={deleteOrder}
+          updateStatus={updateParcelStatus}
+          deleteParcelAction={deleteParcel}
         />
       </div>
 
-      <div className="order-grid">
+      <div className="parcel-grid">
         <div className="card">
           <h2 className="card-title">Получатель</h2>
           <dl className="info-list">
             <div className="info-row">
               <dt>Имя</dt>
               <dd>
-                <Link href={`/customers/${order.customer.id}`} className="link">
-                  {order.recipientName || order.customer.name}
+                <Link href={`/customers/${parcel.customer.id}`} className="link">
+                  {parcel.recipientName || parcel.customer.name}
                 </Link>
               </dd>
             </div>
-            {order.customer.email && (
+            {parcel.customer.email && (
               <div className="info-row">
                 <dt>Email</dt>
-                <dd>{order.customer.email}</dd>
+                <dd>{parcel.customer.email}</dd>
               </div>
             )}
-            {order.customer.phone && (
+            {parcel.customer.phone && (
               <div className="info-row">
                 <dt>Телефон</dt>
-                <dd>{order.customer.phone}</dd>
+                <dd>{parcel.customer.phone}</dd>
               </div>
             )}
-            {order.recipientAddress && (
+            {parcel.recipientAddress && (
               <div className="info-row">
                 <dt>Адрес</dt>
-                <dd>{order.recipientAddress}</dd>
+                <dd>{parcel.recipientAddress}</dd>
               </div>
             )}
-            {order.customer.city && (
+            {parcel.customer.city && (
               <div className="info-row">
                 <dt>Город</dt>
-                <dd>{order.customer.city}</dd>
+                <dd>{parcel.customer.city}</dd>
               </div>
             )}
           </dl>
         </div>
 
         <div className="card">
-          <h2 className="card-title">Детали заказа</h2>
+          <h2 className="card-title">Детали посылки</h2>
           <dl className="info-list">
             <div className="info-row">
               <dt>Номер</dt>
-              <dd className="mono">{order.number}</dd>
+              <dd className="mono">{parcel.number}</dd>
             </div>
             <div className="info-row">
               <dt>Создано</dt>
-              <dd>{formatDateTime(order.createdAt)}</dd>
+              <dd>{formatDateTime(parcel.createdAt)}</dd>
             </div>
-            {order.saleDate && (
+            {parcel.saleDate && (
               <div className="info-row">
                 <dt>Дата продажи</dt>
-                <dd>{formatDateTime(order.saleDate)}</dd>
+                <dd>{formatDateTime(parcel.saleDate)}</dd>
               </div>
             )}
             <div className="info-row">
-              <dt>Посылка</dt>
+              <dt>Трек-номер</dt>
               <dd className="mono">
-                {order.parcelNumberLooksValid ? order.parcelNumber : "Номер не указан"}
+                {parcel.parcelNumberLooksValid ? parcel.parcelNumber : "Номер не указан"}
               </dd>
             </div>
-            {order.weightKg && (
+            {parcel.weightKg && (
               <div className="info-row">
                 <dt>Вес</dt>
-                <dd>{Number(order.weightKg).toFixed(2)} кг</dd>
+                <dd>{Number(parcel.weightKg).toFixed(2)} кг</dd>
               </div>
             )}
-            {order.notes && (
+            {parcel.notes && (
               <div className="info-row">
                 <dt>Заметки</dt>
-                <dd>{order.notes}</dd>
+                <dd>{parcel.notes}</dd>
               </div>
             )}
           </dl>
@@ -143,7 +143,7 @@ export default async function OrderDetailPage({
         <div className="card card--full">
           <h2 className="card-title">Расчет и оплата</h2>
           <ExchangeRateForm
-            orderId={order.id}
+            parcelId={parcel.id}
             totalUsd={totalUsd}
             totalCny={totalCny}
             exchangeRateCnyPerUsd={exchangeRateCnyPerUsd}
@@ -154,37 +154,37 @@ export default async function OrderDetailPage({
           <dl className="money-details">
             <div className="info-row">
               <dt>Оплата</dt>
-              <dd>{order.isPaid ? "Оплачен" : "Не оплачен"}</dd>
+              <dd>{parcel.isPaid ? "Оплачен" : "Не оплачен"}</dd>
             </div>
-            {order.localDeliveryCny && (
+            {parcel.localDeliveryCny && (
               <div className="info-row">
                 <dt>Локальная доставка</dt>
-                <dd>{formatCny(order.localDeliveryCny)}</dd>
+                <dd>{formatCny(parcel.localDeliveryCny)}</dd>
               </div>
             )}
-            {order.discountCny && (
+            {parcel.discountCny && (
               <div className="info-row">
                 <dt>Скидка</dt>
-                <dd>{formatCny(order.discountCny)}</dd>
+                <dd>{formatCny(parcel.discountCny)}</dd>
               </div>
             )}
-            {order.supplierCostCny && (
+            {parcel.supplierCostCny && (
               <div className="info-row">
                 <dt>Стоимость</dt>
-                <dd>{formatCny(order.supplierCostCny)}</dd>
+                <dd>{formatCny(parcel.supplierCostCny)}</dd>
               </div>
             )}
-            {order.profitCny && (
+            {parcel.profitCny && (
               <div className="info-row">
                 <dt>Выручка</dt>
-                <dd>{formatCny(order.profitCny)}</dd>
+                <dd>{formatCny(parcel.profitCny)}</dd>
               </div>
             )}
           </dl>
         </div>
 
         <div className="card card--full">
-          <h2 className="card-title">Состав заказа</h2>
+          <h2 className="card-title">Состав посылки</h2>
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -197,7 +197,7 @@ export default async function OrderDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {order.items.map((item) => (
+                {parcel.items.map((item) => (
                   <tr key={item.id}>
                     <td>
                       <Link href={`/products/${item.product.id}/edit`} className="link">
@@ -234,12 +234,12 @@ export default async function OrderDetailPage({
         <div className="card card--full">
           <h2 className="card-title">История статусов</h2>
           <div className="timeline">
-            {order.statusHistory.map((entry, i) => (
-              <div key={entry.id} className={`timeline-item ${i === order.statusHistory.length - 1 ? "timeline-item--last" : ""}`}>
-                <div className={`timeline-dot timeline-dot--${ORDER_STATUS_TONE[entry.status]}`} />
+            {parcel.statusHistory.map((entry, i) => (
+              <div key={entry.id} className={`timeline-item ${i === parcel.statusHistory.length - 1 ? "timeline-item--last" : ""}`}>
+                <div className={`timeline-dot timeline-dot--${PARCEL_STATUS_TONE[entry.status]}`} />
                 <div className="timeline-body">
                   <div className="timeline-top">
-                    <OrderStatusBadge status={entry.status} />
+                    <ParcelStatusBadge status={entry.status} />
                     <span className="timeline-date">{formatDateTime(entry.createdAt)}</span>
                   </div>
                   <p className="timeline-meta">Изменил: {entry.user.name}</p>
@@ -270,7 +270,7 @@ export default async function OrderDetailPage({
         .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
         .page-status { margin-top: 8px; }
 
-        .order-grid {
+        .parcel-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 16px;
@@ -341,7 +341,7 @@ export default async function OrderDetailPage({
         .timeline-note { font-size: 13px; color: var(--color-text); margin: 6px 0 0; font-style: italic; }
 
         @media (max-width: 768px) {
-          .order-grid { grid-template-columns: 1fr; }
+          .parcel-grid { grid-template-columns: 1fr; }
         }
       `}</style>
     </div>

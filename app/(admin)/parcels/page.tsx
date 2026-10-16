@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatCny, formatDateTime, formatUsd } from "@/lib/utils";
-import { OrderStatusBadge } from "@/components/ui/status-badge";
-import type { OrderStatus } from "@prisma/client";
-import OrdersFilters from "./orders-filters";
+import { ParcelStatusBadge } from "@/components/ui/status-badge";
+import type { ParcelStatus } from "@prisma/client";
+import ParcelsFilters from "./parcels-filters";
 
-export const metadata: Metadata = { title: "Заказы" };
+export const metadata: Metadata = { title: "Посылки" };
 
 const LIMIT = 20;
 
@@ -20,7 +20,7 @@ type SearchParams = {
   amountMax?: string;
 };
 
-export default async function OrdersPage({
+export default async function ParcelsPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
@@ -28,7 +28,7 @@ export default async function OrdersPage({
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page ?? "1", 10));
   const search = params.search?.trim() ?? "";
-  const statusFilter = params.status as OrderStatus | undefined;
+  const statusFilter = params.status as ParcelStatus | undefined;
   const dateFrom = params.dateFrom ? new Date(params.dateFrom) : undefined;
   const dateTo = params.dateTo
     ? new Date(new Date(params.dateTo).setHours(23, 59, 59, 999))
@@ -57,15 +57,15 @@ export default async function OrdersPage({
       : {}),
   };
 
-  const [orders, total] = await Promise.all([
-    prisma.order.findMany({
+  const [parcels, total] = await Promise.all([
+    prisma.parcel.findMany({
       where,
       include: { customer: true },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * LIMIT,
       take: LIMIT,
     }),
-    prisma.order.count({ where }),
+    prisma.parcel.count({ where }),
   ]);
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -74,20 +74,20 @@ export default async function OrdersPage({
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Заказы</h1>
-          <p className="page-subtitle">{total} заказов всего</p>
+          <h1 className="page-title">Посылки</h1>
+          <p className="page-subtitle">{total} посылок всего</p>
         </div>
         <div className="header-actions">
-          <Link href="/orders/new" className="btn-primary">
-            + Новый заказ
+          <Link href="/parcels/new" className="btn-primary">
+            + Новая посылка
           </Link>
-          <Link href="/api/export/orders" className="btn-secondary">
+          <Link href="/api/export/parcels" className="btn-secondary">
             Экспорт CSV
           </Link>
         </div>
       </div>
 
-      <OrdersFilters />
+      <ParcelsFilters />
 
       <div className="card">
         <div className="table-wrap">
@@ -99,32 +99,32 @@ export default async function OrdersPage({
                 <th>Статус</th>
                 <th>Расчет $</th>
                 <th>К оплате ¥</th>
-                <th>Посылка</th>
+                <th>Трек-номер</th>
                 <th>Дата</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
-                <tr key={order.id}>
+              {parcels.map((parcel) => (
+                <tr key={parcel.id}>
                   <td>
-                    <Link href={`/orders/${order.id}`} className="link">
-                      {order.number}
+                    <Link href={`/parcels/${parcel.id}`} className="link">
+                      {parcel.number}
                     </Link>
                   </td>
-                  <td>{order.recipientName || order.customer.name}</td>
+                  <td>{parcel.recipientName || parcel.customer.name}</td>
                   <td>
-                    <OrderStatusBadge status={order.status} />
+                    <ParcelStatusBadge status={parcel.status} />
                   </td>
-                  <td className="tabular">{formatUsd(order.totalUsd || order.total)}</td>
-                  <td className="tabular">{formatCny(order.totalCny)}</td>
+                  <td className="tabular">{formatUsd(parcel.totalUsd || parcel.total)}</td>
+                  <td className="tabular">{formatCny(parcel.totalCny)}</td>
                   <td className="mono text-muted">
-                    {order.parcelNumberLooksValid ? order.parcelNumber : "—"}
+                    {parcel.parcelNumberLooksValid ? parcel.parcelNumber : "—"}
                   </td>
-                  <td className="text-muted">{formatDateTime(order.createdAt)}</td>
+                  <td className="text-muted">{formatDateTime(parcel.createdAt)}</td>
                   <td>
                     <Link
-                      href={`/orders/${order.id}`}
+                      href={`/parcels/${parcel.id}`}
                       className="btn-ghost btn-sm"
                     >
                       Подробнее →
@@ -132,10 +132,10 @@ export default async function OrdersPage({
                   </td>
                 </tr>
               ))}
-              {orders.length === 0 && (
+              {parcels.length === 0 && (
                 <tr>
                   <td colSpan={8} className="table-empty">
-                    Заказов не найдено
+                    Посылок не найдено
                   </td>
                 </tr>
               )}
@@ -148,7 +148,7 @@ export default async function OrdersPage({
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <Link
                 key={p}
-                href={`/orders?page=${p}${search ? `&search=${search}` : ""}${statusFilter ? `&status=${statusFilter}` : ""}`}
+                href={`/parcels?page=${p}${search ? `&search=${search}` : ""}${statusFilter ? `&status=${statusFilter}` : ""}`}
                 className={`pagination-btn ${p === page ? "pagination-btn--active" : ""}`}
               >
                 {p}

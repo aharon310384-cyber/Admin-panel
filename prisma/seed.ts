@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { PrismaClient, type Customer, type OrderStatus } from "@prisma/client";
+import { PrismaClient, type Customer, type ParcelStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { slugify } from "../lib/utils";
 
@@ -138,7 +138,7 @@ function containsCancelSignal(value: string | null): boolean {
   );
 }
 
-function mapStatus(order: BookOrder): OrderStatus {
+function mapStatus(order: BookOrder): ParcelStatus {
   if (order.orangeYellowPair) {
     return "RETURNED_UNPAID";
   }
@@ -202,9 +202,29 @@ async function upsertUsers() {
 }
 
 async function clearImportedData() {
-  await prisma.orderStatusHistory.deleteMany();
-  await prisma.orderItem.deleteMany();
+  // Документы ссылаются на клиентов и посылки, поэтому удаляются раньше них.
+  await prisma.clientLedger.deleteMany();
+  await prisma.paymentAllocationItem.deleteMany();
+  await prisma.paymentAllocation.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.topUpRequest.deleteMany();
+  await prisma.agentPayout.deleteMany();
+  await prisma.agentInvoice.deleteMany();
+  await prisma.assemblyItem.deleteMany();
+  await prisma.assembly.deleteMany();
+  await prisma.packing.deleteMany();
+  await prisma.weighing.deleteMany();
+  await prisma.placement.deleteMany();
+  await prisma.receiving.deleteMany();
+  await prisma.sorting.deleteMany();
+  await prisma.parcelStatusHistory.deleteMany();
+  await prisma.parcelItem.deleteMany();
+  await prisma.parcel.deleteMany();
   await prisma.order.deleteMany();
+  await prisma.parcelTask.deleteMany();
+  await prisma.box.deleteMany();
+  await prisma.awb.deleteMany();
+  await prisma.manifest.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.product.deleteMany();
 }
@@ -333,7 +353,7 @@ async function importOrders(
     const status = mapStatus(row);
     const number = makeUnique(row.orderNumber, usedOrderNumbers, "order");
 
-    const order = await prisma.order.create({
+    const parcel = await prisma.parcel.create({
       data: {
         number,
         status,
@@ -383,9 +403,9 @@ async function importOrders(
       },
     });
 
-    await prisma.orderStatusHistory.create({
+    await prisma.parcelStatusHistory.create({
       data: {
-        orderId: order.id,
+        parcelId: parcel.id,
         status,
         changedBy: adminId,
         note: `Импортировано из ALL 6, строка ${row.sourceRow}`,
@@ -405,7 +425,7 @@ async function main() {
   const usedEmails = new Set<string>();
   const usedCodes = new Set<string>();
 
-  console.log("Clearing local demo orders, recipients and services...");
+  console.log("Clearing local documents, parcels, recipients and services...");
   await clearImportedData();
 
   console.log("Importing recipients from book-2...");
@@ -415,10 +435,10 @@ async function main() {
     usedCodes
   );
 
-  console.log("Importing orders from book-2...");
+  console.log("Importing parcels from book-2...");
   await importOrders(data.orders, admin.id, byCode, byIdentity);
 
-  console.log(`Imported ${data.customers.length} sheet recipients and ${data.orders.length} orders.`);
+  console.log(`Imported ${data.customers.length} sheet recipients and ${data.orders.length} parcels.`);
   console.log("Dev users:");
   console.log("  admin@postmanfox.local / admin123");
   console.log("  manager@postmanfox.local / manager123");

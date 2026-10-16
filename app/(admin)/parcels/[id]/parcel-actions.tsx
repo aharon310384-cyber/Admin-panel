@@ -4,38 +4,38 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown, Trash2, Loader2 } from "lucide-react";
-import type { OrderStatus } from "@prisma/client";
-import { ORDER_STATUS_LABELS } from "@/types";
-import { OrderStatusDot } from "@/components/ui/status-badge";
+import type { ParcelStatus } from "@prisma/client";
+import { PARCEL_STATUS_LABELS } from "@/types";
+import { ParcelStatusDot } from "@/components/ui/status-badge";
 
 type Props = {
-  orderId: string;
-  currentStatus: OrderStatus;
+  parcelId: string;
+  currentStatus: ParcelStatus;
   isAdmin: boolean;
-  updateStatus: (id: string, status: OrderStatus, note?: string) => Promise<void>;
-  deleteOrderAction: (id: string) => Promise<void>;
+  updateStatus: (id: string, status: ParcelStatus, note?: string) => Promise<void>;
+  deleteParcelAction: (id: string) => Promise<void>;
 };
 
-export default function OrderActions({
-  orderId,
+export default function ParcelActions({
+  parcelId,
   currentStatus,
   isAdmin,
   updateStatus,
-  deleteOrderAction,
+  deleteParcelAction,
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const availableStatuses = Object.keys(ORDER_STATUS_LABELS).filter(
+  const availableStatuses = Object.keys(PARCEL_STATUS_LABELS).filter(
     (s) => s !== currentStatus
-  ) as OrderStatus[];
+  ) as ParcelStatus[];
 
-  const handleStatusChange = async (status: OrderStatus) => {
+  const handleStatusChange = async (status: ParcelStatus) => {
     setLoading(status);
     try {
-      await updateStatus(orderId, status);
-      toast.success(`Статус изменен: ${ORDER_STATUS_LABELS[status]}`);
+      await updateStatus(parcelId, status);
+      toast.success(`Статус изменен: ${PARCEL_STATUS_LABELS[status]}`);
       router.refresh();
     } catch {
       toast.error("Ошибка при смене статуса");
@@ -47,9 +47,9 @@ export default function OrderActions({
   const handleDelete = async () => {
     setLoading("delete");
     try {
-      await deleteOrderAction(orderId);
-      toast.success("Заказ удален");
-      router.push("/orders");
+      await deleteParcelAction(parcelId);
+      toast.success("Посылка удалена");
+      router.push("/parcels");
     } catch {
       toast.error("Ошибка при удалении");
     } finally {
@@ -78,8 +78,8 @@ export default function OrderActions({
               onClick={() => handleStatusChange(status)}
               disabled={!!loading}
             >
-              <OrderStatusDot status={status} />
-              {ORDER_STATUS_LABELS[status]}
+              <ParcelStatusDot status={status} />
+              {PARCEL_STATUS_LABELS[status]}
             </button>
           ))}
         </div>
@@ -98,7 +98,7 @@ export default function OrderActions({
 
       {showDeleteConfirm && (
         <div className="confirm-wrap">
-          <span className="confirm-text">Удалить заказ?</span>
+          <span className="confirm-text">Удалить посылку?</span>
           <button
             type="button"
             className="btn-danger"

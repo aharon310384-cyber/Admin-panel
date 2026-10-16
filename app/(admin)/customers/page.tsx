@@ -45,8 +45,8 @@ export default async function CustomersPage({
     prisma.customer.findMany({
       where,
       include: {
-        _count: { select: { orders: { where: { deletedAt: null } } } },
-        orders: {
+        _count: { select: { parcels: { where: { deletedAt: null } } } },
+        parcels: {
           where: { deletedAt: null, status: { not: "CANCELED" } },
           select: { totalCny: true },
         },
@@ -63,7 +63,7 @@ export default async function CustomersPage({
 
   const customersWithTotal = customers.map((c) => ({
     ...c,
-    totalSpent: c.orders.reduce((sum, o) => sum + Number(o.totalCny), 0),
+    totalSpent: c.parcels.reduce((sum, o) => sum + Number(o.totalCny), 0),
   }));
 
   if (sortField === "total") {
@@ -117,7 +117,7 @@ export default async function CustomersPage({
                     {sortField === "createdAt" ? (sortDir === "desc" ? "↓" : "↑") : ""}
                   </Link>
                 </th>
-                <th>Заказов</th>
+                <th>Посылок</th>
                 <th>
                   <Link href={sortLink("total")} className="sort-link">
                     Оплаты ¥{" "}
@@ -145,7 +145,7 @@ export default async function CustomersPage({
                     {[customer.country, customer.city].filter(Boolean).join(" / ") || "—"}
                   </td>
                   <td className="text-muted">{formatDateTime(customer.createdAt)}</td>
-                  <td className="tabular">{customer._count.orders}</td>
+                  <td className="tabular">{customer._count.parcels}</td>
                   <td className="tabular">{formatCny(customer.totalSpent)}</td>
                   <td>
                     <Link
