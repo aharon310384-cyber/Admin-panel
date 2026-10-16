@@ -12,13 +12,14 @@ export async function GET() {
 
   const parcels = await prisma.parcel.findMany({
     where: { deletedAt: null },
-    include: { customer: true },
+    include: { customer: true, parcelTask: { select: { number: true } } },
     orderBy: { createdAt: "desc" },
   });
 
   const rows = [
     [
       "Номер посылки",
+      "Номер задачи",
       "Получатель",
       "Email",
       "Статус",
@@ -26,11 +27,12 @@ export async function GET() {
       "Курс USD/CNY",
       "К оплате CNY",
       "Оплата",
-      "Трек-номер",
+      "Международный трек-номер",
       "Дата",
     ],
     ...parcels.map((o) => [
       o.number,
+      o.parcelTask?.number ?? "",
       o.recipientName || o.customer.name,
       o.customer.email ?? "",
       PARCEL_STATUS_LABELS[o.status],

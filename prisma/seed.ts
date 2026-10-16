@@ -4,6 +4,8 @@ import path from "node:path";
 import { PrismaClient, type Customer, type ParcelStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { slugify } from "../lib/utils";
+import { nextDocumentNumber, raiseParcelTaskCounter } from "../lib/document-numbers";
+import { createLegacyParcelTask } from "./legacy-tasks";
 
 const prisma = new PrismaClient();
 const DEFAULT_RATE = 7.1;
@@ -225,6 +227,7 @@ async function clearImportedData() {
   await prisma.box.deleteMany();
   await prisma.awb.deleteMany();
   await prisma.manifest.deleteMany();
+  await prisma.documentCounter.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.product.deleteMany();
 }
@@ -340,8 +343,9 @@ async function importOrders(
   byCode: Map<string, Customer>,
   byIdentity: Map<string, Customer>
 ) {
-  const usedOrderNumbers = new Set<string>();
+  const usedTaskNumbers = new Set<string>();
   const productIdsByName = new Map<string, string>();
+  let maxTaskSequence = 0;
 
   for (const row of orders) {
     const customer = await findOrCreateRecipient(row, byCode, byIdentity);
@@ -351,11 +355,21 @@ async function importOrders(
     const totalCny = orderTotalCny(row, totalUsd);
     const createdAt = toDate(row.saleDate) ?? FALLBACK_ORDER_DATE;
     const status = mapStatus(row);
-    const number = makeUnique(row.orderNumber, usedOrderNumbers, "order");
+    const legacyTask = await createLegacyParcelTask(
+      prisma,
+      { rawNumber: row.orderNumber, customerId: customer.id, createdAt },
+      adminId,
+      usedTaskNumbers
+    );
+    if (legacyTask) {
+      maxTaskSequence = Math.max(maxTaskSequence, legacyTask.sequence);
+    }
 
     const parcel = await prisma.parcel.create({
       data: {
-        number,
+        number: await nextDocumentNumber(prisma, "parcel"),
+        parcelTaskId: legacyTask?.task.id ?? null,
+        notes: legacyTask ? null : `Номер в Excel: ${row.orderNumber}`,
         status,
         total: totalUsd,
         totalUsd,
@@ -413,6 +427,8 @@ async function importOrders(
       },
     });
   }
+
+  await raiseParcelTaskCounter(prisma, maxTaskSequence);
 }
 
 async function main() {

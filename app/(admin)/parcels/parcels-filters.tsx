@@ -57,7 +57,7 @@ export default function ParcelsFilters() {
           <Search size={15} className="search-icon" />
           <input
             type="search"
-            placeholder="Поиск по номеру посылки, получателю или трек-номеру..."
+            placeholder="Поиск по номеру посылки или задачи, получателю, трек-номеру..."
             defaultValue={search}
             className="search-input"
             onChange={(e) => setParam("search", e.target.value)}

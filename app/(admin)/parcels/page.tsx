@@ -42,6 +42,7 @@ export default async function ParcelsPage({
       ? {
           OR: [
             { number: { contains: search, mode: "insensitive" as const } },
+            { parcelTask: { number: { contains: search, mode: "insensitive" as const } } },
             { customer: { name: { contains: search, mode: "insensitive" as const } } },
             { recipientName: { contains: search, mode: "insensitive" as const } },
             { parcelNumber: { contains: search, mode: "insensitive" as const } },
@@ -60,7 +61,7 @@ export default async function ParcelsPage({
   const [parcels, total] = await Promise.all([
     prisma.parcel.findMany({
       where,
-      include: { customer: true },
+      include: { customer: true, parcelTask: { select: { number: true } } },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * LIMIT,
       take: LIMIT,
@@ -95,11 +96,12 @@ export default async function ParcelsPage({
             <thead>
               <tr>
                 <th>Номер</th>
+                <th>Задача</th>
                 <th>Получатель</th>
                 <th>Статус</th>
                 <th>Расчет $</th>
                 <th>К оплате ¥</th>
-                <th>Трек-номер</th>
+                <th>Международный трек</th>
                 <th>Дата</th>
                 <th></th>
               </tr>
@@ -112,6 +114,7 @@ export default async function ParcelsPage({
                       {parcel.number}
                     </Link>
                   </td>
+                  <td className="mono text-muted">{parcel.parcelTask?.number ?? "—"}</td>
                   <td>{parcel.recipientName || parcel.customer.name}</td>
                   <td>
                     <ParcelStatusBadge status={parcel.status} />
@@ -134,7 +137,7 @@ export default async function ParcelsPage({
               ))}
               {parcels.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="table-empty">
+                  <td colSpan={9} className="table-empty">
                     Посылок не найдено
                   </td>
                 </tr>

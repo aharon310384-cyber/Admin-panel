@@ -198,7 +198,8 @@ model DocumentCounter {
 
 // ─── 1. Склад: заказ поступил ───────────────────────────────────────────────
 
-/// Заказ (ZK): одна коробка от продавца. Под одним треком продавца может быть несколько заказов.
+/// Заказ (ZK): одна коробка от продавца.
+/// sellerTrackNumber — трек-номер заказа (китайская служба: SF, J&T…); под одним треком может быть несколько заказов.
 model Order {
   id                String      @id @default(cuid())
   number            String      @unique
@@ -294,17 +295,19 @@ model Placement {
 
 // ─── 2. Склад: из заказов собирают посылку ──────────────────────────────────
 
-/// Задача на формирование посылки (ZF). Статус «В работе» = IN_PROGRESS.
+/// Задача на формирование посылки. Номер как в Excel: код клиента + порядковый номер + страна (AT1536DE),
+/// см. lib/document-numbers.ts. Статус «В работе» = IN_PROGRESS.
 model ParcelTask {
-  id          String           @id @default(cuid())
-  number      String           @unique
-  status      ParcelTaskStatus @default(NEW)
-  customerId  String
-  note        String?
-  createdById String
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  deletedAt   DateTime?
+  id                 String           @id @default(cuid())
+  number             String           @unique
+  status             ParcelTaskStatus @default(NEW)
+  customerId         String
+  destinationCountry String
+  note               String?
+  createdById        String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
 
   customer  Customer  @relation(fields: [customerId], references: [id])
   createdBy User      @relation(fields: [createdById], references: [id])
@@ -387,7 +390,7 @@ model Weighing {
   createdBy  User       @relation(fields: [createdById], references: [id])
 }
 
-/// Посылка. Записи, импортированные из Excel, создавались без задачи и коробов.
+/// Посылка (PS). parcelNumber — международный трек-номер посылки.
 model Parcel {
   id                     String       @id @default(cuid())
   number                 String       @unique

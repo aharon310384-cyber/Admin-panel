@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { nextDocumentNumber } from "@/lib/document-numbers";
 import type { ParcelStatus } from "@prisma/client";
 
 const itemSchema = z.object({
@@ -60,35 +61,35 @@ export async function createParcel(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const count = await prisma.parcel.count();
-  const number = `ORD-${String(2024000 + count + 1).padStart(7, "0")}`;
   const total = parsed.data.items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
   const totalCny = calculateTotalCny(total, parsed.data.exchangeRateCnyPerUsd);
 
-  const parcel = await prisma.parcel.create({
-    data: {
-      number,
-      customerId: parsed.data.customerId,
-      notes: parsed.data.notes || null,
-      total,
-      totalUsd: total,
-      exchangeRateCnyPerUsd: parsed.data.exchangeRateCnyPerUsd,
-      totalCny,
-      items: {
-        create: parsed.data.items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          price: item.price,
-        })),
+  const parcel = await prisma.$transaction(async (tx) =>
+    tx.parcel.create({
+      data: {
+        number: await nextDocumentNumber(tx, "parcel"),
+        customerId: parsed.data.customerId,
+        notes: parsed.data.notes || null,
+        total,
+        totalUsd: total,
+        exchangeRateCnyPerUsd: parsed.data.exchangeRateCnyPerUsd,
+        totalCny,
+        items: {
+          create: parsed.data.items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+        },
+        statusHistory: {
+          create: { status: "NEW", changedBy: session.user.id },
+        },
       },
-      statusHistory: {
-        create: { status: "NEW", changedBy: session.user.id },
-      },
-    },
-  });
+    })
+  );
 
   revalidatePath("/parcels");
   redirect(`/parcels/${parcel.id}`);

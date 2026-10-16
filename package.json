@@ -10,6 +10,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:upgrade:001": "prisma db execute --file prisma/upgrades/001-order-to-parcel.sql --schema prisma/schema.prisma",
+    "db:upgrade:002": "tsx prisma/upgrades/002-parcel-and-task-numbers.ts",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "book2:extract": "powershell -NoProfile -ExecutionPolicy Bypass -File prisma/extract-book-2.ps1",

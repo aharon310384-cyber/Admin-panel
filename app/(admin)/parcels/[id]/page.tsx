@@ -24,6 +24,7 @@ export default async function ParcelDetailPage({
     where: { id, deletedAt: null },
     include: {
       customer: true,
+      parcelTask: { select: { number: true, note: true } },
       items: { include: { product: true } },
       statusHistory: {
         include: { user: true },
@@ -110,6 +111,16 @@ export default async function ParcelDetailPage({
               <dd className="mono">{parcel.number}</dd>
             </div>
             <div className="info-row">
+              <dt>Задача</dt>
+              <dd className="mono">{parcel.parcelTask?.number ?? "—"}</dd>
+            </div>
+            {parcel.parcelTask?.note && (
+              <div className="info-row">
+                <dt>Примечание задачи</dt>
+                <dd>{parcel.parcelTask.note}</dd>
+              </div>
+            )}
+            <div className="info-row">
               <dt>Создано</dt>
               <dd>{formatDateTime(parcel.createdAt)}</dd>
             </div>
@@ -120,7 +131,7 @@ export default async function ParcelDetailPage({
               </div>
             )}
             <div className="info-row">
-              <dt>Трек-номер</dt>
+              <dt>Международный трек-номер</dt>
               <dd className="mono">
                 {parcel.parcelNumberLooksValid ? parcel.parcelNumber : "Номер не указан"}
               </dd>
