@@ -32,16 +32,30 @@ jobs:
       - name: Ключ SSH
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          # Отпечаток ключа сервера (ED25519). Не секрет. Поменять, только если сервер переустановлен:
+          # на сервере `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`.
+          HOST_FINGERPRINT: SHA256:XTkU6YO6Nn8WGzVbF4VztHyTnMfsBmxyehkLDLGAn+k
         run: |
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          for _ in 1 2 3; do
+            ssh-keyscan -t ed25519 -T 15 "$HOST" 2>/dev/null > ~/.ssh/known_hosts || true
+            [ -s ~/.ssh/known_hosts ] && break
+            sleep 5
+          done
+          got=$(ssh-keygen -lf ~/.ssh/known_hosts 2>/dev/null | awk '{print $2}' || true)
+          if [ "$got" != "$HOST_FINGERPRINT" ]; then
+            echo "Ключ сервера не совпал с отпечатком в server.yml — подключение остановлено."
+            echo "Получен: ${got:-ничего (сервер не ответил)}"
+            exit 1
+          fi
+          echo "Ключ сервера совпал с отпечатком."
 
       - name: Команда на сервере
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER_NAME: ${{ secrets.DEPLOY_USER }}
           COMMAND: ${{ inputs.command }}
-        run: ssh -o BatchMode=yes -o ServerAliveInterval=30 "$USER_NAME@$HOST" "$COMMAND"
+        run: ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 "$USER_NAME@$HOST" "$COMMAND"
