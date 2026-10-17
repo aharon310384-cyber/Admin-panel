@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 import { FavoritesPanel, FunctionsPanel, HistoryPanel, OpenPanel, SectionsPanel, type Orientation } from "@/components/layout/panels";
 import { FavoritesContext } from "@/components/layout/favorites-context";
 import { FormsContext } from "@/components/form/form-context";
-import { pinFavorite, recordVisit, saveFormSettings, toggleFavorite } from "@/actions/interface";
-import type { FormPart, FormsSettings } from "@/lib/form";
+import { pinFavorite, recordVisit, saveFormSettings, toggleFavorite, type FormSettingsPatch } from "@/actions/interface";
+import type { FormsSettings } from "@/lib/form";
 import {
   HISTORY_LIMIT,
   SECTIONS,
@@ -26,6 +26,8 @@ import {
 
 const OPEN_TABS_KEY = "pf-open-tabs";
 const OPEN_TABS_LIMIT = 12;
+// Начальная страница — постоянная первая вкладка «Открытых», без крестика (как в 1С); в список вкладок не попадает.
+const HOME_PATH = "/dashboard";
 
 // Название страницы: заголовок вкладки браузера; для карточек — ещё и заголовок на странице (номер, имя).
 function pageTitle(pathname: string) {
@@ -39,7 +41,9 @@ function pageTitle(pathname: string) {
 function readTabs(): PageRef[] {
   try {
     const raw = JSON.parse(sessionStorage.getItem(OPEN_TABS_KEY) ?? "[]");
-    return Array.isArray(raw) ? raw.filter((t) => t && typeof t.path === "string" && typeof t.href === "string") : [];
+    return Array.isArray(raw)
+      ? raw.filter((t) => t && typeof t.path === "string" && typeof t.href === "string" && t.path !== HOME_PATH)
+      : [];
   } catch {
     return [];
   }
@@ -104,7 +108,7 @@ export default function AdminShell({
     let cancelled = false;
     const capture = (): PageRef => {
       const page = { path: pathname, href, title: pageTitle(pathname) };
-      updateTabs((prev) => {
+      if (pathname !== HOME_PATH) updateTabs((prev) => {
         const index = prev.findIndex((tab) => tab.path === pathname);
         if (index >= 0) return prev.map((tab, i) => (i === index ? page : tab));
         let next = [...prev, page];
@@ -136,11 +140,12 @@ export default function AdminShell({
     };
   }, [pathname, search, updateTabs]);
 
+  // Закрыть вкладку; если это открытое сейчас окно — перейти на соседнюю вкладку, а без них — на начальную страницу.
   const closeTab = (path: string) => {
     const index = tabs.findIndex((tab) => tab.path === path);
     const next = tabs.filter((tab) => tab.path !== path);
     updateTabs(() => next);
-    if (path === pathname) router.push((next[Math.max(0, index - 1)] ?? next[0])?.href ?? "/dashboard");
+    if (path === pathname) router.push((index >= 0 ? next[Math.max(0, index - 1)] : next[next.length - 1])?.href ?? HOME_PATH);
   };
 
   // Избранное: звёздочка у заголовка страницы добавляет и убирает, список — в звёздочке верхнего меню.
@@ -161,16 +166,19 @@ export default function AdminShell({
     if (result?.favorites) setFavorites(result.favorites);
   };
 
-  // «Изменить форму…»: какие части окна скрыты — сразу на экране, потом в базе.
-  const saveForm = async (formKey: string, hidden: FormPart[]) => {
+  // Настройка окна (скрытые части, ширины столбцов) — сразу на экране, потом в базе.
+  const saveForm = async (formKey: string, patch: FormSettingsPatch) => {
     const previous = forms;
     setForms((now) => {
+      const entry = now[formKey] ?? { hidden: [] };
+      const hidden = patch.hidden ?? entry.hidden;
+      const widths = patch.widths === undefined ? entry.widths : patch.widths ?? undefined;
       const next = { ...now };
-      if (hidden.length) next[formKey] = { hidden };
+      if (hidden.length || widths) next[formKey] = widths ? { hidden, widths } : { hidden };
       else delete next[formKey];
       return next;
     });
-    const result = await saveFormSettings(formKey, hidden).catch(() => null);
+    const result = await saveFormSettings(formKey, patch).catch(() => null);
     if (result?.forms) {
       setForms(result.forms);
       return true;
@@ -235,7 +243,9 @@ export default function AdminShell({
 
   return (
     <FavoritesContext.Provider value={{ isCurrentFavorite: isFavorite, toggleCurrent: toggleCurrentFavorite }}>
-    <FormsContext.Provider value={{ forms, saveForm, closeCurrent: () => closeTab(pathname) }}>
+    <FormsContext.Provider
+      value={{ forms, saveForm, closeCurrent: pathname === HOME_PATH ? null : () => closeTab(pathname) }}
+    >
     <div className={cn("admin-layout", panels.bottom.length > 0 && "admin-layout--bottom")}>
       <TopNav userName={userName} userRole={userRole} favorites={favorites} onPinFavorite={changePin} onRemoveFavorite={changeFavorite} />
 
@@ -254,7 +264,7 @@ export default function AdminShell({
       <style>{`
         .admin-layout { --topnav-h: 42px; display: flex; flex-direction: column; min-height: 100dvh; }
         .shell-body { flex: 1; display: flex; min-width: 0; }
-        .admin-main { flex: 1; min-width: 0; overflow-x: hidden; }
+        .admin-main { flex: 1; min-width: 0; overflow-x: clip; }
         .admin-content { padding: 12px 16px 20px; width: 100%; }
 
         .shell-zone { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); }
@@ -279,7 +289,7 @@ export default function AdminShell({
         }
         .fav-star:hover { color: #d99a12; background: var(--color-muted-bg); }
         .fav-star--on, .fav-star--on:hover { color: #e0a414; }
-        .admin-layout--bottom { --shell-bottom: 32px; }
+        .admin-layout--bottom { --shell-bottom: 40px; }
         .shell-zone--left { border-right: 1px solid var(--color-border); }
         .shell-zone--right { border-left: 1px solid var(--color-border); }
 
@@ -322,22 +332,24 @@ export default function AdminShell({
         }
 
         .pnl-tab {
-          display: inline-flex; align-items: center; flex-shrink: 0; max-width: 220px;
+          display: inline-flex; align-items: stretch; flex-shrink: 0; max-width: 220px;
           border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface);
         }
         .pnl--v .pnl-tab { max-width: none; width: 100%; }
         .pnl-tab--plain { border-color: transparent; background: none; }
         .pnl-tab--active { border-color: oklch(52% 0.14 42 / 0.45); background: oklch(52% 0.14 42 / 0.08); }
         .pnl-tab-link {
-          flex: 1; min-width: 0; padding: 3px 2px 3px 8px; font-size: 12.5px; font-weight: 500;
+          display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; padding: 6px 4px 6px 9px; font-size: 13px; font-weight: 500;
           color: var(--color-text-secondary); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .pnl-tab--active .pnl-tab-link { color: var(--color-accent); }
+        .pnl-tab--home .pnl-tab-link { padding-right: 10px; }
+        .pnl-tab-link span { overflow: hidden; text-overflow: ellipsis; }
         .pnl-tab-link:hover { color: var(--color-text); }
         .pnl-tab--plain .pnl-item { flex: 1; }
         .pnl-tab-close {
           display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-          width: 20px; height: 20px; margin-right: 2px; border: none; background: none; cursor: pointer;
+          align-self: center; width: 22px; height: 22px; margin-right: 3px; border: none; background: none; cursor: pointer;
           border-radius: 5px; color: var(--color-muted);
         }
         .pnl-tab-close:hover { color: var(--color-danger); background: var(--color-danger-bg); }

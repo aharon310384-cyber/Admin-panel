@@ -31,3 +31,7 @@
 .admin-content :is(.code-pill, .st) { padding-top: 1px; padding-bottom: 1px; }
 .admin-content .status-badge { min-height: 20px; padding-top: 2px; padding-bottom: 2px; }
 .admin-content .table input[type="checkbox"] { margin: 0; vertical-align: middle; }
+
+/* Границы столбцов в заголовке — за них тянут мышью, меняя ширину (components/form/column-widths.ts) */
+.admin-content .table thead th + th { box-shadow: inset 1px 0 0 var(--color-border); }
+.admin-content table[data-resized] :is(th, td) { overflow: hidden; text-overflow: ellipsis; }

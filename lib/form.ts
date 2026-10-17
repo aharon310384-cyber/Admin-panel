@@ -21,22 +21,42 @@ export const FORM_PART_HINTS: Record<FormPart, string> = {
 // Командную панель не скрыть — иначе не добраться до «Изменить форму…». Как в 1С: у неё галочка без флажка.
 export const HIDEABLE_PARTS: FormPart[] = ["header", "pages", "footer"];
 
-export type FormSettings = { hidden: FormPart[] };
+// hidden — скрытые части окна; widths — ширины столбцов таблиц окна в пикселях
+// (ключ — «номер таблицы:заголовок столбца», см. components/form/column-widths.ts).
+export type ColumnWidths = Record<string, number>;
+export type FormSettings = { hidden: FormPart[]; widths?: ColumnWidths };
 export type FormsSettings = Record<string, FormSettings>;
 
 export const FORM_KEY_RE = /^[a-z0-9-]{1,40}$/;
 export const MAX_FORMS = 200;
+export const MAX_COLUMNS = 100;
+export const COLUMN_KEY_MAX = 80;
+export const COLUMN_MIN = 40;
+export const COLUMN_MAX = 2000;
 
-// Приводит сохранённое значение к допустимому: известные окна и части, без повторов.
+function normalizeWidths(raw: unknown): ColumnWidths | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const widths: ColumnWidths = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (Object.keys(widths).length >= MAX_COLUMNS) break;
+    if (key.length > COLUMN_KEY_MAX || typeof value !== "number" || !Number.isFinite(value)) continue;
+    widths[key] = Math.min(COLUMN_MAX, Math.max(COLUMN_MIN, Math.round(value)));
+  }
+  return Object.keys(widths).length ? widths : undefined;
+}
+
+// Приводит сохранённое значение к допустимому: известные окна и части, без повторов, разумные ширины.
+// Окно без настроек в результат не попадает.
 export function normalizeForms(raw: unknown): FormsSettings {
   const result: FormsSettings = {};
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return result;
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!FORM_KEY_RE.test(key) || Object.keys(result).length >= MAX_FORMS) continue;
-    const list = (value as { hidden?: unknown } | null)?.hidden;
-    if (!Array.isArray(list)) continue;
+    const entry = (value ?? {}) as { hidden?: unknown; widths?: unknown };
+    const list = Array.isArray(entry.hidden) ? entry.hidden : [];
     const hidden = HIDEABLE_PARTS.filter((part) => list.includes(part));
-    if (hidden.length) result[key] = { hidden };
+    const widths = normalizeWidths(entry.widths);
+    if (hidden.length || widths) result[key] = widths ? { hidden, widths } : { hidden };
   }
   return result;
 }
@@ -45,6 +65,7 @@ export function normalizeForms(raw: unknown): FormsSettings {
 // Сверху — кнопки самой панели (и те, что не поместились в строку), ниже — стандартные команды.
 // Группы разделены чертой. Пункт работает, если у окна есть для него действие; остальные пока серые.
 export const MORE_COMMAND_IDS = [
+  "related",
   "copy",
   "edit",
   "delete",
@@ -77,6 +98,7 @@ export type MoreCommand = { id: MoreCommandId; label: string; shortcut?: string;
 
 export const MORE_COMMANDS: MoreCommand[][] = [
   [
+    { id: "related", label: "Связанные документы", shortcut: "Ctrl+Shift+S" },
     { id: "copy", label: "Скопировать", shortcut: "F9" },
     { id: "edit", label: "Изменить", shortcut: "F2" },
     { id: "delete", label: "Пометить на удаление / Снять пометку", shortcut: "Del" },

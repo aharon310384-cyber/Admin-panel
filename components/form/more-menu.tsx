@@ -21,6 +21,7 @@ import {
   Fingerprint,
   FolderOpen,
   History,
+  ListTree,
   MessageSquare,
   Package,
   PanelsTopLeft,
@@ -39,6 +40,7 @@ import type { ReportLink } from "@/lib/reports";
 const STANDARD_IDS = new Set<string>(MORE_COMMAND_IDS);
 
 const ICONS: Partial<Record<MoreCommandId, LucideIcon>> = {
+  related: ListTree,
   copy: CopyPlus,
   edit: Pencil,
   delete: FileX,

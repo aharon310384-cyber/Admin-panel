@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Clock, Pin, Star, X } from "lucide-react";
+import { Clock, House, Pin, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SECTIONS,
@@ -157,7 +157,8 @@ export function FunctionsPanel({
   );
 }
 
-// ── Панель открытых: страницы, открытые в этом окне браузера, как вкладки
+// ── Панель открытых: страницы, открытые в этом окне браузера, как вкладки.
+// Первая — «Начальная страница», её не закрыть (как в 1С).
 export function OpenPanel({
   orientation,
   pathname,
@@ -171,11 +172,16 @@ export function OpenPanel({
 }) {
   return (
     <div className={panelClass(orientation, "pnl-open")} aria-label="Открытые">
-      {tabs.length === 0 && <p className="pnl-empty">Открытых страниц нет</p>}
+      <div className={cn("pnl-tab pnl-tab--home", pathname === "/dashboard" && "pnl-tab--active")}>
+        <Link href="/dashboard" className="pnl-tab-link" title="Начальная страница">
+          <House size={14} />
+          <span>Начальная страница</span>
+        </Link>
+      </div>
       {tabs.map((tab) => (
         <div key={tab.path} className={cn("pnl-tab", tab.path === pathname && "pnl-tab--active")}>
           <Link href={tab.href} className="pnl-tab-link" title={tab.title}>
-            {tab.title}
+            <span>{tab.title}</span>
           </Link>
           <button type="button" className="pnl-tab-close" onClick={() => onClose(tab.path)} aria-label={`Закрыть «${tab.title}»`}>
             <X size={13} />

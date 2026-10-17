@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
@@ -7,12 +6,13 @@ import { parcelStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 import Form from "@/components/form/form";
+import ClickableRow from "@/components/ui/clickable-row";
 
 export const metadata: Metadata = { title: "Посылки" };
 
 const SORT_FIELDS = [
   "customerCode",
-  "number",
+  "trackingNumber",
   "taskNumber",
   "status",
   "recipientName",
@@ -33,8 +33,8 @@ function parcelOrderBy(field: SortField, dir: SortDirection): Prisma.ParcelOrder
       return { recipient: { name: dir } };
     case "ordersCount":
       return { orders: { _count: dir } };
-    case "number":
-      return { number: dir };
+    case "trackingNumber":
+      return { trackingNumber: dir };
     case "taskNumber":
       return { parcelTask: { number: dir } };
     case "status":
@@ -81,9 +81,10 @@ export default async function ParcelsPage({
             <table className="table">
               <thead>
                 <tr>
-                  <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Номер" href={sortHref("number")} active={sortField === "number"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Дата" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Трек-номер" href={sortHref("trackingNumber")} active={sortField === "trackingNumber"} direction={sortDir} /></th>
                   <th><SortableHeader label="Задача" href={sortHref("taskNumber")} active={sortField === "taskNumber"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
                   <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
                   <th><SortableHeader label="Получатель" href={sortHref("recipientName")} active={sortField === "recipientName"} direction={sortDir} /></th>
                   <th><SortableHeader label="Доставка" href={sortHref("deliveryType")} active={sortField === "deliveryType"} direction={sortDir} /></th>
@@ -91,15 +92,15 @@ export default async function ParcelsPage({
                   <th><SortableHeader label="Вес кг" href={sortHref("billableWeightKg")} active={sortField === "billableWeightKg"} direction={sortDir} /></th>
                   <th><SortableHeader label="Итог $" href={sortHref("totalUsd")} active={sortField === "totalUsd"} direction={sortDir} /></th>
                   <th><SortableHeader label="Оплата" href={sortHref("isPaid")} active={sortField === "isPaid"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Создана" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
                 </tr>
               </thead>
               <tbody>
                 {parcels.map((p) => (
-                  <tr key={p.id}>
-                    <td><span className="code-pill">{p.customer.code ?? "—"}</span></td>
-                    <td><Link href={`/parcels/${p.id}`} className="num">{p.number}</Link></td>
+                  <ClickableRow key={p.id} href={`/parcels/${p.id}`}>
+                    <td className="text-muted">{formatDateTime(p.createdAt)}</td>
+                    <td className="track">{p.trackingNumber ?? "—"}</td>
                     <td className="task-num">{p.parcelTask?.number ?? "—"}</td>
+                    <td><span className="code-pill">{p.customer.code ?? "—"}</span></td>
                     <td><span className={`st st--${PARCEL_STATUS_COLOR[p.status]}`}>{parcelStatusLabel(p.status)}</span></td>
                     <td className="text-muted">{p.recipient?.name ?? "—"}</td>
                     <td className="text-muted">{deliveryTypeLabel(p.deliveryType)}</td>
@@ -107,8 +108,7 @@ export default async function ParcelsPage({
                     <td className="tabular">{formatNumber(Number(p.billableWeightKg ?? 0))}</td>
                     <td className="tabular strong">{formatUsd(Number(p.totalUsd))}</td>
                     <td>{p.isPaid ? <span className="paid">Оплачено</span> : <span className="text-muted">—</span>}</td>
-                    <td className="text-muted">{formatDateTime(p.createdAt)}</td>
-                  </tr>
+                  </ClickableRow>
                 ))}
                 {parcels.length === 0 && (
                   <tr><td colSpan={11} className="table-empty">Посылок пока нет</td></tr>
@@ -128,7 +128,7 @@ export default async function ParcelsPage({
         .table td { padding: 11px 14px; border-bottom: 1px solid var(--color-border); color: var(--color-text); white-space: nowrap; }
         .table tbody tr:last-child td { border-bottom: none; }
         .table tbody tr:hover td { background: var(--color-muted-bg); }
-        .num { font-family: var(--font-mono); font-weight: 600; color: var(--color-accent); text-decoration: none; }
+        .track { font-family: var(--font-mono); color: var(--color-text); }
         .task-num { font-family: var(--font-mono); color: var(--color-text-secondary); }
         .st { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
         .st--new { color: var(--color-status-new); background: var(--color-status-new-bg); }

@@ -10,10 +10,11 @@ import { ArrowLeft, ArrowRight, Link2, X } from "lucide-react";
 import FavoriteStar from "@/components/layout/favorite-star";
 import { useForms } from "@/components/form/form-context";
 import FormSettingsDialog from "@/components/form/form-settings";
+import { applyWidths, attachResize, clearWidths } from "@/components/form/column-widths";
 import MoreMenu, { type BarCommand } from "@/components/form/more-menu";
 import ReportsMenu from "@/components/form/reports-menu";
-import { SEARCH_PARAMS, type FormPart, type MoreCommandId } from "@/lib/form";
-import { reportsFor } from "@/lib/reports";
+import { SEARCH_PARAMS, type ColumnWidths, type FormPart, type MoreCommandId } from "@/lib/form";
+import { relatedDocumentsFor, reportsFor } from "@/lib/reports";
 
 // На обёртке (span вокруг кнопки с подтверждением) нажимается сама кнопка внутри.
 function pressable(el: HTMLElement) {
@@ -45,8 +46,17 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
   const [hasSearch, setHasSearch] = useState(false);
   const [notice, setNotice] = useState("");
 
-  const hidden = forms?.forms[formKey]?.hidden ?? [];
+  const settings = forms?.forms[formKey];
+  const hidden = settings?.hidden ?? [];
+  // Ширины столбцов и сохранение — через ref: их читают обработчики, навешенные один раз.
+  const widthsRef = useRef<ColumnWidths | undefined>(settings?.widths);
+  const saveRef = useRef(forms?.saveForm);
+  useEffect(() => {
+    widthsRef.current = settings?.widths;
+    saveRef.current = forms?.saveForm;
+  });
   const reports = reportsFor(formKey, guid);
+  const related = relatedDocumentsFor(formKey, guid);
   const parts: FormPart[] = ["commands", ...(header ? (["header"] as const) : []), "pages", ...(footer ? (["footer"] as const) : [])];
   const shown = (part: FormPart) => !hidden.includes(part);
 
@@ -86,11 +96,21 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     fitRef.current = fit;
     scan();
     fit();
+    applyWidths(form, widthsRef.current);
+    const detach = attachResize(
+      form,
+      () => widthsRef.current ?? {},
+      (tableWidths) => {
+        widthsRef.current = { ...widthsRef.current, ...tableWidths };
+        saveRef.current?.(formKey, { widths: widthsRef.current });
+      }
+    );
     const resize = new ResizeObserver(fit);
     resize.observe(panel);
     const changes = new MutationObserver(() => {
       scan();
       fit();
+      applyWidths(form, widthsRef.current);
     });
     changes.observe(form, {
       childList: true,
@@ -102,8 +122,22 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     return () => {
       resize.disconnect();
       changes.disconnect();
+      detach();
     };
-  }, []);
+  }, [formKey]);
+
+  // Ctrl+Shift+S — «Связанные документы», как в 1С.
+  useEffect(() => {
+    if (!related) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.shiftKey && event.code === "KeyS") {
+        event.preventDefault();
+        router.push(related);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [related, router]);
 
   useEffect(() => {
     if (!notice) return;
@@ -117,6 +151,8 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
   if (hasSearch) enabled.add("find");
   if (searchActive) enabled.add("cancelFind");
   if (guid) enabled.add("guid");
+  if (settings?.widths) enabled.add("defaultSettings");
+  if (related) enabled.add("related");
   for (const id of Object.keys(links ?? {})) enabled.add(id);
 
   const copy = async (text: string, done: string) => {
@@ -141,6 +177,8 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     const link = links?.[id as MoreCommandId];
     if (link) return router.push(link);
     switch (id) {
+      case "related":
+        return related && router.push(related);
       case "refresh":
         router.refresh();
         return setNotice("Обновлено");
@@ -156,6 +194,11 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
       }
       case "guid":
         return guid && copy(guid, `Идентификатор скопирован: ${guid}`);
+      case "defaultSettings":
+        if (ref.current) clearWidths(ref.current);
+        widthsRef.current = undefined;
+        forms?.saveForm(formKey, { widths: null });
+        return setNotice("Стандартные настройки");
     }
   };
 
@@ -190,7 +233,7 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
           >
             <Link2 size={15} />
           </button>
-          {forms && (
+          {forms?.closeCurrent && (
             <button type="button" className="form-tool" onClick={forms.closeCurrent} title="Закрыть окно" aria-label="Закрыть окно">
               <X size={16} />
             </button>
@@ -226,7 +269,7 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
           title={title}
           parts={parts}
           hidden={hidden}
-          onSave={(next) => forms.saveForm(formKey, next)}
+          onSave={(next) => forms.saveForm(formKey, { hidden: next })}
         />
       )}
 
@@ -276,7 +319,11 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
 
         .form-header { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
         .form-pages { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-        .form-footer { font-size: 12px; color: var(--color-muted); }
+        /* Подвал всегда на виду: на длинном списке прилипает к низу экрана, над нижней панелью */
+        .form-footer {
+          position: sticky; bottom: var(--shell-bottom, 0px); z-index: 4; margin: 0 -4px; padding: 5px 4px;
+          font-size: 12px; color: var(--color-muted); background: var(--color-bg); border-top: 1px solid var(--color-border);
+        }
 
         .more-menu {
           z-index: 50; min-width: 300px; max-height: min(75dvh, var(--radix-dropdown-menu-content-available-height));

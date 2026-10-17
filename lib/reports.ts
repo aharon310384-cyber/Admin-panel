@@ -10,3 +10,11 @@ const REPORTS: Record<string, (guid?: string) => ReportLink[]> = {};
 export function reportsFor(formKey: string, guid?: string): ReportLink[] {
   return REPORTS[formKey]?.(guid) ?? [];
 }
+
+// «Связанные документы» (Ctrl+Shift+S в «Ещё») — как в 1С: дерево документов вокруг записи окна.
+// Ключ — formKey окна, значение — адрес окна связанных документов для записи guid; нет записи — пункт серый.
+const RELATED: Record<string, (guid: string) => string> = {};
+
+export function relatedDocumentsFor(formKey: string, guid?: string): string | null {
+  return guid && RELATED[formKey] ? RELATED[formKey](guid) : null;
+}

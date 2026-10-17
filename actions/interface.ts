@@ -5,7 +5,17 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/server-helpers";
-import { FORM_KEY_RE, FORM_PARTS, normalizeForms, type FormPart } from "@/lib/form";
+import {
+  COLUMN_KEY_MAX,
+  COLUMN_MAX,
+  COLUMN_MIN,
+  FORM_KEY_RE,
+  FORM_PARTS,
+  MAX_COLUMNS,
+  normalizeForms,
+  type ColumnWidths,
+  type FormPart,
+} from "@/lib/form";
 import {
   FAVORITES_LIMIT,
   HISTORY_LIMIT,
@@ -21,7 +31,15 @@ import {
 
 const panelGroups = z.array(z.array(z.enum(PANEL_CODES)).min(1).max(MAX_GROUP_SIZE)).max(MAX_GROUPS);
 const panelsSchema = z.object({ top: panelGroups, left: panelGroups, right: panelGroups, bottom: panelGroups });
-const formSchema = z.object({ formKey: z.string().regex(FORM_KEY_RE), hidden: z.array(z.enum(FORM_PARTS)).max(FORM_PARTS.length) });
+const formSchema = z.object({
+  formKey: z.string().regex(FORM_KEY_RE),
+  hidden: z.array(z.enum(FORM_PARTS)).max(FORM_PARTS.length).optional(),
+  widths: z
+    .record(z.string().max(COLUMN_KEY_MAX), z.number().int().min(COLUMN_MIN).max(COLUMN_MAX))
+    .refine((value) => Object.keys(value).length <= MAX_COLUMNS)
+    .nullable()
+    .optional(),
+});
 
 // Адрес страницы админки: только свой сайт, без «//» и схем.
 const pageSchema = z.object({
@@ -99,13 +117,24 @@ export async function recordVisit(page: PageRef) {
   });
 }
 
-// «Изменить форму…»: какие части окна скрыты. Пустой список — все видны. Возвращает настройку всех окон.
-export async function saveFormSettings(formKey: string, hidden: FormPart[]) {
+// Настройка окна: hidden — скрытые части («Изменить форму…», пустой список — все видны),
+// widths — ширины столбцов (null — стандартные). Что не передано, не меняется. Возвращает настройку всех окон.
+export type FormSettingsPatch = { hidden?: FormPart[]; widths?: ColumnWidths | null };
+
+export async function saveFormSettings(formKey: string, patch: FormSettingsPatch) {
   const session = await requireAuth();
-  const parsed = formSchema.safeParse({ formKey, hidden });
+  const parsed = formSchema.safeParse({ formKey, ...patch });
   if (!parsed.success) return { error: "Неверная настройка формы" };
+  const { hidden, widths } = parsed.data;
   const current = normalizeForms((await settingsOf(session.user.id))?.forms);
-  const forms = normalizeForms({ ...current, [parsed.data.formKey]: { hidden: parsed.data.hidden } });
+  const entry = current[parsed.data.formKey] ?? { hidden: [] };
+  const forms = normalizeForms({
+    ...current,
+    [parsed.data.formKey]: {
+      hidden: hidden ?? entry.hidden,
+      widths: widths === undefined ? entry.widths : widths ?? undefined,
+    },
+  });
   const value = Object.keys(forms).length ? forms : Prisma.DbNull;
   await prisma.userInterfaceSettings.upsert({
     where: { userId: session.user.id },
