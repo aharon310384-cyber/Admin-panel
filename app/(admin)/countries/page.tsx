@@ -4,6 +4,7 @@ import { Globe } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Страны" };
 
@@ -47,7 +48,7 @@ export default async function CountriesPage({
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Справочник стран</h1>
+          <h1 className="page-title"><FavoriteStar />Справочник стран</h1>
           <p className="page-subtitle">
             {countries.length} стран с ISO-кодами и форматами почтовых индексов
           </p>

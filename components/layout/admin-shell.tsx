@@ -6,12 +6,15 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import TopNav from "@/components/layout/topnav";
 import { cn } from "@/lib/utils";
 import { FavoritesPanel, FunctionsPanel, HistoryPanel, OpenPanel, SectionsPanel, type Orientation } from "@/components/layout/panels";
-import { recordVisit, toggleFavorite } from "@/actions/interface";
+import { FavoritesContext } from "@/components/layout/favorites-context";
+import { pinFavorite, recordVisit, toggleFavorite } from "@/actions/interface";
 import {
   HISTORY_LIMIT,
   SECTIONS,
+  isVerticalZone,
   placedPanels,
   sectionForPath,
+  type Favorite,
   type HistoryEntry,
   type PageRef,
   type PanelCode,
@@ -52,7 +55,7 @@ type AdminShellProps = {
   userName: string;
   userRole: string;
   panels: PanelLayout;
-  favorites: PageRef[];
+  favorites: Favorite[];
   history: HistoryEntry[];
   children: React.ReactNode;
 };
@@ -127,16 +130,22 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
     if (path === pathname) router.push((next[Math.max(0, index - 1)] ?? next[0])?.href ?? "/dashboard");
   };
 
+  // Избранное: звёздочка у заголовка страницы добавляет и убирает, список — в звёздочке верхнего меню.
   const isFavorite = favorites.some((page) => page.path === pathname);
   const changeFavorite = async (page: PageRef) => {
     const exists = favorites.some((item) => item.path === page.path);
     setFavorites(exists ? favorites.filter((item) => item.path !== page.path) : [...favorites, page]);
-    const result = await toggleFavorite(page);
+    const result = await toggleFavorite({ path: page.path, href: page.href, title: page.title });
     if (result && "favorites" in result && result.favorites) setFavorites(result.favorites);
   };
   const toggleCurrentFavorite = () => {
     const href = search ? `${pathname}?${search}` : pathname;
     changeFavorite({ path: pathname, href, title: pageTitle(pathname) });
+  };
+  const changePin = async (path: string, pinned: boolean) => {
+    setFavorites(favorites.map((item) => (item.path === path ? { ...item, pinned } : item)));
+    const result = await pinFavorite(path, pinned);
+    if (result?.favorites) setFavorites(result.favorites);
   };
 
   const placed = placedPanels(panels);
@@ -144,7 +153,7 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
     SECTIONS.find((section) => section.code === selectedSection) ?? sectionForPath(pathname) ?? SECTIONS[0];
 
   const renderPanel = (code: PanelCode, zone: PanelZone) => {
-    const orientation: Orientation = zone === "left" || zone === "right" ? "vertical" : "horizontal";
+    const orientation: Orientation = isVerticalZone(zone) ? "vertical" : "horizontal";
     switch (code) {
       case "sections":
         return (
@@ -170,45 +179,45 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
     }
   };
 
-  return (
-    <div className={cn("admin-layout", panels.bottom.length > 0 && "admin-layout--bottom")}>
-      <TopNav userName={userName} userRole={userRole} isFavorite={isFavorite} onToggleFavorite={toggleCurrentFavorite} />
+  // Сверху и снизу — строки панелей (панели в строке стоят рядом), слева и справа — столбцы.
+  const rows = (zone: "top" | "bottom") =>
+    panels[zone].map((group) => (
+      <div key={group.join("+")} className="shell-zone-inner shell-row">
+        {group.map((code) => (
+          <div key={code} className="shell-cell">
+            {renderPanel(code, zone)}
+          </div>
+        ))}
+      </div>
+    ));
+  const columns = (zone: "left" | "right") => (
+    <aside className={`shell-zone shell-zone--side shell-zone--${zone}`}>
+      <div className="shell-side-inner">
+        {panels[zone].map((group) => (
+          <div key={group.join("+")} className="shell-col">
+            {group.map((code) => renderPanel(code, zone))}
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
 
-      {panels.top.length > 0 && (
-        <div className="shell-zone shell-zone--top">
-          {panels.top.map((code) => (
-            <div key={code} className="shell-zone-inner">
-              {renderPanel(code, "top")}
-            </div>
-          ))}
-        </div>
-      )}
+  return (
+    <FavoritesContext.Provider value={{ isCurrentFavorite: isFavorite, toggleCurrent: toggleCurrentFavorite }}>
+    <div className={cn("admin-layout", panels.bottom.length > 0 && "admin-layout--bottom")}>
+      <TopNav userName={userName} userRole={userRole} favorites={favorites} onPinFavorite={changePin} onRemoveFavorite={changeFavorite} />
+
+      {panels.top.length > 0 && <div className="shell-zone shell-zone--top">{rows("top")}</div>}
 
       <div className="shell-body">
-        {panels.left.length > 0 && (
-          <aside className="shell-zone shell-zone--side shell-zone--left">
-            <div className="shell-side-inner">{panels.left.map((code) => renderPanel(code, "left"))}</div>
-          </aside>
-        )}
+        {panels.left.length > 0 && columns("left")}
         <main className="admin-main">
           <div className="admin-content">{children}</div>
         </main>
-        {panels.right.length > 0 && (
-          <aside className="shell-zone shell-zone--side shell-zone--right">
-            <div className="shell-side-inner">{panels.right.map((code) => renderPanel(code, "right"))}</div>
-          </aside>
-        )}
+        {panels.right.length > 0 && columns("right")}
       </div>
 
-      {panels.bottom.length > 0 && (
-        <div className="shell-zone shell-zone--bottom">
-          {panels.bottom.map((code) => (
-            <div key={code} className="shell-zone-inner">
-              {renderPanel(code, "bottom")}
-            </div>
-          ))}
-        </div>
-      )}
+      {panels.bottom.length > 0 && <div className="shell-zone shell-zone--bottom">{rows("bottom")}</div>}
 
       <style>{`
         .admin-layout { display: flex; flex-direction: column; min-height: 100dvh; }
@@ -221,11 +230,23 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
         .shell-zone--bottom { border-top: 1px solid var(--color-border); position: sticky; bottom: 0; z-index: 25; }
         .shell-zone-inner { max-width: 1600px; margin: 0 auto; padding: 0 20px; }
         .shell-zone-inner + .shell-zone-inner { border-top: 1px solid var(--color-border); }
-        .shell-zone--side { width: 232px; flex-shrink: 0; }
+        .shell-row { display: flex; align-items: stretch; min-width: 0; }
+        .shell-cell { flex: 1 1 auto; min-width: 0; }
+        .shell-cell + .shell-cell { border-left: 1px solid var(--color-border); margin-left: 12px; padding-left: 12px; }
+        .shell-zone--side { flex-shrink: 0; }
         .shell-side-inner {
           position: sticky; top: 56px; max-height: calc(100dvh - 56px - var(--shell-bottom, 0px)); overflow-y: auto;
-          padding: 12px 10px; display: flex; flex-direction: column; gap: 14px;
+          padding: 12px 10px; display: flex; flex-direction: row; align-items: flex-start;
         }
+        .shell-col { width: 212px; display: flex; flex-direction: column; gap: 14px; }
+        .shell-col + .shell-col { border-left: 1px solid var(--color-border); margin-left: 10px; padding-left: 10px; }
+
+        .fav-star {
+          display: inline-flex; vertical-align: middle; position: relative; top: -2px; margin-right: 8px; padding: 3px;
+          border: none; background: none; cursor: pointer; border-radius: 6px; color: var(--color-muted); transition: color 0.15s, background 0.15s;
+        }
+        .fav-star:hover { color: #d99a12; background: var(--color-muted-bg); }
+        .fav-star--on, .fav-star--on:hover { color: #e0a414; }
         .admin-layout--bottom { --shell-bottom: 48px; }
         .shell-zone--left { border-right: 1px solid var(--color-border); }
         .shell-zone--right { border-left: 1px solid var(--color-border); }
@@ -289,6 +310,8 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
         }
         .pnl-tab-close:hover { color: var(--color-danger); background: var(--color-danger-bg); }
 
+        .pnl-item--pinned { font-weight: 700; color: var(--color-text); }
+        .pnl-pin { color: #23845f; }
         .pnl-history { justify-content: space-between; }
         .pnl-history-title { overflow: hidden; text-overflow: ellipsis; }
         .pnl-history-time { flex-shrink: 0; font-size: 11.5px; font-weight: 400; color: var(--color-muted); }
@@ -296,7 +319,11 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
         @media (max-width: 900px) {
           .shell-body { flex-direction: column; }
           .shell-zone--side { width: auto; border: none; border-bottom: 1px solid var(--color-border); }
-          .shell-side-inner { position: static; max-height: none; padding: 6px 16px; }
+          .shell-side-inner { position: static; max-height: none; padding: 6px 16px; flex-direction: column; }
+          .shell-col { width: auto; }
+          .shell-col + .shell-col { border-left: none; margin-left: 0; padding-left: 0; }
+          .shell-row { flex-direction: column; }
+          .shell-cell + .shell-cell { border-left: none; margin-left: 0; padding-left: 0; border-top: 1px solid var(--color-border); }
           .shell-zone--side .pnl--v { flex-direction: row; flex-wrap: wrap; }
           .shell-zone--side .pnl-item, .shell-zone--side .pnl-section-wrap, .shell-zone--side .pnl-tab { width: auto; }
         }
@@ -306,5 +333,6 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
         }
       `}</style>
     </div>
+    </FavoritesContext.Provider>
   );
 }

@@ -8,6 +8,7 @@ import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, orderStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
 import { computeEuCustomsDuty, hasIncompleteHsCodes } from "@/lib/eu-customs";
 import ParcelControls from "@/components/parcels/parcel-controls";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 const DUTY_REASON_LABEL: Record<string, string> = {
   "not-enabled": "мера отключена в настройках финансов",
@@ -121,7 +122,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
             <span>{parcel.number}</span>
           </div>
           <div className="title-row">
-            <h1 className="page-title mono">{parcel.number}</h1>
+            <h1 className="page-title mono"><FavoriteStar />{parcel.number}</h1>
             <span className={`badge badge--${tone}`}>{parcelStatusLabel(parcel.status)}</span>
             {parcel.isPaid && <span className="badge badge--paid">Оплачено</span>}
           </div>

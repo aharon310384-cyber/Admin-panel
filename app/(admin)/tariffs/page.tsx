@@ -9,6 +9,7 @@ import {
   formatTariffPrice,
   type ShippingTariff,
 } from "@/lib/postmanfox-tariffs";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Тарифы" };
 
@@ -56,7 +57,7 @@ export default function TariffsPage() {
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Тарифы PostmanFox</h1>
+          <h1 className="page-title"><FavoriteStar />Тарифы PostmanFox</h1>
           <p className="page-subtitle">
             Доставка из Китая, USD. Источник обновлен на сайте {POSTMANFOX_TARIFF_SOURCE.pageModifiedAt}.
           </p>

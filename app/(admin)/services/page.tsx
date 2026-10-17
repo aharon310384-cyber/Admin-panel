@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref } from "@/lib/list-params";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Услуги" };
 
@@ -174,7 +175,7 @@ export default async function ServicesPage({
       <div className="page-header">
         <div>
           <p className="page-eyebrow">Справочник</p>
-          <h1 className="page-title">Дополнительные услуги</h1>
+          <h1 className="page-title"><FavoriteStar />Дополнительные услуги</h1>
           <p className="page-subtitle">
             {SERVICES.length} услуг · {activeCount} активных · подключаются к посылке и заказу
           </p>

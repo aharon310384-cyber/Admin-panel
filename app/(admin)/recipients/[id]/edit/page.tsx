@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { updateRecipient } from "@/actions/recipients";
 import RecipientForm from "../../recipient-form";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Редактирование получателя" };
 
@@ -58,7 +59,7 @@ export default async function EditRecipientPage({
             <span className="breadcrumb-sep">/</span>
             <span>Редактирование</span>
           </div>
-          <h1 className="page-title">Редактирование получателя</h1>
+          <h1 className="page-title"><FavoriteStar />Редактирование получателя</h1>
         </div>
       </div>
 

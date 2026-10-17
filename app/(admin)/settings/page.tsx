@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import InterfaceMenu from "@/components/settings/interface-menu";
 import { getUserInterface } from "@/lib/interface-settings";
 import ChangePasswordForm from "./change-password-form";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Настройки" };
 
@@ -14,7 +15,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="page">
-      <h1 className="page-title">Настройки</h1>
+      <h1 className="page-title"><FavoriteStar />Настройки</h1>
 
       <div className="settings-grid">
         <div className="settings-col">

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import OrderForm from "@/components/orders/order-form";
 import { updateOrder, deleteOrder } from "@/actions/orders";
 import DeleteOrderButton from "./[id]/edit/delete-order-button";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export type OrderEditPageProps = {
   params: Promise<{ id: string }>;
@@ -65,7 +66,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
             <ArrowLeft size={16} />
             К заказам
           </Link>
-          <h1 className="page-title">Редактирование заказа</h1>
+          <h1 className="page-title"><FavoriteStar />Редактирование заказа</h1>
           <p className="page-subtitle">Один заказ = один товар + один входящий трек-номер</p>
         </div>
         <DeleteOrderButton productId={id} deleteAction={deleteOrder} />

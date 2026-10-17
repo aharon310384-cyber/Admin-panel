@@ -12,6 +12,7 @@ import OrdersChart from "@/components/ui/orders-chart";
 import { ParcelStatusBadge } from "@/components/ui/status-badge";
 import { startOfDay, startOfWeek, subDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Операции" };
 
@@ -92,7 +93,7 @@ export default async function DashboardPage() {
     <div className="dashboard">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Операции PostmanFox</h1>
+          <h1 className="page-title"><FavoriteStar />Операции PostmanFox</h1>
           <p className="page-subtitle">
             Рабочий центр посылок, {session?.user.name}
           </p>

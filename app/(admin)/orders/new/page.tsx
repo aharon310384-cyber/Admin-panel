@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import OrderBulkImport from "@/components/orders/order-bulk-import";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Новый заказ" };
 
@@ -35,7 +36,7 @@ export default async function NewOrderPage() {
         <ArrowLeft size={16} />
         К заказам
       </Link>
-      <h1 className="page-title">Новый заказ</h1>
+      <h1 className="page-title"><FavoriteStar />Новый заказ</h1>
       <p className="page-subtitle">Один заказ = один товар + один входящий трек-номер. Несколько входящих трек-номеров — несколько заказов.</p>
 
       <OrderBulkImport customers={customers} recipients={recipients} productNames={productNames} countries={countries} />

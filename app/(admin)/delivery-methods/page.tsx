@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Виды доставки" };
 
@@ -15,7 +16,7 @@ export default async function DeliveryMethodsPage() {
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Виды доставки</h1>
+          <h1 className="page-title"><FavoriteStar />Виды доставки</h1>
           <p className="page-subtitle">
             Справочник видов доставки. Привязан к заказам, посылкам и тарифам по коду.
           </p>
