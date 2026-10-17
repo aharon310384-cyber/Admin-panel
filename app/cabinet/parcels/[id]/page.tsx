@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
-  ExternalLink,
   MapPin,
   MessageSquare,
   Package,
@@ -19,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { clientParcelNumber } from "@/lib/parcel-number";
 import { deliveryTypeLabel } from "@/lib/statuses";
 import StatusPill, { statusLabel } from "@/components/cabinet/status-pill";
+import TrackNumber from "@/components/cabinet/track-number";
 import { formatUsd, formatDate, formatNumber } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Посылка" };
@@ -111,9 +111,6 @@ export default async function ClientCabinetParcelDetailPage({
   const showDutyRow = dutyUsd > 0 && dutyPassToClient;
   const dutyPaidBySender = dutyUsd > 0 && !dutyPassToClient;
 
-  const trackUrl = parcel.trackingNumber
-    ? `https://t.17track.net/en#nums=${encodeURIComponent(parcel.trackingNumber)}`
-    : null;
 
   return (
     <div className="pd">
@@ -165,16 +162,7 @@ export default async function ClientCabinetParcelDetailPage({
           <Radar size={15} className="pd-title-icon" />
           Отслеживание
         </h2>
-        {trackUrl ? (
-          <a className="pd-track" href={trackUrl} target="_blank" rel="noopener noreferrer">
-            <span className="pd-track-num">{parcel.trackingNumber}</span>
-            <span className="pd-track-go">
-              17track <ExternalLink size={13} />
-            </span>
-          </a>
-        ) : (
-          <p className="pd-track-none">Трек-номер пока не присвоен</p>
-        )}
+        <TrackNumber trackingNumber={parcel.trackingNumber} />
       </section>
 
       <section className="pd-card">
@@ -391,20 +379,6 @@ export default async function ClientCabinetParcelDetailPage({
         .pd-fact-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--cab-muted); }
         .pd-fact-val { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-        .pd-track {
-          display: flex; align-items: center; justify-content: space-between; gap: 12px;
-          padding: 13px 14px; border-radius: var(--cab-radius-sm); text-decoration: none;
-          background: color-mix(in srgb, var(--cab-bg) 60%, var(--cab-surface));
-          border: 1px solid var(--cab-border); color: var(--cab-text);
-          transition: border-color 0.15s ease;
-        }
-        .pd-track:hover { border-color: color-mix(in srgb, var(--cab-green) 40%, var(--cab-border)); }
-        .pd-track-num { font-family: var(--font-jetbrains-mono), monospace; font-size: 14px; font-weight: 600; word-break: break-all; }
-        .pd-track-go {
-          display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
-          font-size: 12.5px; font-weight: 700; color: var(--cab-green-deep);
-        }
-        .pd-track-none { margin: 0; font-size: 13px; color: var(--cab-muted); }
 
         .pd-contacts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
         .pd-contact { display: flex; align-items: flex-start; gap: 12px; }
