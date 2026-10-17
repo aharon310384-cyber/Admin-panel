@@ -1,12 +1,10 @@
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import OrderForm from "@/components/orders/order-form";
 import { updateOrder, deleteOrder } from "@/actions/orders";
 import DeleteOrderButton from "./[id]/edit/delete-order-button";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export type OrderEditPageProps = {
   params: Promise<{ id: string }>;
@@ -59,70 +57,66 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
   const update = updateOrder.bind(null, id);
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <Link href="/orders" className="back">
-            <ArrowLeft size={16} />
-            К заказам
-          </Link>
-          <h1 className="page-title"><FavoriteStar />Редактирование заказа</h1>
-          <p className="page-subtitle">Один заказ = один товар + один входящий трек-номер</p>
+    <>
+      <Form
+        formKey="order-edit"
+        title="Редактирование заказа"
+        guid={order.id}
+        commands={
+          <span data-command="remove" data-label="Удалить">
+            <DeleteOrderButton productId={id} deleteAction={deleteOrder} />
+          </span>
+        }
+        header={
+          <div className="meta">
+            <div className="meta-item">
+              <span className="meta-label">Дата создания</span>
+              <span className="meta-value">{createdAtLabel}</span>
+            </div>
+            <div className="meta-item">
+              <span className="meta-label">Автор</span>
+              <span className="meta-value">{authorLabel}</span>
+            </div>
+          </div>
+        }
+        footer={<>Один заказ = один товар + один входящий трек-номер</>}
+      >
+        <div className="card">
+          <OrderForm
+            customers={customers}
+            recipients={recipients}
+            productNames={productNames}
+            deliveryMethods={deliveryMethods}
+            action={update}
+            submitLabel="Сохранить изменения"
+            initial={{
+              customerId: order.customerId,
+              recipientId: order.recipientId,
+              deliveryType: order.deliveryType,
+              productNameText: order.productNameText ?? "",
+              trackNumber: order.trackNumber,
+              customerComment: order.customerComment,
+              quantity: order.quantity,
+              unitPriceUsd: order.unitPriceUsd != null ? Number(order.unitPriceUsd) : null,
+              actualWeightKg: order.actualWeightKg != null ? Number(order.actualWeightKg) : null,
+              detailedCheckRequested: order.detailedCheckRequested,
+              keepOriginalPackaging: order.keepOriginalPackaging,
+              consolidationRequested: order.consolidationRequested,
+              compactPackRequested: order.compactPackRequested,
+              standardCheckRequested: order.standardCheckRequested,
+              reinforcedPackRequested: order.reinforcedPackRequested,
+            }}
+          />
         </div>
-        <DeleteOrderButton productId={id} deleteAction={deleteOrder} />
-      </div>
-
-      <div className="meta">
-        <div className="meta-item">
-          <span className="meta-label">Дата создания</span>
-          <span className="meta-value">{createdAtLabel}</span>
-        </div>
-        <div className="meta-item">
-          <span className="meta-label">Автор</span>
-          <span className="meta-value">{authorLabel}</span>
-        </div>
-      </div>
-
-      <div className="card">
-        <OrderForm
-          customers={customers}
-          recipients={recipients}
-          productNames={productNames}
-          deliveryMethods={deliveryMethods}
-          action={update}
-          submitLabel="Сохранить изменения"
-          initial={{
-            customerId: order.customerId,
-            recipientId: order.recipientId,
-            deliveryType: order.deliveryType,
-            productNameText: order.productNameText ?? "",
-            trackNumber: order.trackNumber,
-            customerComment: order.customerComment,
-            quantity: order.quantity,
-            unitPriceUsd: order.unitPriceUsd != null ? Number(order.unitPriceUsd) : null,
-            actualWeightKg: order.actualWeightKg != null ? Number(order.actualWeightKg) : null,
-            detailedCheckRequested: order.detailedCheckRequested,
-            keepOriginalPackaging: order.keepOriginalPackaging,
-            consolidationRequested: order.consolidationRequested,
-            compactPackRequested: order.compactPackRequested,
-            standardCheckRequested: order.standardCheckRequested,
-            reinforcedPackRequested: order.reinforcedPackRequested,
-          }}
-        />
-      </div>
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-        .back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--color-accent); text-decoration: none; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 6px 0 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 0; }
         .card { margin-top: 8px; padding: 14px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
-        .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+        .meta { display: flex; flex-wrap: wrap; gap: 10px; }
         .meta-item { display: flex; flex-direction: column; gap: 3px; padding: 8px 14px; background: color-mix(in oklch, var(--color-muted-bg) 40%, var(--color-surface)); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
         .meta-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
         .meta-value { font-size: 13.5px; font-weight: 600; color: var(--color-text); font-variant-numeric: tabular-nums; }
       `}</style>
-    </div>
+    </>
   );
 }

@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import InterfaceMenu from "@/components/settings/interface-menu";
 import { getUserInterface } from "@/lib/interface-settings";
 import ChangePasswordForm from "./change-password-form";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Настройки" };
 
@@ -14,59 +14,56 @@ export default async function SettingsPage() {
   const { USER_ROLE_LABELS } = await import("@/types");
 
   return (
-    <div className="page">
-      <h1 className="page-title"><FavoriteStar />Настройки</h1>
-
-      <div className="settings-grid">
-        <div className="settings-col">
-          {/* Информация об аккаунте */}
-          <div className="card">
-            <h2 className="card-title">Мой аккаунт</h2>
-            <div className="account-info">
-              <div className="account-avatar">
-                {session?.user.name?.charAt(0).toUpperCase()}
+    <>
+      <Form formKey="settings" title="Настройки">
+        <div className="settings-grid">
+          <div className="settings-col">
+            {/* Информация об аккаунте */}
+            <div className="card">
+              <h2 className="card-title">Мой аккаунт</h2>
+              <div className="account-info">
+                <div className="account-avatar">
+                  {session?.user.name?.charAt(0).toUpperCase()}
+                </div>
+                <dl className="info-list">
+                  <div className="info-row">
+                    <dt>Имя</dt>
+                    <dd>{session?.user.name}</dd>
+                  </div>
+                  <div className="info-row">
+                    <dt>Email</dt>
+                    <dd>{session?.user.email}</dd>
+                  </div>
+                  <div className="info-row">
+                    <dt>Роль</dt>
+                    <dd>
+                      <span className={`role-badge role-badge--${session?.user.role?.toLowerCase()}`}>
+                        {session?.user.role
+                          ? USER_ROLE_LABELS[session.user.role as "ADMIN" | "MANAGER"]
+                          : "—"}
+                      </span>
+                    </dd>
+                  </div>
+                </dl>
               </div>
-              <dl className="info-list">
-                <div className="info-row">
-                  <dt>Имя</dt>
-                  <dd>{session?.user.name}</dd>
-                </div>
-                <div className="info-row">
-                  <dt>Email</dt>
-                  <dd>{session?.user.email}</dd>
-                </div>
-                <div className="info-row">
-                  <dt>Роль</dt>
-                  <dd>
-                    <span className={`role-badge role-badge--${session?.user.role?.toLowerCase()}`}>
-                      {session?.user.role
-                        ? USER_ROLE_LABELS[session.user.role as "ADMIN" | "MANAGER"]
-                        : "—"}
-                    </span>
-                  </dd>
-                </div>
-              </dl>
+            </div>
+
+            {/* Интерфейс */}
+            <div className="card">
+              <h2 className="card-title">Интерфейс</h2>
+              {panels && <InterfaceMenu panels={panels} />}
             </div>
           </div>
 
-          {/* Интерфейс */}
+          {/* Смена пароля */}
           <div className="card">
-            <h2 className="card-title">Интерфейс</h2>
-            {panels && <InterfaceMenu panels={panels} />}
+            <h2 className="card-title">Сменить пароль</h2>
+            <ChangePasswordForm />
           </div>
         </div>
-
-        {/* Смена пароля */}
-        <div className="card">
-          <h2 className="card-title">Сменить пароль</h2>
-          <ChangePasswordForm />
-        </div>
-      </div>
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 24px; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
-
         .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
         .settings-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
@@ -97,6 +94,6 @@ export default async function SettingsPage() {
 
         @media (max-width: 768px) { .settings-grid { grid-template-columns: 1fr; } }
       `}</style>
-    </div>
+    </>
   );
 }

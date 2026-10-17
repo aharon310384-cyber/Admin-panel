@@ -4,7 +4,7 @@ import { Globe } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Страны" };
 
@@ -45,59 +45,52 @@ export default async function CountriesPage({
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><FavoriteStar />Справочник стран</h1>
-          <p className="page-subtitle">
-            {countries.length} стран с ISO-кодами и форматами почтовых индексов
-          </p>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th><SortableHeader label="Код" href={sortHref("code")} active={sortField === "code"} direction={sortDir} /></th>
-                <th><SortableHeader label="Название (RU)" href={sortHref("nameRu")} active={sortField === "nameRu"} direction={sortDir} /></th>
-                <th><SortableHeader label="Название (EN)" href={sortHref("nameEn")} active={sortField === "nameEn"} direction={sortDir} /></th>
-                <th>Формат индекса</th>
-                <th>Пример</th>
-              </tr>
-            </thead>
-            <tbody>
-              {countries.map((c) => (
-                <tr key={c.code}>
-                  <td>
-                    <span className="code-pill">{c.code}</span>
-                  </td>
-                  <td>{c.nameRu}</td>
-                  <td className="text-muted">{c.nameEn}</td>
-                  <td className="mono text-muted">{dash(c.postalCodeRegex)}</td>
-                  <td className="mono">{dash(c.postalCodeExample)}</td>
-                </tr>
-              ))}
-              {countries.length === 0 && (
+    <>
+      <Form
+        formKey="countries"
+        title="Справочник стран"
+        footer={<>{countries.length} стран с ISO-кодами и форматами почтовых индексов</>}
+      >
+        <div className="card">
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="table-empty">
-                    <Globe size={18} style={{ marginBottom: 8, opacity: 0.5 }} />
-                    <div>Справочник пуст. Запустите prisma/seed-countries.ts</div>
-                  </td>
+                  <th><SortableHeader label="Код" href={sortHref("code")} active={sortField === "code"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Название (RU)" href={sortHref("nameRu")} active={sortField === "nameRu"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Название (EN)" href={sortHref("nameEn")} active={sortField === "nameEn"} direction={sortDir} /></th>
+                  <th>Формат индекса</th>
+                  <th>Пример</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {countries.map((c) => (
+                  <tr key={c.code}>
+                    <td>
+                      <span className="code-pill">{c.code}</span>
+                    </td>
+                    <td>{c.nameRu}</td>
+                    <td className="text-muted">{c.nameEn}</td>
+                    <td className="mono text-muted">{dash(c.postalCodeRegex)}</td>
+                    <td className="mono">{dash(c.postalCodeExample)}</td>
+                  </tr>
+                ))}
+                {countries.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="table-empty">
+                      <Globe size={18} style={{ marginBottom: 8, opacity: 0.5 }} />
+                      <div>Справочник пуст. Запустите prisma/seed-countries.ts</div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 20px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
-
         .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }
         .table-wrap { overflow-x: auto; }
         .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -112,6 +105,6 @@ export default async function CountriesPage({
 
         .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
       `}</style>
-    </div>
+    </>
   );
 }

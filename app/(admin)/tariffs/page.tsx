@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExternalLink } from "lucide-react";
 import {
   ADDITIONAL_SERVICE_TARIFFS,
   EMS_SHIPPING_TARIFFS,
@@ -9,7 +10,7 @@ import {
   formatTariffPrice,
   type ShippingTariff,
 } from "@/lib/postmanfox-tariffs";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Тарифы" };
 
@@ -54,114 +55,109 @@ function TariffRows({
 
 export default function TariffsPage() {
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><FavoriteStar />Тарифы PostmanFox</h1>
-          <p className="page-subtitle">
-            Доставка из Китая, USD. Источник обновлен на сайте {POSTMANFOX_TARIFF_SOURCE.pageModifiedAt}.
-          </p>
+    <>
+      <Form
+        formKey="tariffs"
+        title="Тарифы PostmanFox"
+        commands={
+          <a
+            href={POSTMANFOX_TARIFF_SOURCE.url}
+            className="cmd"
+            data-command="source"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <ExternalLink size={15} />
+            Открыть источник
+          </a>
+        }
+        footer={<>Доставка из Китая, USD. Источник обновлен на сайте {POSTMANFOX_TARIFF_SOURCE.pageModifiedAt}.</>}
+      >
+        <div className="summary-grid">
+          <div className="metric">
+            <span className="metric-label">Основных направлений</span>
+            <strong>{MAIN_SHIPPING_TARIFFS.length}</strong>
+          </div>
+          <div className="metric">
+            <span className="metric-label">EMS-групп</span>
+            <strong>{EMS_SHIPPING_TARIFFS.length}</strong>
+          </div>
+          <div className="metric">
+            <span className="metric-label">Доп. услуг</span>
+            <strong>{ADDITIONAL_SERVICE_TARIFFS.length}</strong>
+          </div>
         </div>
-        <a
-          href={POSTMANFOX_TARIFF_SOURCE.url}
-          className="btn-secondary"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Открыть источник
-        </a>
-      </div>
 
-      <div className="summary-grid">
-        <div className="metric">
-          <span className="metric-label">Основных направлений</span>
-          <strong>{MAIN_SHIPPING_TARIFFS.length}</strong>
-        </div>
-        <div className="metric">
-          <span className="metric-label">EMS-групп</span>
-          <strong>{EMS_SHIPPING_TARIFFS.length}</strong>
-        </div>
-        <div className="metric">
-          <span className="metric-label">Доп. услуг</span>
-          <strong>{ADDITIONAL_SERVICE_TARIFFS.length}</strong>
-        </div>
-      </div>
-
-      <section className="card">
-        <div className="section-head">
-          <h2 className="card-title">Основные направления</h2>
-          <span className="section-note">Формула: ставка за кг + оформление</span>
-        </div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Направление</th>
-                <th>Стоимость</th>
-                <th>Срок</th>
-                <th>Доставка</th>
-              </tr>
-            </thead>
-            <TariffRows rows={MAIN_SHIPPING_TARIFFS} />
-          </table>
-        </div>
-      </section>
-
-      <section className="card">
-        <div className="section-head">
-          <h2 className="card-title">EMS</h2>
-          <span className="section-note">Группы стран для международной доставки</span>
-        </div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Страны</th>
-                <th>Стоимость</th>
-                <th>Срок</th>
-                <th>Доставка</th>
-              </tr>
-            </thead>
-            <TariffRows rows={EMS_SHIPPING_TARIFFS} show="destination" />
-          </table>
-        </div>
-      </section>
-
-      <section className="card">
-        <div className="section-head">
-          <h2 className="card-title">Дополнительные услуги</h2>
-          <span className="section-note">Для расчета упаковки, консолидации, проверки и страховки</span>
-        </div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Услуга</th>
-                <th>Описание</th>
-                <th>Цена</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ADDITIONAL_SERVICE_TARIFFS.map((service) => (
-                <tr key={service.title}>
-                  <td className="service-title">{service.title}</td>
-                  <td>{service.description}</td>
-                  <td className="tabular">{formatAdditionalServicePrice(service)}</td>
+        <section className="card">
+          <div className="section-head">
+            <h2 className="card-title">Основные направления</h2>
+            <span className="section-note">Формула: ставка за кг + оформление</span>
+          </div>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Направление</th>
+                  <th>Стоимость</th>
+                  <th>Срок</th>
+                  <th>Доставка</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <TariffRows rows={MAIN_SHIPPING_TARIFFS} />
+            </table>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="section-head">
+            <h2 className="card-title">EMS</h2>
+            <span className="section-note">Группы стран для международной доставки</span>
+          </div>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Страны</th>
+                  <th>Стоимость</th>
+                  <th>Срок</th>
+                  <th>Доставка</th>
+                </tr>
+              </thead>
+              <TariffRows rows={EMS_SHIPPING_TARIFFS} show="destination" />
+            </table>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="section-head">
+            <h2 className="card-title">Дополнительные услуги</h2>
+            <span className="section-note">Для расчета упаковки, консолидации, проверки и страховки</span>
+          </div>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Услуга</th>
+                  <th>Описание</th>
+                  <th>Цена</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ADDITIONAL_SERVICE_TARIFFS.map((service) => (
+                  <tr key={service.title}>
+                    <td className="service-title">{service.title}</td>
+                    <td>{service.description}</td>
+                    <td className="tabular">{formatAdditionalServicePrice(service)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 20px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
-        .btn-secondary { display: inline-flex; align-items: center; padding: 9px 16px; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--color-text); text-decoration: none; transition: background 0.15s; white-space: nowrap; }
-        .btn-secondary:hover { background: var(--color-muted-bg); }
-
         .summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
         .metric { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px; box-shadow: var(--shadow-card); }
         .metric-label { display: block; color: var(--color-muted); font-size: 12px; margin-bottom: 6px; }
@@ -194,6 +190,6 @@ export default function TariffsPage() {
           .table { font-size: 13px; }
         }
       `}</style>
-    </div>
+    </>
   );
 }

@@ -7,7 +7,9 @@ import TopNav from "@/components/layout/topnav";
 import { cn } from "@/lib/utils";
 import { FavoritesPanel, FunctionsPanel, HistoryPanel, OpenPanel, SectionsPanel, type Orientation } from "@/components/layout/panels";
 import { FavoritesContext } from "@/components/layout/favorites-context";
-import { pinFavorite, recordVisit, toggleFavorite } from "@/actions/interface";
+import { FormsContext } from "@/components/form/form-context";
+import { pinFavorite, recordVisit, saveFormSettings, toggleFavorite } from "@/actions/interface";
+import type { FormPart, FormsSettings } from "@/lib/form";
 import {
   HISTORY_LIMIT,
   SECTIONS,
@@ -57,22 +59,33 @@ type AdminShellProps = {
   panels: PanelLayout;
   favorites: Favorite[];
   history: HistoryEntry[];
+  forms: FormsSettings;
   children: React.ReactNode;
 };
 
-export default function AdminShell({ userName, userRole, panels, favorites: savedFavorites, history: savedHistory, children }: AdminShellProps) {
+export default function AdminShell({
+  userName,
+  userRole,
+  panels,
+  favorites: savedFavorites,
+  history: savedHistory,
+  forms: savedForms,
+  children,
+}: AdminShellProps) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const router = useRouter();
 
   const [favorites, setFavorites] = useState(savedFavorites);
   const [history, setHistory] = useState(savedHistory);
+  const [forms, setForms] = useState(savedForms);
   const [tabs, setTabs] = useState<PageRef[]>([]);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const lastRecorded = useRef<string | null>(null);
 
   useEffect(() => setFavorites(savedFavorites), [savedFavorites]);
   useEffect(() => setHistory(savedHistory), [savedHistory]);
+  useEffect(() => setForms(savedForms), [savedForms]);
   useEffect(() => setTabs(readTabs()), []);
   // Раздел по умолчанию — тот, где открытая страница.
   useEffect(() => setSelectedSection(null), [pathname]);
@@ -148,6 +161,24 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
     if (result?.favorites) setFavorites(result.favorites);
   };
 
+  // «Изменить форму…»: какие части окна скрыты — сразу на экране, потом в базе.
+  const saveForm = async (formKey: string, hidden: FormPart[]) => {
+    const previous = forms;
+    setForms((now) => {
+      const next = { ...now };
+      if (hidden.length) next[formKey] = { hidden };
+      else delete next[formKey];
+      return next;
+    });
+    const result = await saveFormSettings(formKey, hidden).catch(() => null);
+    if (result?.forms) {
+      setForms(result.forms);
+      return true;
+    }
+    setForms(previous);
+    return false;
+  };
+
   const placed = placedPanels(panels);
   const currentSection =
     SECTIONS.find((section) => section.code === selectedSection) ?? sectionForPath(pathname) ?? SECTIONS[0];
@@ -204,6 +235,7 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
 
   return (
     <FavoritesContext.Provider value={{ isCurrentFavorite: isFavorite, toggleCurrent: toggleCurrentFavorite }}>
+    <FormsContext.Provider value={{ forms, saveForm, closeCurrent: () => closeTab(pathname) }}>
     <div className={cn("admin-layout", panels.bottom.length > 0 && "admin-layout--bottom")}>
       <TopNav userName={userName} userRole={userRole} favorites={favorites} onPinFavorite={changePin} onRemoveFavorite={changeFavorite} />
 
@@ -332,6 +364,7 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
         }
       `}</style>
     </div>
+    </FormsContext.Provider>
     </FavoritesContext.Provider>
   );
 }

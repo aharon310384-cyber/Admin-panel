@@ -15,7 +15,7 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
-  const { panels, favorites, history } = await getUserInterface(session.user.id);
+  const { panels, favorites, history, forms } = await getUserInterface(session.user.id);
 
   return (
     <AdminShell
@@ -24,6 +24,7 @@ export default async function AdminLayout({
       panels={panels}
       favorites={favorites}
       history={history}
+      forms={forms}
     >
       {children}
     </AdminShell>

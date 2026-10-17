@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import OrdersSelectTable, { type OrderRow } from "@/components/orders/orders-select-table";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Заказы" };
 
@@ -100,28 +100,18 @@ export default async function OrdersPage({
   }));
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><FavoriteStar />Заказы</h1>
-          <p className="page-subtitle">{orders.length} заказов · отметьте принятые → «Оформить на отправку»</p>
-        </div>
-        <Link href="/orders/new" className="btn-add">
-          <Plus size={16} />
-          Добавить заказ
+    <Form
+      formKey="orders"
+      title="Заказы"
+      commands={
+        <Link href="/orders/new" className="cmd cmd--primary" data-command="create">
+          <Plus size={15} />
+          Создать
         </Link>
-      </div>
-
+      }
+      footer={<>{orders.length} заказов · отметьте принятые → «Оформить на отправку»</>}
+    >
       <OrdersSelectTable orders={rows} sortHrefs={sortHrefs} sortField={sortField} sortDir={sortDir} />
-
-      <style>{`
-        .page { display: flex; flex-direction: column; gap: 20px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
-        .btn-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; background: var(--color-accent); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; color: #fff; text-decoration: none; white-space: nowrap; transition: opacity 0.15s; }
-        .btn-add:hover { opacity: 0.9; }
-      `}</style>
-    </div>
+    </Form>
   );
 }

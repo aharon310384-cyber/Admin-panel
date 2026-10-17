@@ -164,6 +164,7 @@ model UserInterfaceSettings {
   panels    Json?    // где какие панели: { top: [...], left: [...], right: [...], bottom: [...] }; пусто — стандартные
   favorites Json?    // избранное: [{ path, href, title }]
   history   Json?    // история: [{ path, href, title, at }], новые первыми
+  forms     Json?    // настройка форм: { [ключ окна]: { hidden: [скрытые части] } }; пусто — все части видны
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

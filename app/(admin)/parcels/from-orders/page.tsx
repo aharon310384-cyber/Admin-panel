@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatNumber } from "@/lib/utils";
 import { deliveryTypeLabel } from "@/lib/statuses";
 import FormFromOrders from "@/components/parcels/form-from-orders";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Оформить посылку" };
 
@@ -41,22 +39,20 @@ export default async function FromOrdersPage({
   }));
 
   return (
-    <div className="page">
-      <Link href="/parcels" className="back"><ArrowLeft size={16} /> К посылкам</Link>
-      <h1 className="page-title"><FavoriteStar />Оформить посылку</h1>
-      <p className="page-subtitle">Выберите принятые заказы одного клиента → соберём в посылку с расчётом</p>
-
-      <div className="card">
-        <FormFromOrders rows={rows} preselected={preselected} />
-      </div>
+    <>
+      <Form
+        formKey="parcels-from-orders"
+        title="Оформить посылку"
+        footer="Выберите принятые заказы одного клиента → соберём в посылку с расчётом"
+      >
+        <div className="card">
+          <FormFromOrders rows={rows} preselected={preselected} />
+        </div>
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 12px; max-width: 820px; }
-        .back { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: 13px; font-weight: 600; color: var(--color-accent); text-decoration: none; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 6px 0 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 0; }
         .card { margin-top: 8px; padding: 14px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
       `}</style>
-    </div>
+    </>
   );
 }
