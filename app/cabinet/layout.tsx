@@ -7,8 +7,13 @@ import CabinetNav from "@/components/cabinet/cabinet-nav";
 import CabinetSidebar from "@/components/cabinet/cabinet-sidebar";
 import TelegramInit from "@/components/cabinet/telegram-init";
 
+// Своё название вкладки у кабинета: «Обзор | PostmanFox» вместо общего «… | Админ-панель»
 export const metadata: Metadata = {
-  title: "Кабинет клиента",
+  title: {
+    default: "Личный кабинет | PostmanFox",
+    template: "%s | PostmanFox",
+  },
+  description: "Личный кабинет клиента PostmanFox — посылки из Китая",
 };
 
 export default async function ClientCabinetLayout({
