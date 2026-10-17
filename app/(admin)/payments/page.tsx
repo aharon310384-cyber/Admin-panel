@@ -6,6 +6,7 @@ import {
 } from "@/lib/finance";
 import { parsePageParam, parseSortParam } from "@/lib/list-params";
 import PaymentsTab from "../finance/payments-tab";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Расчёт и оплата" };
 
@@ -37,7 +38,7 @@ export default async function PaymentsPage({
       <div className="page-header">
         <div>
           <p className="page-eyebrow">Регистр</p>
-          <h1 className="page-title">Расчёт и оплата</h1>
+          <h1 className="page-title"><FavoriteStar />Расчёт и оплата</h1>
           <p className="page-subtitle">Сводка расчётов по посылкам и статус оплаты</p>
         </div>
       </div>

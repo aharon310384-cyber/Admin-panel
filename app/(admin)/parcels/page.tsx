@@ -6,6 +6,7 @@ import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Посылки" };
 
@@ -76,7 +77,7 @@ export default async function ParcelsPage({
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Посылки</h1>
+          <h1 className="page-title"><FavoriteStar />Посылки</h1>
           <p className="page-subtitle">{parcels.length} посылок</p>
         </div>
       </div>

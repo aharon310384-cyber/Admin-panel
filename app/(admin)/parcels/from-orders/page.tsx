@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { formatNumber } from "@/lib/utils";
 import { deliveryTypeLabel } from "@/lib/statuses";
 import FormFromOrders from "@/components/parcels/form-from-orders";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Оформить посылку" };
 
@@ -42,7 +43,7 @@ export default async function FromOrdersPage({
   return (
     <div className="page">
       <Link href="/parcels" className="back"><ArrowLeft size={16} /> К посылкам</Link>
-      <h1 className="page-title">Оформить посылку</h1>
+      <h1 className="page-title"><FavoriteStar />Оформить посылку</h1>
       <p className="page-subtitle">Выберите принятые заказы одного клиента → соберём в посылку с расчётом</p>
 
       <div className="card">

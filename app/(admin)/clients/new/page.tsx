@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/actions/customers";
 import ClientForm from "../client-form";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Новый клиент" };
 
@@ -28,7 +29,7 @@ export default async function NewClientPage() {
             <span className="breadcrumb-sep">/</span>
             <span>Новый</span>
           </div>
-          <h1 className="page-title">Новый клиент</h1>
+          <h1 className="page-title"><FavoriteStar />Новый клиент</h1>
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 import ClickableRow from "@/components/ui/clickable-row";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Получатели" };
 
@@ -63,7 +64,7 @@ export default async function RecipientsPage({
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Получатели</h1>
+          <h1 className="page-title"><FavoriteStar />Получатели</h1>
           <p className="page-subtitle">{recipients.length} получателей · привязаны к клиентам</p>
         </div>
         <Link href="/recipients/new" className="btn-add">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ArrowDown, ArrowRight, Plus, Workflow } from "lucide-react";
 import { PARCEL_STATUS_LABELS, PARCEL_STATUS_TONE } from "@/types";
 import type { ParcelStatus } from "@prisma/client";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Статусы" };
 
@@ -64,7 +65,7 @@ export default function StatusesPage() {
       <div className="page-header">
         <div>
           <p className="page-eyebrow">Справочник</p>
-          <h1 className="page-title">Статусы посылок</h1>
+          <h1 className="page-title"><FavoriteStar />Статусы посылок</h1>
           <p className="page-subtitle">
             Воронка переходов и счётчики по этапам · {totalStatuses} статуса · {totalParcels} посылок
           </p>

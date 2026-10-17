@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { formatCny, formatDateTime } from "@/lib/utils";
 import { ParcelStatusBadge } from "@/components/ui/status-badge";
 import SetPasswordButton from "@/components/clients/set-password-button";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Карточка клиента" };
 
@@ -131,7 +132,7 @@ export default async function ClientDetailPage({
             <span className="breadcrumb-sep">/</span>
             <span>{client.code ?? clientDisplayName(client)}</span>
           </div>
-          <h1 className="page-title">
+          <h1 className="page-title"><FavoriteStar />
             {client.code && (
               <span className="code-pill code-pill--lg">{client.code}</span>
             )}

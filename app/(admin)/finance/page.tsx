@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { getFinanceSettings, getRatesStats } from "@/lib/finance";
 import RatesTab from "./rates-tab";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Курс" };
 
@@ -17,7 +18,7 @@ export default async function FinancePage() {
       <div className="page-header">
         <div>
           <p className="page-eyebrow">Регистр</p>
-          <h1 className="page-title">Курс</h1>
+          <h1 className="page-title"><FavoriteStar />Курс</h1>
           <p className="page-subtitle">Курс CNY / USD по умолчанию для новых посылок</p>
         </div>
       </div>

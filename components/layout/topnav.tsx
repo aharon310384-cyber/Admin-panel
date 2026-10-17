@@ -18,7 +18,6 @@ import {
   Receipt,
   Settings,
   Sparkles,
-  Star,
   Tags,
   Truck,
   Users,
@@ -30,6 +29,8 @@ import { cn } from "@/lib/utils";
 import { USER_ROLE_LABELS } from "@/types";
 import type { UserRole } from "@prisma/client";
 import { BrandLogo } from "@/components/ui/brand-logo";
+import FavoritesMenu from "@/components/layout/favorites-menu";
+import type { Favorite } from "@/lib/interface";
 
 type NavItem = {
   href: string;
@@ -85,11 +86,12 @@ const NAV_GROUPS: NavGroup[] = [
 type TopNavProps = {
   userName: string;
   userRole: string;
-  isFavorite: boolean;
-  onToggleFavorite: () => void;
+  favorites: Favorite[];
+  onPinFavorite: (path: string, pinned: boolean) => void;
+  onRemoveFavorite: (favorite: Favorite) => void;
 };
 
-export default function TopNav({ userName, userRole, isFavorite, onToggleFavorite }: TopNavProps) {
+export default function TopNav({ userName, userRole, favorites, onPinFavorite, onRemoveFavorite }: TopNavProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
@@ -210,16 +212,7 @@ export default function TopNav({ userName, userRole, isFavorite, onToggleFavorit
         </nav>
 
         <div className="topnav-right">
-          <button
-            type="button"
-            className={cn("topnav-icon-link", isFavorite && "topnav-favorite--on")}
-            onClick={onToggleFavorite}
-            title={isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
-            aria-label={isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
-            aria-pressed={isFavorite}
-          >
-            <Star size={18} fill={isFavorite ? "currentColor" : "none"} />
-          </button>
+          <FavoritesMenu favorites={favorites} pathname={pathname} onPin={onPinFavorite} onRemove={onRemoveFavorite} />
 
           <Link
             href="/settings"
@@ -336,7 +329,6 @@ export default function TopNav({ userName, userRole, isFavorite, onToggleFavorit
         }
         .topnav-icon-link:hover { color: var(--color-text); background: var(--color-muted-bg); }
         button.topnav-icon-link { border: none; background: none; cursor: pointer; }
-        .topnav-favorite--on, .topnav-favorite--on:hover { color: #d99a12; }
 
         .topnav-user { display: flex; align-items: center; gap: 10px; padding-left: 8px; border-left: 1px solid var(--color-border); }
         .topnav-avatar {

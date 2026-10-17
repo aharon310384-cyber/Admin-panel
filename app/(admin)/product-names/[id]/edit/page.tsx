@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { deleteProductName, updateProductName } from "@/actions/product-names";
 import ProductNameForm from "../../product-name-form";
 import DeleteProductNameButton from "./delete-product-name-button";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Редактирование наименования товара" };
 
@@ -44,7 +45,7 @@ export default async function EditProductNamePage({
             <span className="breadcrumb-sep">/</span>
             <span>{productName.code}</span>
           </div>
-          <h1 className="page-title">Редактирование наименования товара</h1>
+          <h1 className="page-title"><FavoriteStar />Редактирование наименования товара</h1>
         </div>
         <DeleteProductNameButton productNameId={id} deleteAction={deleteProductName} />
       </div>

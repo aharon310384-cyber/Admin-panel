@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import OrdersSelectTable, { type OrderRow } from "@/components/orders/orders-select-table";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Заказы" };
 
@@ -102,7 +103,7 @@ export default async function OrdersPage({
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Заказы</h1>
+          <h1 className="page-title"><FavoriteStar />Заказы</h1>
           <p className="page-subtitle">{orders.length} заказов · отметьте принятые → «Оформить на отправку»</p>
         </div>
         <Link href="/orders/new" className="btn-add">

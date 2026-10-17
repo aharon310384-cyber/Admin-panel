@@ -4,9 +4,18 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Clock, Star, X } from "lucide-react";
+import { Clock, Pin, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SECTIONS, pathMatches, type HistoryEntry, type PageRef, type PanelZone, type Section } from "@/lib/interface";
+import {
+  SECTIONS,
+  pathMatches,
+  sortFavorites,
+  type Favorite,
+  type HistoryEntry,
+  type PageRef,
+  type PanelZone,
+  type Section,
+} from "@/lib/interface";
 
 export type Orientation = "horizontal" | "vertical";
 
@@ -186,18 +195,23 @@ export function FavoritesPanel({
 }: {
   orientation: Orientation;
   pathname: string;
-  favorites: PageRef[];
-  onRemove: (page: PageRef) => void;
+  favorites: Favorite[];
+  onRemove: (page: Favorite) => void;
 }) {
   return (
     <div className={panelClass(orientation)} aria-label="Избранное">
       <p className="pnl-title">
         <Star size={13} /> Избранное
       </p>
-      {favorites.length === 0 && <p className="pnl-empty">Отметьте страницу звёздочкой вверху справа</p>}
-      {favorites.map((page) => (
+      {favorites.length === 0 && <p className="pnl-empty">Нажмите ☆ рядом с названием страницы</p>}
+      {sortFavorites(favorites).map((page) => (
         <div key={page.path} className="pnl-tab pnl-tab--plain">
-          <Link href={page.href} className={cn("pnl-item", page.path === pathname && "pnl-item--active")} title={page.title}>
+          <Link
+            href={page.href}
+            className={cn("pnl-item", page.pinned && "pnl-item--pinned", page.path === pathname && "pnl-item--active")}
+            title={page.title}
+          >
+            {page.pinned && <Pin size={13} className="pnl-pin" />}
             <span>{page.title}</span>
           </Link>
           <button type="button" className="pnl-tab-close" onClick={() => onRemove(page)} aria-label={`Убрать «${page.title}» из избранного`}>

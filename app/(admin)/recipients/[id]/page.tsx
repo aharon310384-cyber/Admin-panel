@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { deleteRecipient } from "@/actions/recipients";
 import DeleteRecipientButton from "./delete-recipient-button";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Карточка получателя" };
 
@@ -41,7 +42,7 @@ export default async function RecipientDetailPage({
             <span className="breadcrumb-sep">/</span>
             <span>{recipient.name}</span>
           </div>
-          <h1 className="page-title">{recipient.name}</h1>
+          <h1 className="page-title"><FavoriteStar />{recipient.name}</h1>
         </div>
         {isAdmin && (
           <div className="header-actions">

@@ -8,6 +8,7 @@ import SortableHeader from "@/components/ui/sortable-header";
 import { Pagination } from "@/components/ui/pagination";
 import TableRowLink from "@/components/ui/table-row-link";
 import { parsePageParam } from "@/lib/list-params";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Наименования товаров" };
 
@@ -118,7 +119,7 @@ export default async function ProductNamesPage({
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Наименования товаров</h1>
+          <h1 className="page-title"><FavoriteStar />Наименования товаров</h1>
           <p className="page-subtitle">{total} записей в регистре</p>
         </div>
         {isAdmin && (

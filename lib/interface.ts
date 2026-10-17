@@ -35,35 +35,51 @@ export const PANEL_LABELS: Record<PanelCode, string> = {
 
 export const PANEL_ZONES = ["top", "left", "right", "bottom"] as const;
 export type PanelZone = (typeof PANEL_ZONES)[number];
-export type PanelLayout = Record<PanelZone, PanelCode[]>;
+// Зона — несколько групп панелей. Сверху и снизу группа — строка (панели в ней стоят рядом),
+// слева и справа — столбец (панели в нём одна под другой). Как в «Редакторе панелей» 1С.
+export type PanelGroup = PanelCode[];
+export type PanelLayout = Record<PanelZone, PanelGroup[]>;
+
+export const MAX_GROUPS = 5;
+export const MAX_GROUP_SIZE = 5;
+
+export function isVerticalZone(zone: PanelZone) {
+  return zone === "left" || zone === "right";
+}
 
 // «Стандартные» — как в 1С: разделы сверху, открытые снизу, остальные не размещены.
-export const DEFAULT_PANELS: PanelLayout = { top: ["sections"], left: [], right: [], bottom: ["open"] };
+export const DEFAULT_PANELS: PanelLayout = { top: [["sections"]], left: [], right: [], bottom: [["open"]] };
 
 // Приводит сохранённое значение к допустимому: только известные панели, каждая не больше одного раза.
+// Понимает и прежний формат, где зона — просто список панелей (каждая тогда отдельной строкой).
 export function normalizePanels(raw: unknown): PanelLayout {
   if (!raw || typeof raw !== "object") return clonePanels(DEFAULT_PANELS);
   const seen = new Set<PanelCode>();
-  const result = { top: [], left: [], right: [], bottom: [] } as PanelLayout;
+  const result: PanelLayout = { top: [], left: [], right: [], bottom: [] };
   for (const zone of PANEL_ZONES) {
     const list = (raw as Record<string, unknown>)[zone];
     if (!Array.isArray(list)) continue;
-    for (const code of list) {
-      if (PANEL_CODES.includes(code as PanelCode) && !seen.has(code as PanelCode)) {
-        seen.add(code as PanelCode);
-        result[zone].push(code as PanelCode);
+    for (const entry of list) {
+      const group: PanelGroup = [];
+      for (const code of Array.isArray(entry) ? entry : [entry]) {
+        if (PANEL_CODES.includes(code as PanelCode) && !seen.has(code as PanelCode) && group.length < MAX_GROUP_SIZE) {
+          seen.add(code as PanelCode);
+          group.push(code as PanelCode);
+        }
       }
+      if (group.length && result[zone].length < MAX_GROUPS) result[zone].push(group);
     }
   }
   return result;
 }
 
 export function clonePanels(layout: PanelLayout): PanelLayout {
-  return { top: [...layout.top], left: [...layout.left], right: [...layout.right], bottom: [...layout.bottom] };
+  const copy = (groups: PanelGroup[]) => groups.map((group) => [...group]);
+  return { top: copy(layout.top), left: copy(layout.left), right: copy(layout.right), bottom: copy(layout.bottom) };
 }
 
 export function placedPanels(layout: PanelLayout): Set<PanelCode> {
-  return new Set(PANEL_ZONES.flatMap((zone) => layout[zone]));
+  return new Set(PANEL_ZONES.flatMap((zone) => layout[zone].flat()));
 }
 
 // ── Разделы (черновик, см. docs/product/отложено.md). Состав меняется здесь.
@@ -146,6 +162,7 @@ export function sectionForPath(pathname: string): Section | undefined {
 
 // ── Избранное и история: страницы, которые сотрудник открывал.
 export type PageRef = { path: string; href: string; title: string };
+export type Favorite = PageRef & { pinned?: boolean }; // pinned — «закреплено сверху»
 export type HistoryEntry = PageRef & { at: string };
 
 export const FAVORITES_LIMIT = 50;
@@ -157,9 +174,17 @@ function isPageRef(value: unknown): value is PageRef {
   return typeof path === "string" && typeof href === "string" && typeof title === "string";
 }
 
-export function normalizeFavorites(raw: unknown): PageRef[] {
+export function normalizeFavorites(raw: unknown): Favorite[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isPageRef).slice(0, FAVORITES_LIMIT).map(({ path, href, title }) => ({ path, href, title }));
+  return raw
+    .filter(isPageRef)
+    .slice(0, FAVORITES_LIMIT)
+    .map((item) => ({ path: item.path, href: item.href, title: item.title, ...((item as Favorite).pinned ? { pinned: true } : {}) }));
+}
+
+// Закреплённые — сверху, дальше в порядке добавления.
+export function sortFavorites(favorites: Favorite[]): Favorite[] {
+  return [...favorites.filter((item) => item.pinned), ...favorites.filter((item) => !item.pinned)];
 }
 
 export function normalizeHistory(raw: unknown): HistoryEntry[] {

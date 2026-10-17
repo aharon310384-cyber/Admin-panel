@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { createProductName } from "@/actions/product-names";
 import ProductNameForm from "../product-name-form";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Новое наименование товара" };
 
@@ -29,7 +30,7 @@ export default async function NewProductNamePage() {
             <span className="breadcrumb-sep">/</span>
             <span>Новая запись</span>
           </div>
-          <h1 className="page-title">Новое наименование товара</h1>
+          <h1 className="page-title"><FavoriteStar />Новое наименование товара</h1>
         </div>
       </div>
 

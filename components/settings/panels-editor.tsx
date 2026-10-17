@@ -1,7 +1,9 @@
 "use client";
 
 // «Редактор панелей» — как в 1С: схема экрана, панели перетаскиваются в зоны сверху/слева/справа/снизу
-// или в «неиспользуемые». Без мыши: нажать на панель, потом на зону.
+// или в «неиспользуемые». Бросить на другую панель — встанет рядом с ней (в ту же строку или столбец),
+// в пустое место зоны — новой строкой (сверху и снизу) или столбцом (слева и справа).
+// Без мыши: нажать на панель, потом на другую панель или на пустое место зоны.
 import * as Dialog from "@radix-ui/react-dialog";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -10,25 +12,24 @@ import { savePanels } from "@/actions/interface";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_PANELS,
+  MAX_GROUPS,
   PANEL_CODES,
   PANEL_LABELS,
   PANEL_ZONES,
   clonePanels,
+  isVerticalZone,
   placedPanels,
   type PanelCode,
   type PanelLayout,
   type PanelZone,
 } from "@/lib/interface";
 
-type Place = PanelZone | "unused";
+type Target =
+  | { kind: "beside"; anchor: PanelCode; after: boolean } // рядом с панелью, в ту же строку или столбец
+  | { kind: "group"; zone: PanelZone } // новой строкой или столбцом в конце зоны
+  | { kind: "unused" };
 
-const PLACE_LABELS: Record<Place, string> = {
-  top: "сверху",
-  left: "слева",
-  right: "справа",
-  bottom: "снизу",
-  unused: "в неиспользуемые",
-};
+const ZONE_LABELS: Record<PanelZone, string> = { top: "сверху", left: "слева", right: "справа", bottom: "снизу" };
 
 export default function PanelsEditor({
   open,
@@ -61,14 +62,27 @@ export default function PanelsEditor({
   const unused = PANEL_CODES.filter((code) => !placed.has(code));
   const moving = dragging ?? selected;
 
-  const move = (code: PanelCode, place: Place, before?: PanelCode) => {
+  const move = (code: PanelCode, target: Target) => {
     setLayout((prev) => {
+      if (target.kind === "beside" && target.anchor === code) return prev;
       const next = clonePanels(prev);
-      for (const zone of PANEL_ZONES) next[zone] = next[zone].filter((item) => item !== code);
-      if (place !== "unused") {
-        const index = before ? next[place].indexOf(before) : -1;
-        if (index >= 0) next[place].splice(index, 0, code);
-        else next[place].push(code);
+      for (const zone of PANEL_ZONES) {
+        next[zone] = next[zone].map((group) => group.filter((item) => item !== code)).filter((group) => group.length > 0);
+      }
+      if (target.kind === "group") {
+        const groups = next[target.zone];
+        if (groups.length < MAX_GROUPS) groups.push([code]);
+        else groups[groups.length - 1].push(code);
+      } else if (target.kind === "beside") {
+        for (const zone of PANEL_ZONES) {
+          for (const group of next[zone]) {
+            const index = group.indexOf(target.anchor);
+            if (index >= 0) {
+              group.splice(target.after ? index + 1 : index, 0, code);
+              return next;
+            }
+          }
+        }
       }
       return next;
     });
@@ -90,17 +104,19 @@ export default function PanelsEditor({
       else setMessage("Применено");
     });
 
-  const chip = (code: PanelCode, place: Place) => (
+  // inTray — панель среди неиспользуемых; vertical — зона слева/справа (панели в столбце одна под другой).
+  const chip = (code: PanelCode, inTray: boolean, vertical: boolean) => (
     <button
       key={code}
       type="button"
       draggable
       className={cn("pe-chip", selected === code && "pe-chip--selected", dragging === code && "pe-chip--dragging")}
       aria-pressed={selected === code}
-      title="Перетащите в нужное место или нажмите, а потом нажмите на зону"
+      title="Перетащите на другую панель — встанет рядом, в пустое место — новой строкой"
       onClick={(e) => {
         e.stopPropagation();
-        setSelected((current) => (current === code ? null : code));
+        if (selected && selected !== code) move(selected, inTray ? { kind: "unused" } : { kind: "beside", anchor: code, after: true });
+        else setSelected((current) => (current === code ? null : code));
       }}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", code);
@@ -114,7 +130,11 @@ export default function PanelsEditor({
       onDrop={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (dragging && dragging !== code) move(dragging, place, code);
+        if (dragging && dragging !== code) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const after = vertical ? e.clientY > rect.top + rect.height / 2 : e.clientX > rect.left + rect.width / 2;
+          move(dragging, inTray ? { kind: "unused" } : { kind: "beside", anchor: code, after });
+        }
         setDragging(null);
       }}
     >
@@ -122,31 +142,47 @@ export default function PanelsEditor({
     </button>
   );
 
-  const zone = (place: Place, codes: PanelCode[], className: string) => (
-    <div
-      className={cn("pe-zone", className, moving && "pe-zone--target")}
-      role="button"
-      tabIndex={0}
-      aria-label={`Поставить выбранную панель ${PLACE_LABELS[place]}`}
-      onClick={() => selected && move(selected, place)}
-      onKeyDown={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && selected && e.target === e.currentTarget) {
-          e.preventDefault();
-          move(selected, place);
-        }
-      }}
-      onDragOver={(e) => {
-        if (dragging) e.preventDefault();
-      }}
-      onDrop={(e) => {
+  // Обработчики пустого места: зона (новая строка/столбец) или лоток неиспользуемых.
+  const dropArea = (target: Target, label: string) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-label": label,
+    onClick: () => selected && move(selected, target),
+    onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if ((e.key === "Enter" || e.key === " ") && selected && e.target === e.currentTarget) {
         e.preventDefault();
-        if (dragging) move(dragging, place);
-        setDragging(null);
-      }}
-    >
-      {codes.map((code) => chip(code, place))}
-    </div>
-  );
+        move(selected, target);
+      }
+    },
+    onDragOver: (e: React.DragEvent) => {
+      if (dragging) e.preventDefault();
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      if (dragging) move(dragging, target);
+      setDragging(null);
+    },
+  });
+
+  const zone = (place: PanelZone) => {
+    const vertical = isVerticalZone(place);
+    return (
+      <div
+        className={cn("pe-zone", `pe-zone--${place}`, vertical && "pe-zone--vertical", moving && "pe-zone--target")}
+        {...dropArea({ kind: "group", zone: place }, `Поставить выбранную панель ${ZONE_LABELS[place]} новой ${vertical ? "колонкой" : "строкой"}`)}
+      >
+        {layout[place].map((group) => (
+          <div key={group.join("+")} className="pe-group">
+            {group.map((code) => chip(code, false, vertical))}
+          </div>
+        ))}
+        {/* Подсказка есть всегда, а видна только при перетаскивании — иначе окно сдвинулось бы под мышкой. */}
+        <span className={cn("pe-new", moving && "pe-new--visible")} aria-hidden="true">
+          {vertical ? "+ столбец" : "+ новая строка"}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -160,19 +196,22 @@ export default function PanelsEditor({
             </Dialog.Close>
           </div>
           <p id="pe-hint" className="pe-hint">
-            Перетащите панель в нужное место экрана или уберите вниз, в неиспользуемые. Без мыши: нажмите на панель, потом на место.
+            Перетащите панель на другую — встанет рядом с ней; в пустое место зоны — новой строкой; вниз — уберётся.
+            Без мыши: нажмите на панель, потом на другую панель или на пустое место.
           </p>
 
           <div className="pe-screen">
-            {zone("top", layout.top, "pe-zone--top")}
-            {zone("left", layout.left, "pe-zone--left")}
+            {zone("top")}
+            {zone("left")}
             <div className="pe-work">Рабочая область</div>
-            {zone("right", layout.right, "pe-zone--right")}
-            {zone("bottom", layout.bottom, "pe-zone--bottom")}
+            {zone("right")}
+            {zone("bottom")}
           </div>
 
           <p className="pe-tray-label">Неиспользуемые панели</p>
-          {zone("unused", unused, "pe-tray")}
+          <div className={cn("pe-zone pe-tray", moving && "pe-zone--target")} {...dropArea({ kind: "unused" }, "Убрать выбранную панель в неиспользуемые")}>
+            {unused.map((code) => chip(code, true, false))}
+          </div>
 
           <div className="pe-foot">
             <span className="pe-message" role="status">
@@ -204,8 +243,8 @@ export default function PanelsEditor({
           <style>{`
             .pe-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(31, 26, 20, 0.35); }
             .pe-dialog {
-              position: fixed; z-index: 61; top: 50%; left: 50%; transform: translate(-50%, -50%);
-              width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto;
+              position: fixed; z-index: 61; top: max(12px, 6dvh); left: 50%; transform: translateX(-50%);
+              width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 24px - max(12px, 6dvh)); overflow-y: auto;
               background: #fffcf6; border: 1px solid var(--color-border); border-radius: var(--radius-md);
               box-shadow: var(--shadow); padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 10px;
             }
@@ -219,16 +258,21 @@ export default function PanelsEditor({
             .pe-hint { margin: 0; font-size: 12.5px; color: var(--color-muted); }
 
             .pe-screen {
-              display: grid; grid-template-columns: 128px 1fr 128px; gap: 6px; padding: 6px;
+              display: grid; grid-template-columns: 150px 1fr 150px; gap: 6px; padding: 6px;
               border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: #fff;
             }
             .pe-zone {
-              min-height: 52px; padding: 6px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px;
+              min-height: 52px; padding: 6px; display: flex; flex-direction: column; gap: 6px; min-width: 0;
               border: 1px dashed var(--color-border-strong); border-radius: 6px; transition: border-color 0.15s, background 0.15s;
             }
             .pe-zone:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
             .pe-zone--top, .pe-zone--bottom { grid-column: 1 / -1; }
-            .pe-zone--left, .pe-zone--right { flex-direction: column; flex-wrap: nowrap; min-height: 170px; }
+            .pe-zone--vertical { flex-direction: row; align-items: stretch; min-height: 170px; }
+            .pe-group { display: flex; gap: 6px; min-width: 0; }
+            .pe-group > .pe-chip { flex: 1 1 0; min-width: 0; }
+            .pe-zone--vertical .pe-group { flex-direction: column; flex: 1 1 0; }
+            .pe-new { align-self: flex-start; padding: 2px 4px; font-size: 11px; line-height: 1.2; color: var(--color-accent); visibility: hidden; }
+            .pe-new--visible { visibility: visible; }
             .pe-work {
               display: flex; align-items: center; justify-content: center; min-height: 170px;
               border-radius: 6px; background: var(--color-muted-bg); color: var(--color-muted); font-size: 13px;
@@ -236,15 +280,14 @@ export default function PanelsEditor({
             .pe-zone--target { border-color: var(--color-accent); background: oklch(52% 0.14 42 / 0.05); cursor: pointer; }
 
             .pe-tray-label { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
-            .pe-tray { min-height: 64px; border-style: solid; border-color: transparent; background: #dcd6cc; }
+            .pe-tray { min-height: 64px; flex-direction: row; flex-wrap: wrap; align-content: flex-start; border-style: solid; border-color: transparent; background: #dcd6cc; }
             .pe-tray.pe-zone--target { border-color: var(--color-accent); background: #e6dfd4; }
 
             .pe-chip {
               padding: 8px 10px; max-width: 100%; text-align: left; font: inherit; font-size: 13px; line-height: 1.25;
               color: var(--color-text); background: #e9f2f8; border: 1px solid #a9c2d3; border-radius: 6px; cursor: grab;
             }
-            .pe-zone--top .pe-chip, .pe-zone--bottom .pe-chip, .pe-tray .pe-chip { width: 168px; }
-            .pe-zone--top .pe-chip:only-child, .pe-zone--bottom .pe-chip:only-child { width: 100%; }
+            .pe-tray .pe-chip { width: 168px; }
             .pe-chip:hover { border-color: #7ea3bb; }
             .pe-chip--selected { outline: 2px solid var(--color-accent); outline-offset: 1px; }
             .pe-chip--dragging { opacity: 0.45; }
@@ -261,8 +304,8 @@ export default function PanelsEditor({
             .pe-btn:disabled { opacity: 0.6; cursor: default; }
 
             @media (max-width: 560px) {
-              .pe-screen { grid-template-columns: 92px 1fr 92px; }
-              .pe-zone--top .pe-chip, .pe-zone--bottom .pe-chip, .pe-tray .pe-chip { width: 100%; }
+              .pe-screen { grid-template-columns: 96px 1fr 96px; }
+              .pe-tray .pe-chip { width: 100%; }
             }
           `}</style>
         </Dialog.Content>

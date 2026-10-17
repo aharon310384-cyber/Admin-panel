@@ -8,6 +8,8 @@ import { requireAuth } from "@/lib/server-helpers";
 import {
   FAVORITES_LIMIT,
   HISTORY_LIMIT,
+  MAX_GROUPS,
+  MAX_GROUP_SIZE,
   PANEL_CODES,
   normalizeFavorites,
   normalizeHistory,
@@ -16,8 +18,8 @@ import {
   type PanelLayout,
 } from "@/lib/interface";
 
-const panelList = z.array(z.enum(PANEL_CODES)).max(PANEL_CODES.length);
-const panelsSchema = z.object({ top: panelList, left: panelList, right: panelList, bottom: panelList });
+const panelGroups = z.array(z.array(z.enum(PANEL_CODES)).min(1).max(MAX_GROUP_SIZE)).max(MAX_GROUPS);
+const panelsSchema = z.object({ top: panelGroups, left: panelGroups, right: panelGroups, bottom: panelGroups });
 
 // Адрес страницы админки: только свой сайт, без «//» и схем.
 const pageSchema = z.object({
@@ -63,6 +65,18 @@ export async function toggleFavorite(page: PageRef) {
     create: { userId: session.user.id, favorites },
     update: { favorites },
   });
+  return { favorites };
+}
+
+// «Закрепить сверху» в списке избранного — или снять закрепление. Возвращает новый список.
+export async function pinFavorite(path: string, pinned: boolean) {
+  const session = await requireAuth();
+  const current = normalizeFavorites((await settingsOf(session.user.id))?.favorites);
+  if (!current.some((item) => item.path === path)) return { favorites: current };
+  const favorites = current.map((item) =>
+    item.path !== path ? item : pinned ? { ...item, pinned: true } : { path: item.path, href: item.href, title: item.title }
+  );
+  await prisma.userInterfaceSettings.update({ where: { userId: session.user.id }, data: { favorites } });
   return { favorites };
 }
 

@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { createRecipient } from "@/actions/recipients";
 import RecipientForm from "../recipient-form";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Новый получатель" };
 
@@ -51,7 +52,7 @@ export default async function NewRecipientPage({
             <span className="breadcrumb-sep">/</span>
             <span>Новый</span>
           </div>
-          <h1 className="page-title">Новый получатель</h1>
+          <h1 className="page-title"><FavoriteStar />Новый получатель</h1>
         </div>
       </div>
 

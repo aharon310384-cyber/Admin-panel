@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 import ClickableRow from "@/components/ui/clickable-row";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
+import FavoriteStar from "@/components/layout/favorite-star";
 
 export const metadata: Metadata = { title: "Клиенты" };
 
@@ -77,7 +78,7 @@ export default async function ClientsPage({
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Клиенты</h1>
+          <h1 className="page-title"><FavoriteStar />Клиенты</h1>
           <p className="page-subtitle">{clients.length} клиентов</p>
         </div>
         <Link href="/clients/new" className="btn-add">
