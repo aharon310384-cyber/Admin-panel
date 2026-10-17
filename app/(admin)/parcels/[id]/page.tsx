@@ -8,7 +8,7 @@ import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, orderStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
 import { computeEuCustomsDuty, hasIncompleteHsCodes } from "@/lib/eu-customs";
 import ParcelControls from "@/components/parcels/parcel-controls";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 const DUTY_REASON_LABEL: Record<string, string> = {
   "not-enabled": "мера отключена в настройках финансов",
@@ -113,216 +113,211 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
   const rcpt = parcel.recipient;
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <div className="breadcrumb">
-            <Link href="/parcels" className="breadcrumb-link">Посылки</Link>
-            <span className="breadcrumb-sep">/</span>
-            <span>{parcel.number}</span>
-          </div>
-          <div className="title-row">
-            <h1 className="page-title mono"><FavoriteStar />{parcel.number}</h1>
+    <>
+      <Form
+        formKey="parcel"
+        title={parcel.number}
+        titleExtra={
+          <>
             <span className={`badge badge--${tone}`}>{parcelStatusLabel(parcel.status)}</span>
             {parcel.isPaid && <span className="badge badge--paid">Оплачено</span>}
+          </>
+        }
+        guid={parcel.id}
+        header={
+          <div>
+            <p className="subline">
+              {parcel.parcelTask && <>задача <span className="mono">{parcel.parcelTask.number}</span> · </>}
+              {deliveryTypeLabel(parcel.deliveryType)} · расчётный вес {formatNumber(billable)} кг · создана {formatDateTime(parcel.createdAt)}
+            </p>
+            {parcel.parcelTask?.note && <p className="subline">Примечание задачи: {parcel.parcelTask.note}</p>}
           </div>
-          <p className="subline">
-            {parcel.parcelTask && <>задача <span className="mono">{parcel.parcelTask.number}</span> · </>}
-            {deliveryTypeLabel(parcel.deliveryType)} · расчётный вес {formatNumber(billable)} кг · создана {formatDateTime(parcel.createdAt)}
-          </p>
-          {parcel.parcelTask?.note && <p className="subline">Примечание задачи: {parcel.parcelTask.note}</p>}
-        </div>
-      </div>
-
-      <div className="grid">
-        <div className="col">
-          {/* Стороны */}
-          <section className="card">
-            <div className="two">
-              <div>
-                <h2 className="card-title">Отправитель / плательщик</h2>
-                <dl className="info-list">
-                  <div className="info-row"><dt>Клиент</dt><dd>
-                    <Link href={`/clients/${parcel.customer.id}`} className="link">
-                      {parcel.customer.code ? <span className="code-pill">{parcel.customer.code}</span> : null} {parcel.customer.name}
-                    </Link>
-                  </dd></div>
-                  <div className="info-row"><dt>Телефон</dt><dd>{dash(parcel.customer.phone)}</dd></div>
-                  <div className="info-row"><dt>Страна</dt><dd>{dash(parcel.customer.country)}</dd></div>
-                </dl>
-              </div>
-              <div>
-                <h2 className="card-title">Получатель</h2>
-                {rcpt ? (
+        }
+      >
+        <div className="grid">
+          <div className="col">
+            {/* Стороны */}
+            <section className="card">
+              <div className="two">
+                <div>
+                  <h2 className="card-title">Отправитель / плательщик</h2>
                   <dl className="info-list">
-                    <div className="info-row"><dt>ФИО</dt><dd>
-                      <Link href={`/recipients/${rcpt.id}`} className="link">{rcpt.name}</Link>
+                    <div className="info-row"><dt>Клиент</dt><dd>
+                      <Link href={`/clients/${parcel.customer.id}`} className="link">
+                        {parcel.customer.code ? <span className="code-pill">{parcel.customer.code}</span> : null} {parcel.customer.name}
+                      </Link>
                     </dd></div>
-                    <div className="info-row"><dt>Страна</dt><dd>{dash(rcpt.country)}{rcpt.countryCode ? ` (${rcpt.countryCode})` : ""}</dd></div>
-                    <div className="info-row"><dt>Город, индекс</dt><dd>{dash([rcpt.city, rcpt.postalCode].filter(Boolean).join(", ") || null)}</dd></div>
-                    <div className="info-row"><dt>Адрес</dt><dd>{dash(rcpt.address)}</dd></div>
-                    <div className="info-row"><dt>Телефон</dt><dd>{dash([rcpt.phoneDialCode, rcpt.phone].filter(Boolean).join(" ") || null)}</dd></div>
+                    <div className="info-row"><dt>Телефон</dt><dd>{dash(parcel.customer.phone)}</dd></div>
+                    <div className="info-row"><dt>Страна</dt><dd>{dash(parcel.customer.country)}</dd></div>
                   </dl>
-                ) : (
-                  <p className="empty">Получатель не указан</p>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Вес и габариты */}
-          <section className="card">
-            <h2 className="card-title">Вес и габариты</h2>
-            <div className="metrics">
-              <div className="metric"><span className="metric-v">{formatNumber(actual)}</span><span className="metric-l">факт, кг</span></div>
-              <div className="metric"><span className="metric-v">{formatNumber(volumetric)}</span><span className="metric-l">объёмный, кг</span></div>
-              <div className="metric metric--accent"><span className="metric-v">{formatNumber(billable)}</span><span className="metric-l">расчётный, кг</span></div>
-              <div className="metric"><span className="metric-v">{hasDims ? `${formatNumber(dims[0])}×${formatNumber(dims[1])}×${formatNumber(dims[2])}` : "—"}</span><span className="metric-l">габариты Д×Ш×В, см</span></div>
-            </div>
-            <p className="hint">Объёмный вес = Д×Ш×В ÷ {volumetricDivisor}. Расчётный вес по умолчанию — наибольший из факта и объёмного.</p>
-          </section>
-
-          {/* Состав посылки */}
-          <section className="card">
-            <h2 className="card-title">Состав посылки ({parcel.orders.length})</h2>
-            <ul className="orders">
-              {parcel.orders.map((o) => (
-                <li key={o.id} className="ord">
-                  <div className="ord-main">
-                    <span className="ord-name">{o.productNameText ?? "Товар"}</span>
-                    <span className="ord-qty">{o.quantity} шт</span>
-                  </div>
-                  <div className="ord-meta">
-                    <span className="mono">{o.trackNumber ?? "—"}</span>
-                    <span className="ord-status">{orderStatusLabel(o.status)}</span>
-                  </div>
-                  {o.customerComment?.trim() ? <p className="ord-comment">💬 {o.customerComment}</p> : null}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* Квитанция */}
-          <section className="card">
-            <h2 className="card-title">Квитанция</h2>
-            <table className="rcpt">
-              <tbody>
-                <tr><td>Отправка</td><td className="r">{formatUsd(shipping)}</td><td className="r muted">¥{(shipping * rate).toFixed(2)}</td></tr>
-                {parcel.services.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.name}</td>
-                    <td className="r">{formatUsd(Number(s.priceUsd))}</td>
-                    <td className="r muted">¥{Number(s.priceCny).toFixed(2)}</td>
-                  </tr>
-                ))}
-                {parcel.discountPercent && Number(parcel.discountPercent) > 0 ? (
-                  <tr className="disc"><td>Скидка {Number(parcel.discountPercent)}%</td><td className="r" colSpan={2}>−</td></tr>
-                ) : null}
-                {showDutyInReceipt ? (
-                  <tr>
-                    <td>Таможенная пошлина ЕС (€3 × {billedDutyLines} = €{billedDutyEur.toFixed(2)})</td>
-                    <td className="r">{formatUsd(billedDutyUsd)}</td>
-                    <td className="r muted">¥{billedDutyCny.toFixed(2)}</td>
-                  </tr>
-                ) : null}
-                <tr className="total">
-                  <td>ИТОГО</td>
-                  <td className="r">{formatUsd(Number(parcel.totalUsd))}</td>
-                  <td className="r">¥{Number(parcel.totalCny).toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p className="hint">Курс: {rate} ¥/$ · пошлина ЕС по курсу {finance.exchangeRateCnyPerEur} ¥/€</p>
-            {dutyPaidBySender ? (
-              <p className="hint">Таможенная пошлина ЕС €{billedDutyEur.toFixed(2)} ({billedDutyLines} поз.) оплачивается отправителем — не включена в счёт.</p>
-            ) : null}
-            {dutyOutOfSync ? (
-              <p className="warn">⚠ Таможенная пошлина изменилась — нажмите «Пересчитать квитанцию», чтобы обновить ИТОГО.</p>
-            ) : null}
-          </section>
-
-          {/* Таможня ЕС */}
-          <section className="card">
-            <h2 className="card-title">Таможенная пошлина ЕС</h2>
-            {hasDuty ? (
-              <>
-                <div className="metrics metrics--3">
-                  <div className="metric"><span className="metric-v">{dutyLines}</span><span className="metric-l">типов товара</span></div>
-                  <div className="metric metric--accent"><span className="metric-v">€{dutyEur.toFixed(2)}</span><span className="metric-l">пошлина</span></div>
-                  <div className="metric"><span className="metric-v">{formatUsd(dutyUsd)}</span><span className="metric-l">в долларах</span></div>
                 </div>
-                <p className="hint">
-                  €3 × {dutyLines} {duty.manualLineCount != null ? "(ручной перебор)" : "(авто по составу)"} ·{" "}
-                  {euDutyPassToClient ? "включена в счёт клиента" : "оплачивает отправитель, в счёт не входит"}.
-                </p>
-                {hsIncomplete ? (
-                  <p className="warn">⚠ У части товаров не заполнен HS-код — число позиций посчитано по наименованиям, проверьте вручную.</p>
-                ) : null}
-              </>
-            ) : (
-              <p className="empty">Не применяется{dutyReason ? `: ${dutyReason}` : ""}.{destinationIsEu && duty.autoLineCount > 0 ? ` По составу — ${duty.autoLineCount} типов товара.` : ""}</p>
-            )}
-          </section>
+                <div>
+                  <h2 className="card-title">Получатель</h2>
+                  {rcpt ? (
+                    <dl className="info-list">
+                      <div className="info-row"><dt>ФИО</dt><dd>
+                        <Link href={`/recipients/${rcpt.id}`} className="link">{rcpt.name}</Link>
+                      </dd></div>
+                      <div className="info-row"><dt>Страна</dt><dd>{dash(rcpt.country)}{rcpt.countryCode ? ` (${rcpt.countryCode})` : ""}</dd></div>
+                      <div className="info-row"><dt>Город, индекс</dt><dd>{dash([rcpt.city, rcpt.postalCode].filter(Boolean).join(", ") || null)}</dd></div>
+                      <div className="info-row"><dt>Адрес</dt><dd>{dash(rcpt.address)}</dd></div>
+                      <div className="info-row"><dt>Телефон</dt><dd>{dash([rcpt.phoneDialCode, rcpt.phone].filter(Boolean).join(" ") || null)}</dd></div>
+                    </dl>
+                  ) : (
+                    <p className="empty">Получатель не указан</p>
+                  )}
+                </div>
+              </div>
+            </section>
 
-          {/* Отслеживание */}
-          <section className="card">
-            <h2 className="card-title">Отслеживание</h2>
-            <dl className="info-list">
-              <div className="info-row"><dt>Трек-номер посылки</dt><dd>
-                {parcel.trackingNumber ? (
-                  <a className="link track-link" href={trackUrl!} target="_blank" rel="noopener noreferrer">
-                    <span className="mono">{parcel.trackingNumber}</span> <ExternalLink size={13} />
-                  </a>
-                ) : <span className="muted">не присвоен</span>}
-              </dd></div>
-              <div className="info-row"><dt>Отправлена</dt><dd>{shippedAt ? formatDateTime(shippedAt) : "—"}</dd></div>
-              <div className="info-row"><dt>Доставлена</dt><dd>{deliveredAt ? formatDateTime(deliveredAt) : "—"}</dd></div>
-            </dl>
-          </section>
+            {/* Вес и габариты */}
+            <section className="card">
+              <h2 className="card-title">Вес и габариты</h2>
+              <div className="metrics">
+                <div className="metric"><span className="metric-v">{formatNumber(actual)}</span><span className="metric-l">факт, кг</span></div>
+                <div className="metric"><span className="metric-v">{formatNumber(volumetric)}</span><span className="metric-l">объёмный, кг</span></div>
+                <div className="metric metric--accent"><span className="metric-v">{formatNumber(billable)}</span><span className="metric-l">расчётный, кг</span></div>
+                <div className="metric"><span className="metric-v">{hasDims ? `${formatNumber(dims[0])}×${formatNumber(dims[1])}×${formatNumber(dims[2])}` : "—"}</span><span className="metric-l">габариты Д×Ш×В, см</span></div>
+              </div>
+              <p className="hint">Объёмный вес = Д×Ш×В ÷ {volumetricDivisor}. Расчётный вес по умолчанию — наибольший из факта и объёмного.</p>
+            </section>
+
+            {/* Состав посылки */}
+            <section className="card">
+              <h2 className="card-title">Состав посылки ({parcel.orders.length})</h2>
+              <ul className="orders">
+                {parcel.orders.map((o) => (
+                  <li key={o.id} className="ord">
+                    <div className="ord-main">
+                      <span className="ord-name">{o.productNameText ?? "Товар"}</span>
+                      <span className="ord-qty">{o.quantity} шт</span>
+                    </div>
+                    <div className="ord-meta">
+                      <span className="mono">{o.trackNumber ?? "—"}</span>
+                      <span className="ord-status">{orderStatusLabel(o.status)}</span>
+                    </div>
+                    {o.customerComment?.trim() ? <p className="ord-comment">💬 {o.customerComment}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            {/* Квитанция */}
+            <section className="card">
+              <h2 className="card-title">Квитанция</h2>
+              <table className="rcpt">
+                <tbody>
+                  <tr><td>Отправка</td><td className="r">{formatUsd(shipping)}</td><td className="r muted">¥{(shipping * rate).toFixed(2)}</td></tr>
+                  {parcel.services.map((s) => (
+                    <tr key={s.id}>
+                      <td>{s.name}</td>
+                      <td className="r">{formatUsd(Number(s.priceUsd))}</td>
+                      <td className="r muted">¥{Number(s.priceCny).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  {parcel.discountPercent && Number(parcel.discountPercent) > 0 ? (
+                    <tr className="disc"><td>Скидка {Number(parcel.discountPercent)}%</td><td className="r" colSpan={2}>−</td></tr>
+                  ) : null}
+                  {showDutyInReceipt ? (
+                    <tr>
+                      <td>Таможенная пошлина ЕС (€3 × {billedDutyLines} = €{billedDutyEur.toFixed(2)})</td>
+                      <td className="r">{formatUsd(billedDutyUsd)}</td>
+                      <td className="r muted">¥{billedDutyCny.toFixed(2)}</td>
+                    </tr>
+                  ) : null}
+                  <tr className="total">
+                    <td>ИТОГО</td>
+                    <td className="r">{formatUsd(Number(parcel.totalUsd))}</td>
+                    <td className="r">¥{Number(parcel.totalCny).toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className="hint">Курс: {rate} ¥/$ · пошлина ЕС по курсу {finance.exchangeRateCnyPerEur} ¥/€</p>
+              {dutyPaidBySender ? (
+                <p className="hint">Таможенная пошлина ЕС €{billedDutyEur.toFixed(2)} ({billedDutyLines} поз.) оплачивается отправителем — не включена в счёт.</p>
+              ) : null}
+              {dutyOutOfSync ? (
+                <p className="warn">⚠ Таможенная пошлина изменилась — нажмите «Пересчитать квитанцию», чтобы обновить ИТОГО.</p>
+              ) : null}
+            </section>
+
+            {/* Таможня ЕС */}
+            <section className="card">
+              <h2 className="card-title">Таможенная пошлина ЕС</h2>
+              {hasDuty ? (
+                <>
+                  <div className="metrics metrics--3">
+                    <div className="metric"><span className="metric-v">{dutyLines}</span><span className="metric-l">типов товара</span></div>
+                    <div className="metric metric--accent"><span className="metric-v">€{dutyEur.toFixed(2)}</span><span className="metric-l">пошлина</span></div>
+                    <div className="metric"><span className="metric-v">{formatUsd(dutyUsd)}</span><span className="metric-l">в долларах</span></div>
+                  </div>
+                  <p className="hint">
+                    €3 × {dutyLines} {duty.manualLineCount != null ? "(ручной перебор)" : "(авто по составу)"} ·{" "}
+                    {euDutyPassToClient ? "включена в счёт клиента" : "оплачивает отправитель, в счёт не входит"}.
+                  </p>
+                  {hsIncomplete ? (
+                    <p className="warn">⚠ У части товаров не заполнен HS-код — число позиций посчитано по наименованиям, проверьте вручную.</p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="empty">Не применяется{dutyReason ? `: ${dutyReason}` : ""}.{destinationIsEu && duty.autoLineCount > 0 ? ` По составу — ${duty.autoLineCount} типов товара.` : ""}</p>
+              )}
+            </section>
+
+            {/* Отслеживание */}
+            <section className="card">
+              <h2 className="card-title">Отслеживание</h2>
+              <dl className="info-list">
+                <div className="info-row"><dt>Трек-номер посылки</dt><dd>
+                  {parcel.trackingNumber ? (
+                    <a className="link track-link" href={trackUrl!} target="_blank" rel="noopener noreferrer">
+                      <span className="mono">{parcel.trackingNumber}</span> <ExternalLink size={13} />
+                    </a>
+                  ) : <span className="muted">не присвоен</span>}
+                </dd></div>
+                <div className="info-row"><dt>Отправлена</dt><dd>{shippedAt ? formatDateTime(shippedAt) : "—"}</dd></div>
+                <div className="info-row"><dt>Доставлена</dt><dd>{deliveredAt ? formatDateTime(deliveredAt) : "—"}</dd></div>
+              </dl>
+            </section>
+          </div>
+
+          <aside className="col col--side">
+            <section className="card">
+              <ParcelControls
+                parcelId={parcel.id}
+                status={parcel.status}
+                isPaid={parcel.isPaid}
+                initial={{
+                  actualWeightKg: parcel.actualWeightKg != null ? String(Number(parcel.actualWeightKg)) : "",
+                  billableWeightKg: parcel.billableWeightKg != null ? String(Number(parcel.billableWeightKg)) : "",
+                  lengthCm: parcel.lengthCm != null && Number(parcel.lengthCm) > 0 ? String(Number(parcel.lengthCm)) : "",
+                  widthCm: parcel.widthCm != null && Number(parcel.widthCm) > 0 ? String(Number(parcel.widthCm)) : "",
+                  heightCm: parcel.heightCm != null && Number(parcel.heightCm) > 0 ? String(Number(parcel.heightCm)) : "",
+                  volumetricDivisor,
+                  consolidation: has(parcel.services, "CONSOLIDATION"),
+                  compactPack: has(parcel.services, "COMPACT_PACK"),
+                  standardCheck: has(parcel.services, "STANDARD_CHECK"),
+                  reinforcedPackUsd: amount(parcel.services, "REINFORCED_PACK"),
+                  localDeliveryUsd: amount(parcel.services, "LOCAL_DELIVERY"),
+                  insurancePercent: "",
+                  discountPercent: parcel.discountPercent ? String(Number(parcel.discountPercent)) : "",
+                  trackingNumber: parcel.trackingNumber ?? "",
+                  euApplicable: destinationIsEu && finance.euDutyEnabled,
+                  customsAutoLines: duty.autoLineCount,
+                  customsManualLines: parcel.customsDutyManualLines != null ? String(parcel.customsDutyManualLines) : "",
+                  customsPassMode:
+                    parcel.customsDutyPassToClient == null ? "default" : parcel.customsDutyPassToClient ? "client" : "sender",
+                }}
+              />
+            </section>
+          </aside>
         </div>
-
-        <aside className="col col--side">
-          <section className="card">
-            <ParcelControls
-              parcelId={parcel.id}
-              status={parcel.status}
-              isPaid={parcel.isPaid}
-              initial={{
-                actualWeightKg: parcel.actualWeightKg != null ? String(Number(parcel.actualWeightKg)) : "",
-                billableWeightKg: parcel.billableWeightKg != null ? String(Number(parcel.billableWeightKg)) : "",
-                lengthCm: parcel.lengthCm != null && Number(parcel.lengthCm) > 0 ? String(Number(parcel.lengthCm)) : "",
-                widthCm: parcel.widthCm != null && Number(parcel.widthCm) > 0 ? String(Number(parcel.widthCm)) : "",
-                heightCm: parcel.heightCm != null && Number(parcel.heightCm) > 0 ? String(Number(parcel.heightCm)) : "",
-                volumetricDivisor,
-                consolidation: has(parcel.services, "CONSOLIDATION"),
-                compactPack: has(parcel.services, "COMPACT_PACK"),
-                standardCheck: has(parcel.services, "STANDARD_CHECK"),
-                reinforcedPackUsd: amount(parcel.services, "REINFORCED_PACK"),
-                localDeliveryUsd: amount(parcel.services, "LOCAL_DELIVERY"),
-                insurancePercent: "",
-                discountPercent: parcel.discountPercent ? String(Number(parcel.discountPercent)) : "",
-                trackingNumber: parcel.trackingNumber ?? "",
-                euApplicable: destinationIsEu && finance.euDutyEnabled,
-                customsAutoLines: duty.autoLineCount,
-                customsManualLines: parcel.customsDutyManualLines != null ? String(parcel.customsDutyManualLines) : "",
-                customsPassMode:
-                  parcel.customsDutyPassToClient == null ? "default" : parcel.customsDutyPassToClient ? "client" : "sender",
-              }}
-            />
-          </section>
-        </aside>
-      </div>
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 24px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-        .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-muted); margin-bottom: 6px; }
-        .breadcrumb-link { color: var(--color-accent); text-decoration: none; }
-        .breadcrumb-sep { color: var(--color-border-strong); }
-        .title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
         .mono { font-family: var(--font-mono); }
-        .subline { margin: 8px 0 0; font-size: 13px; color: var(--color-muted); }
+        .subline { margin: 0; font-size: 13px; color: var(--color-muted); }
+        .subline + .subline { margin-top: 4px; }
 
         .badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600; }
         .badge--new { color: var(--color-status-new); background: var(--color-status-new-bg); }
@@ -339,7 +334,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
         .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
         .col--side { position: sticky; top: 16px; }
 
-        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-card); }
+        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card); }
         .card-title { font-size: 14px; font-weight: 600; margin: 0 0 16px; color: var(--color-text); }
 
         .two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
@@ -382,6 +377,6 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
         @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } .col--side { position: static; } }
         @media (max-width: 560px) { .two { grid-template-columns: 1fr; gap: 16px; } .metrics { grid-template-columns: repeat(2, 1fr); } }
       `}</style>
-    </div>
+    </>
   );
 }

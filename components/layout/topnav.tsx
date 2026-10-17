@@ -147,7 +147,7 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
           className="topnav-brand"
           aria-label="Перейти на postmanfox.com"
         >
-          <BrandLogo size="sm" />
+          <BrandLogo size="xs" />
         </a>
 
         <nav className="topnav-menu" aria-label="Разделы">
@@ -254,11 +254,9 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
         .topnav-inner {
           display: flex;
           align-items: center;
-          gap: 16px;
-          height: 56px;
-          padding: 0 20px;
-          max-width: 1600px;
-          margin: 0 auto;
+          gap: 12px;
+          height: var(--topnav-h, 42px);
+          padding: 0 12px;
         }
         .topnav-brand { display: inline-flex; align-items: center; flex-shrink: 0; text-decoration: none; }
 
@@ -266,8 +264,8 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
 
         .topnav-link {
           display: inline-flex; align-items: center; gap: 7px;
-          padding: 8px 12px; border-radius: var(--radius-sm);
-          font-size: 13.5px; font-weight: 500; color: var(--color-text-secondary);
+          padding: 5px 10px; border-radius: var(--radius-sm);
+          font-size: 13px; font-weight: 500; color: var(--color-text-secondary);
           text-decoration: none; background: none; border: none; cursor: pointer;
           white-space: nowrap; transition: color 0.15s, background 0.15s;
         }
@@ -279,11 +277,11 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
         .topnav-caret { transition: transform 0.18s ease; flex-shrink: 0; }
 
         .topnav-panel {
-          position: fixed; top: 56px; left: 0; right: 0; z-index: 29;
+          position: fixed; top: var(--topnav-h, 42px); left: 0; right: 0; z-index: 29;
           background: #fffcf6;
           border-bottom: 1px solid var(--color-border);
           box-shadow: 0 16px 40px rgba(29, 39, 24, 0.16);
-          max-height: calc(100dvh - 56px); overflow-y: auto;
+          max-height: calc(100dvh - var(--topnav-h, 42px)); overflow-y: auto;
           animation: topnav-pop 0.14s ease;
         }
         @keyframes topnav-pop {
@@ -292,7 +290,7 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
         }
 
         .topnav-panel-inner {
-          max-width: 1600px; margin: 0 auto; padding: 22px 20px;
+          padding: 16px 12px;
           display: grid; grid-template-columns: repeat(5, 1fr); gap: 22px; align-items: start;
         }
         .topnav-section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -311,9 +309,9 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
         }
 
         .topnav-item {
-          display: flex; align-items: center; gap: 10px;
-          padding: 9px 10px; border-radius: var(--radius-sm);
-          font-size: 13.5px; font-weight: 500; color: var(--color-text-secondary);
+          display: flex; align-items: center; gap: 8px;
+          padding: 5px 8px; border-radius: var(--radius-sm);
+          font-size: 13px; font-weight: 500; color: var(--color-text-secondary);
           text-decoration: none; white-space: nowrap; transition: color 0.15s, background 0.15s;
         }
         .topnav-item:hover { color: var(--color-text); background: var(--color-muted-bg); }
@@ -321,25 +319,25 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
         .topnav-item--soon { color: var(--color-muted); opacity: 0.55; cursor: default; pointer-events: none; }
         .topnav-item svg { flex-shrink: 0; }
 
-        .topnav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+        .topnav-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; margin-left: auto; }
         .topnav-icon-link {
           display: inline-flex; align-items: center; justify-content: center;
-          width: 36px; height: 36px; border-radius: var(--radius-sm);
+          width: 32px; height: 32px; border-radius: var(--radius-sm);
           color: var(--color-text-secondary); text-decoration: none; transition: color 0.15s, background 0.15s;
         }
         .topnav-icon-link:hover { color: var(--color-text); background: var(--color-muted-bg); }
         button.topnav-icon-link { border: none; background: none; cursor: pointer; }
 
-        .topnav-user { display: flex; align-items: center; gap: 10px; padding-left: 8px; border-left: 1px solid var(--color-border); }
+        .topnav-user { display: flex; align-items: center; gap: 8px; padding-left: 8px; border-left: 1px solid var(--color-border); }
         .topnav-avatar {
-          width: 32px; height: 32px; flex-shrink: 0;
+          width: 26px; height: 26px; flex-shrink: 0;
           background: oklch(52% 0.14 42 / 0.15); color: var(--color-accent);
           border-radius: 50%; display: flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 600;
+          font-size: 12px; font-weight: 600;
         }
         .topnav-user-info { display: flex; flex-direction: column; min-width: 0; }
-        .topnav-user-name { font-size: 13px; font-weight: 500; color: var(--color-text); white-space: nowrap; }
-        .topnav-user-role { font-size: 11px; color: var(--color-muted); white-space: nowrap; }
+        .topnav-user-name { font-size: 12.5px; line-height: 1.2; font-weight: 500; color: var(--color-text); white-space: nowrap; }
+        .topnav-user-role { font-size: 10.5px; line-height: 1.2; color: var(--color-muted); white-space: nowrap; }
         .topnav-logout {
           background: none; border: none; cursor: pointer; color: var(--color-muted);
           padding: 6px; display: flex; align-items: center; border-radius: var(--radius-sm);
@@ -355,7 +353,7 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
           .topnav-inner { gap: 8px; padding: 0 12px; }
           .topnav-brand .brand-logo-wordmark { display: none; }
           .topnav-menu .topnav-link > span, .topnav-menu .topnav-caret { display: none; }
-          .topnav-menu .topnav-link { padding: 8px 10px; }
+          .topnav-menu .topnav-link { padding: 6px 9px; }
           .topnav-right { gap: 4px; }
           .topnav-user { gap: 6px; padding-left: 6px; }
         }

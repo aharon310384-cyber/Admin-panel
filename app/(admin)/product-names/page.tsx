@@ -8,7 +8,7 @@ import SortableHeader from "@/components/ui/sortable-header";
 import { Pagination } from "@/components/ui/pagination";
 import TableRowLink from "@/components/ui/table-row-link";
 import { parsePageParam } from "@/lib/list-params";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Наименования товаров" };
 
@@ -116,145 +116,141 @@ export default async function ProductNamesPage({
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><FavoriteStar />Наименования товаров</h1>
-          <p className="page-subtitle">{total} записей в регистре</p>
-        </div>
-        {isAdmin && (
-          <Link href="/product-names/new" className="btn-primary">
-            <Plus size={16} />
-            Добавить
-          </Link>
-        )}
-      </div>
-
-      <div className="search-wrap">
-        <Search size={15} className="search-icon" />
-        <form>
-          <input type="hidden" name="sort" value={`${sortField}_${sortDir}`} />
-          <input
-            type="search"
-            name="search"
-            placeholder="Поиск по коду, наименованию, секции или HS-коду..."
-            defaultValue={search}
-            className="search-input"
-          />
-        </form>
-      </div>
-
-      <div className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>
-                  <SortableHeader
-                    label="Код"
-                    href={sortHref("code")}
-                    active={sortField === "code"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Наименование RU"
-                    href={sortHref("nameRu")}
-                    active={sortField === "nameRu"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Наименование EN"
-                    href={sortHref("nameEn")}
-                    active={sortField === "nameEn"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Наименование CN"
-                    href={sortHref("nameCn")}
-                    active={sortField === "nameCn"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="Секция"
-                    href={sortHref("category")}
-                    active={sortField === "category"}
-                    direction={sortDir}
-                  />
-                </th>
-                <th>
-                  <SortableHeader
-                    label="HS-код"
-                    href={sortHref("hsCode")}
-                    active={sortField === "hsCode"}
-                    direction={sortDir}
-                  />
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {productNames.map((item) => (
-                <TableRowLink
-                  key={item.id}
-                  href={`/product-names/${item.id}/edit`}
-                >
-                  <td>
-                    <span className="code-pill">{item.code}</span>
-                  </td>
-                  <td>{item.nameRu}</td>
-                  <td className="text-muted">{dash(item.nameEn)}</td>
-                  <td className="text-muted">{dash(item.nameCn)}</td>
-                  <td className="text-muted">{dash(item.category)}</td>
-                  <td>
-                    {item.hsCode?.trim() ? (
-                      <>
-                        <span className="code-pill">{item.hsCode}</span>
-                        {item.hsDescription && (
-                          <div className="hs-desc" title="Официальное описание EU CN 2026">
-                            {item.hsDescription}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <span className="hs-missing" title="HS-код не указан">—</span>
-                    )}
-                  </td>
-                </TableRowLink>
-              ))}
-              {productNames.length === 0 && (
+    <>
+      <Form
+        formKey="product-names"
+        title="Наименования товаров"
+        commands={
+          isAdmin && (
+            <Link href="/product-names/new" className="cmd cmd--primary" data-command="create">
+              <Plus size={15} />
+              Создать
+            </Link>
+          )
+        }
+        header={
+          <div className="search-wrap">
+            <Search size={15} className="search-icon" />
+            <form>
+              <input type="hidden" name="sort" value={`${sortField}_${sortDir}`} />
+              <input
+                type="search"
+                name="search"
+                placeholder="Поиск по коду, наименованию, секции или HS-коду..."
+                defaultValue={search}
+                className="search-input"
+              />
+            </form>
+          </div>
+        }
+        footer={<>{total} записей в регистре</>}
+      >
+        <div className="card">
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
                 <tr>
-                  <td colSpan={6} className="table-empty">
-                    Наименования не найдены
-                  </td>
+                  <th>
+                    <SortableHeader
+                      label="Код"
+                      href={sortHref("code")}
+                      active={sortField === "code"}
+                      direction={sortDir}
+                    />
+                  </th>
+                  <th>
+                    <SortableHeader
+                      label="Наименование RU"
+                      href={sortHref("nameRu")}
+                      active={sortField === "nameRu"}
+                      direction={sortDir}
+                    />
+                  </th>
+                  <th>
+                    <SortableHeader
+                      label="Наименование EN"
+                      href={sortHref("nameEn")}
+                      active={sortField === "nameEn"}
+                      direction={sortDir}
+                    />
+                  </th>
+                  <th>
+                    <SortableHeader
+                      label="Наименование CN"
+                      href={sortHref("nameCn")}
+                      active={sortField === "nameCn"}
+                      direction={sortDir}
+                    />
+                  </th>
+                  <th>
+                    <SortableHeader
+                      label="Секция"
+                      href={sortHref("category")}
+                      active={sortField === "category"}
+                      direction={sortDir}
+                    />
+                  </th>
+                  <th>
+                    <SortableHeader
+                      label="HS-код"
+                      href={sortHref("hsCode")}
+                      active={sortField === "hsCode"}
+                      direction={sortDir}
+                    />
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {productNames.map((item) => (
+                  <TableRowLink
+                    key={item.id}
+                    href={`/product-names/${item.id}/edit`}
+                  >
+                    <td>
+                      <span className="code-pill">{item.code}</span>
+                    </td>
+                    <td>{item.nameRu}</td>
+                    <td className="text-muted">{dash(item.nameEn)}</td>
+                    <td className="text-muted">{dash(item.nameCn)}</td>
+                    <td className="text-muted">{dash(item.category)}</td>
+                    <td>
+                      {item.hsCode?.trim() ? (
+                        <>
+                          <span className="code-pill">{item.hsCode}</span>
+                          {item.hsDescription && (
+                            <div className="hs-desc" title="Официальное описание EU CN 2026">
+                              {item.hsDescription}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="hs-missing" title="HS-код не указан">—</span>
+                      )}
+                    </td>
+                  </TableRowLink>
+                ))}
+                {productNames.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="table-empty">
+                      Наименования не найдены
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            hrefForPage={(p) => productNamesHref({ search, sort }, { page: String(p) })}
+          />
         </div>
 
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          hrefForPage={(p) => productNamesHref({ search, sort }, { page: String(p) })}
-        />
-      </div>
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 20px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
-        .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--color-accent); color: var(--color-accent-fg); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.15s; white-space: nowrap; }
-        .btn-primary:hover { background: var(--color-accent-hover); }
-
-        .search-wrap { position: relative; max-width: 520px; }
+        .search-wrap { position: relative; width: 100%; max-width: 520px; }
         .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
         .search-input { width: 100%; padding: 9px 12px 9px 36px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13.5px; color: var(--color-text); font-family: var(--font-sans); outline: none; transition: border-color 0.15s; }
         .search-input:focus { border-color: var(--color-accent); }
@@ -278,6 +274,6 @@ export default async function ProductNamesPage({
         .btn-sm { padding: 4px 8px; }
         .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
       `}</style>
-    </div>
+    </>
   );
 }

@@ -19,7 +19,7 @@ export default function FavoriteStar() {
       aria-label={label}
       aria-pressed={on}
     >
-      <Star size={20} fill={on ? "currentColor" : "none"} />
+      <Star size={17} fill={on ? "currentColor" : "none"} />
     </button>
   );
 }

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-type BrandLogoSize = "sm" | "md" | "lg";
+type BrandLogoSize = "xs" | "sm" | "md" | "lg";
 
 type BrandLogoProps = {
   size?: BrandLogoSize;
@@ -12,6 +12,7 @@ const SIZES: Record<
   BrandLogoSize,
   { box: number; radius: number; mark: number; wordmark: number; gap: number }
 > = {
+  xs: { box: 26, radius: 7, mark: 11, wordmark: 14, gap: 8 },
   sm: { box: 32, radius: 9, mark: 13, wordmark: 15, gap: 10 },
   md: { box: 44, radius: 12, mark: 16, wordmark: 19, gap: 12 },
   lg: { box: 56, radius: 16, mark: 20, wordmark: 24, gap: 14 },

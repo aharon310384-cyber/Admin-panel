@@ -99,7 +99,7 @@ export function SectionsPanel({
                 setPopup((now) => (now?.code === section.code ? null : { code: section.code, style: popupPosition(zone, rect) }));
               }}
             >
-              <Icon size={18} />
+              <Icon size={16} />
               <span>{section.label}</span>
             </button>
           </div>

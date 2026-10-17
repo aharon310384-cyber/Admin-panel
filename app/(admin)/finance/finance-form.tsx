@@ -135,7 +135,7 @@ export default function FinanceForm({
       )}
 
       <style>{`
-        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 24px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 16px; }
+        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 16px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
         .field { display: flex; flex-direction: column; gap: 6px; }
         .field-label { font-size: 13px; font-weight: 500; color: var(--color-text); }

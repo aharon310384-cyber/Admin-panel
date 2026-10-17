@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Customer } from "@prisma/client";
+import { LogIn } from "lucide-react";
 import { auth } from "@/auth";
 import { enterClientCabinet } from "@/actions/client-cabinet";
 import { prisma } from "@/lib/prisma";
 import { formatCny, formatDateTime } from "@/lib/utils";
 import { ParcelStatusBadge } from "@/components/ui/status-badge";
 import SetPasswordButton from "@/components/clients/set-password-button";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Карточка клиента" };
 
@@ -123,160 +124,154 @@ export default async function ClientDetailPage({
     .filter((o) => o.status !== "RETURNED" && o.status !== "UTILIZED")
     .reduce((sum, o) => sum + Number(o.totalCny), 0);
 
+  // Заголовок окна: код и имя клиента; имя не повторяем, если оно совпадает с кодом или пустое.
+  const displayName = clientDisplayName(client);
+  const title =
+    client.code && displayName !== client.code && displayName !== "—"
+      ? `${client.code} ${displayName}`
+      : client.code || displayName;
+
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <div className="breadcrumb">
-            <Link href="/clients" className="breadcrumb-link">Клиенты</Link>
-            <span className="breadcrumb-sep">/</span>
-            <span>{client.code ?? clientDisplayName(client)}</span>
+    <>
+      <Form
+        formKey="client"
+        title={title}
+        guid={client.id}
+        commands={
+          isAdmin &&
+          client.code && (
+            <>
+              <form action={enterClientCabinet.bind(null, client.id)}>
+                <button type="submit" className="cmd cmd--primary" data-command="enter-cabinet">
+                  <LogIn size={15} />
+                  Войти как клиент
+                </button>
+              </form>
+              <span data-command="set-password" data-label="Задать пароль">
+                <SetPasswordButton customerId={client.id} />
+              </span>
+            </>
+          )
+        }
+      >
+        <div className="grid">
+          <div className="card">
+            <h2 className="card-title">Контактные данные</h2>
+            <dl className="info-list">
+              <div className="info-row"><dt>КОД_КЛИЕНТА</dt><dd>{dash(client.code)}</dd></div>
+              <div className="info-row"><dt>Фамилия</dt><dd>{dash(client.lastName)}</dd></div>
+              <div className="info-row"><dt>Имя</dt><dd>{dash(client.firstName)}</dd></div>
+              <div className="info-row"><dt>Отчество</dt><dd>{dash(client.middleName)}</dd></div>
+              <div className="info-row"><dt>Email</dt><dd>{dash(client.email)}</dd></div>
+              <div className="info-row"><dt>Telegram</dt><dd>{dash(client.telegramUsername)}</dd></div>
+              <div className="info-row"><dt>Телефон</dt><dd>{dash(client.phone)}</dd></div>
+              <div className="info-row"><dt>Страна</dt><dd>{dash(client.country)}</dd></div>
+              <div className="info-row"><dt>Город</dt><dd>{dash(client.city)}</dd></div>
+            </dl>
           </div>
-          <h1 className="page-title"><FavoriteStar />
-            {client.code && (
-              <span className="code-pill code-pill--lg">{client.code}</span>
-            )}
-            <span className="page-title-name">{clientDisplayName(client)}</span>
-          </h1>
-        </div>
-        {isAdmin && client.code && (
-          <div className="client-actions">
-            <form action={enterClientCabinet.bind(null, client.id)}>
-              <button type="submit" className="btn-primary">
-                Войти как клиент
-              </button>
-            </form>
-            <SetPasswordButton customerId={client.id} />
-          </div>
-        )}
-      </div>
 
-      <div className="grid">
-        <div className="card">
-          <h2 className="card-title">Контактные данные</h2>
-          <dl className="info-list">
-            <div className="info-row"><dt>КОД_КЛИЕНТА</dt><dd>{dash(client.code)}</dd></div>
-            <div className="info-row"><dt>Фамилия</dt><dd>{dash(client.lastName)}</dd></div>
-            <div className="info-row"><dt>Имя</dt><dd>{dash(client.firstName)}</dd></div>
-            <div className="info-row"><dt>Отчество</dt><dd>{dash(client.middleName)}</dd></div>
-            <div className="info-row"><dt>Email</dt><dd>{dash(client.email)}</dd></div>
-            <div className="info-row"><dt>Telegram</dt><dd>{dash(client.telegramUsername)}</dd></div>
-            <div className="info-row"><dt>Телефон</dt><dd>{dash(client.phone)}</dd></div>
-            <div className="info-row"><dt>Страна</dt><dd>{dash(client.country)}</dd></div>
-            <div className="info-row"><dt>Город</dt><dd>{dash(client.city)}</dd></div>
-          </dl>
-        </div>
-
-        <div className="card">
-          <h2 className="card-title">Статистика</h2>
-          <div className="stats-grid">
-            <div className="stat">
-            <p className="stat-label">Посылок</p>
-              <p className="stat-value">{orderCount}</p>
-              <p className="stat-hint">по префиксу {dash(codeUpper)}</p>
-            </div>
-            <div className="stat">
-              <p className="stat-label">Получателей</p>
-              <p className="stat-value">{recipients.length}</p>
-              <p className="stat-hint">уникальных, без дублей</p>
-            </div>
-            <div className="stat">
-              <p className="stat-label">Сумма последних 10 ¥</p>
-              <p className="stat-value">{formatCny(totalCny)}</p>
-              <p className="stat-hint">без отменённых</p>
+          <div className="card">
+            <h2 className="card-title">Статистика</h2>
+            <div className="stats-grid">
+              <div className="stat">
+              <p className="stat-label">Посылок</p>
+                <p className="stat-value">{orderCount}</p>
+                <p className="stat-hint">по префиксу {dash(codeUpper)}</p>
+              </div>
+              <div className="stat">
+                <p className="stat-label">Получателей</p>
+                <p className="stat-value">{recipients.length}</p>
+                <p className="stat-hint">уникальных, без дублей</p>
+              </div>
+              <div className="stat">
+                <p className="stat-label">Сумма последних 10 ¥</p>
+                <p className="stat-value">{formatCny(totalCny)}</p>
+                <p className="stat-hint">без отменённых</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="card card--full">
-          <h2 className="card-title">Получатели клиента ({recipients.length})</h2>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Фамилия</th>
-                  <th>Имя</th>
-                  <th>Отчество</th>
-                  <th>Страна / город</th>
-                  <th>Адрес</th>
-                  <th>Телефон</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {recipients.map((r) => (
-                  <tr key={r.id}>
-                    <td>{dash(r.lastName ?? r.name)}</td>
-                    <td>{dash(r.firstName)}</td>
-                    <td>{dash(r.middleName)}</td>
-                    <td className="text-muted">
-                      {[r.country, r.city].filter(Boolean).join(" / ") || "—"}
-                    </td>
-                    <td className="address-cell">{dash(r.address)}</td>
-                    <td className="text-muted">{dash(r.phone)}</td>
-                    <td>
-                      <Link href={`/recipients/${r.id}`} className="btn-ghost btn-sm">
-                        Открыть
-                      </Link>
-                    </td>
+          <div className="card card--full">
+            <h2 className="card-title">Получатели клиента ({recipients.length})</h2>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Фамилия</th>
+                    <th>Имя</th>
+                    <th>Отчество</th>
+                    <th>Страна / город</th>
+                    <th>Адрес</th>
+                    <th>Телефон</th>
+                    <th></th>
                   </tr>
-                ))}
-                {recipients.length === 0 && (
-                  <tr><td colSpan={7} className="table-empty">Получатели не найдены</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {recipients.map((r) => (
+                    <tr key={r.id}>
+                      <td>{dash(r.lastName ?? r.name)}</td>
+                      <td>{dash(r.firstName)}</td>
+                      <td>{dash(r.middleName)}</td>
+                      <td className="text-muted">
+                        {[r.country, r.city].filter(Boolean).join(" / ") || "—"}
+                      </td>
+                      <td className="address-cell">{dash(r.address)}</td>
+                      <td className="text-muted">{dash(r.phone)}</td>
+                      <td>
+                        <Link href={`/recipients/${r.id}`} className="btn-ghost btn-sm">
+                          Открыть
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                  {recipients.length === 0 && (
+                    <tr><td colSpan={7} className="table-empty">Получатели не найдены</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
-        <div className="card card--full">
-          <h2 className="card-title">Последние посылки ({recentOrders.length})</h2>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Дата</th>
-                  <th>Номер</th>
-                  <th>Получатель</th>
-                  <th>Статус</th>
-                  <th>Оплата ¥</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td className="text-muted">{formatDateTime(order.createdAt)}</td>
-                    <td>
-                      <Link href={`/parcels/${order.id}`} className="link">
-                        {order.number}
-                      </Link>
-                    </td>
-                    <td>{dash(order.recipient?.name)}</td>
-                    <td><ParcelStatusBadge status={order.status} /></td>
-                    <td className="tabular">{formatCny(order.totalCny)}</td>
+          <div className="card card--full">
+            <h2 className="card-title">Последние посылки ({recentOrders.length})</h2>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Дата</th>
+                    <th>Номер</th>
+                    <th>Получатель</th>
+                    <th>Статус</th>
+                    <th>Оплата ¥</th>
                   </tr>
-                ))}
-                {recentOrders.length === 0 && (
-                  <tr><td colSpan={5} className="table-empty">Посылок нет</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {recentOrders.map((order) => (
+                    <tr key={order.id}>
+                      <td className="text-muted">{formatDateTime(order.createdAt)}</td>
+                      <td>
+                        <Link href={`/parcels/${order.id}`} className="link">
+                          {order.number}
+                        </Link>
+                      </td>
+                      <td>{dash(order.recipient?.name)}</td>
+                      <td><ParcelStatusBadge status={order.status} /></td>
+                      <td className="tabular">{formatCny(order.totalCny)}</td>
+                    </tr>
+                  ))}
+                  {recentOrders.length === 0 && (
+                    <tr><td colSpan={5} className="table-empty">Посылок нет</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 24px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-        .client-actions { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); display: inline-flex; align-items: center; gap: 12px; }
-        .page-title-name { font-weight: 600; color: var(--color-text-secondary, var(--color-muted)); font-size: 18px; }
-        .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-muted); margin-bottom: 4px; }
-        .breadcrumb-link { color: var(--color-accent); text-decoration: none; }
-        .breadcrumb-sep { color: var(--color-border-strong); }
-
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-card); }
+        .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card); }
         .card--full { grid-column: 1 / -1; padding: 20px 0; }
         .card-title { font-size: 14px; font-weight: 600; margin: 0 0 16px; color: var(--color-text); padding: 0 20px; }
 
@@ -290,9 +285,6 @@ export default async function ClientDetailPage({
         .stat-label { font-size: 12px; color: var(--color-muted); margin: 0 0 6px; }
         .stat-value { font-size: 22px; font-weight: 700; color: var(--color-text); margin: 0; font-variant-numeric: tabular-nums; }
         .stat-hint { font-size: 11px; color: var(--color-muted); margin: 4px 0 0; }
-
-        .code-pill { display: inline-flex; align-items: center; min-width: 42px; justify-content: center; padding: 3px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--color-text); background: var(--color-muted-bg); }
-        .code-pill--lg { font-size: 18px; padding: 6px 14px; min-width: 60px; }
 
         .table-wrap { overflow-x: auto; }
         .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -312,11 +304,9 @@ export default async function ClientDetailPage({
         .btn-ghost { display: inline-flex; align-items: center; padding: 5px 10px; background: transparent; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--color-accent); text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
         .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
         .btn-sm { padding: 4px 8px; }
-        .btn-primary { display: inline-flex; align-items: center; justify-content: center; padding: 9px 14px; border: 1px solid var(--color-accent); border-radius: var(--radius-sm); background: var(--color-accent); color: var(--color-accent-fg); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
-        .btn-primary:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
 
-        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .grid { grid-template-columns: minmax(0, 1fr); } }
       `}</style>
-    </div>
+    </>
   );
 }

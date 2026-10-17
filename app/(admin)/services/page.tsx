@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import {
   Calculator,
   Camera,
@@ -13,7 +12,7 @@ import {
 } from "lucide-react";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref } from "@/lib/list-params";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Услуги" };
 
@@ -171,113 +170,101 @@ export default async function ServicesPage({
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <p className="page-eyebrow">Справочник</p>
-          <h1 className="page-title"><FavoriteStar />Дополнительные услуги</h1>
-          <p className="page-subtitle">
-            {SERVICES.length} услуг · {activeCount} активных · подключаются к посылке и заказу
-          </p>
-        </div>
-        <Link href="#" className="btn btn-primary" aria-disabled="true" title="Будет доступно на шаге 3">
-          <Plus size={16} aria-hidden="true" />
-          Новая услуга
-        </Link>
-      </div>
-
-      <div className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th><SortableHeader label="Услуга" href={sortHref("nameRu")} active={sortField === "nameRu"} direction={sortDir} /></th>
-                <th><SortableHeader label="Код" href={sortHref("code")} active={sortField === "code"} direction={sortDir} /></th>
-                <th><SortableHeader label="Тип стоимости" href={sortHref("pricingType")} active={sortField === "pricingType"} direction={sortDir} /></th>
-                <th><SortableHeader label="Стоимость" href={sortHref("value")} active={sortField === "value"} direction={sortDir} /></th>
-                <th>Применима к</th>
-                <th><SortableHeader label="Активна" href={sortHref("isActive")} active={sortField === "isActive"} direction={sortDir} /></th>
-                <th><SortableHeader label="Порядок" href={sortHref("sortOrder")} active={sortField === "sortOrder"} direction={sortDir} /></th>
-                <th className="th-actions">Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.map((s) => {
-                const Icon = s.icon;
-                return (
-                  <tr key={s.id} className={s.isActive ? "" : "row-dim"}>
-                    <td>
-                      <div className="service-cell">
-                        <span className="service-icon" aria-hidden="true">
-                          <Icon size={16} />
+    <>
+      <Form
+        formKey="services"
+        title="Дополнительные услуги"
+        commands={
+          <button type="button" className="cmd cmd--primary" data-command="create" disabled title="Будет доступно на шаге 3">
+            <Plus size={15} aria-hidden="true" />
+            Создать
+          </button>
+        }
+        footer={<>{SERVICES.length} услуг · {activeCount} активных · подключаются к посылке и заказу</>}
+      >
+        <div className="card">
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th><SortableHeader label="Услуга" href={sortHref("nameRu")} active={sortField === "nameRu"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Код" href={sortHref("code")} active={sortField === "code"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Тип стоимости" href={sortHref("pricingType")} active={sortField === "pricingType"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Стоимость" href={sortHref("value")} active={sortField === "value"} direction={sortDir} /></th>
+                  <th>Применима к</th>
+                  <th><SortableHeader label="Активна" href={sortHref("isActive")} active={sortField === "isActive"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Порядок" href={sortHref("sortOrder")} active={sortField === "sortOrder"} direction={sortDir} /></th>
+                  <th className="th-actions">Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {services.map((s) => {
+                  const Icon = s.icon;
+                  return (
+                    <tr key={s.id} className={s.isActive ? "" : "row-dim"}>
+                      <td>
+                        <div className="service-cell">
+                          <span className="service-icon" aria-hidden="true">
+                            <Icon size={16} />
+                          </span>
+                          <div className="service-text">
+                            <span className="service-name-ru">{s.nameRu}</span>
+                            <span className="service-name-en">{s.nameEn}</span>
+                            <span className="service-desc">{s.description}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="code-pill">{s.code}</span>
+                      </td>
+                      <td>
+                        <span className="pricing-pill">{PRICING_LABELS[s.pricingType]}</span>
+                      </td>
+                      <td className="tabular">{formatPrice(s)}</td>
+                      <td>
+                        {s.applicableDeliveryTypes.length === 0 ? (
+                          <span className="muted">—</span>
+                        ) : (
+                          <div className="chips">
+                            {s.applicableDeliveryTypes.map((d) => (
+                              <span key={d} className="chip">{d}</span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${s.isActive ? "badge--on" : "badge--off"}`}>
+                          {s.isActive ? "Активна" : "Выключена"}
                         </span>
-                        <div className="service-text">
-                          <span className="service-name-ru">{s.nameRu}</span>
-                          <span className="service-name-en">{s.nameEn}</span>
-                          <span className="service-desc">{s.description}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="code-pill">{s.code}</span>
-                    </td>
-                    <td>
-                      <span className="pricing-pill">{PRICING_LABELS[s.pricingType]}</span>
-                    </td>
-                    <td className="tabular">{formatPrice(s)}</td>
-                    <td>
-                      {s.applicableDeliveryTypes.length === 0 ? (
-                        <span className="muted">—</span>
-                      ) : (
-                        <div className="chips">
-                          {s.applicableDeliveryTypes.map((d) => (
-                            <span key={d} className="chip">{d}</span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`badge ${s.isActive ? "badge--on" : "badge--off"}`}>
-                        {s.isActive ? "Активна" : "Выключена"}
-                      </span>
-                    </td>
-                    <td className="tabular muted">{s.sortOrder}</td>
-                    <td className="td-actions">
-                      <button type="button" className="icon-btn" aria-label="Редактировать" disabled title="Шаг 3">
-                        <Pencil size={14} aria-hidden="true" />
-                      </button>
-                      <button type="button" className="icon-btn icon-btn--danger" aria-label="Удалить" disabled title="Шаг 3">
-                        <Trash2 size={14} aria-hidden="true" />
-                      </button>
+                      </td>
+                      <td className="tabular muted">{s.sortOrder}</td>
+                      <td className="td-actions">
+                        <button type="button" className="icon-btn" aria-label="Редактировать" disabled title="Шаг 3">
+                          <Pencil size={14} aria-hidden="true" />
+                        </button>
+                        <button type="button" className="icon-btn icon-btn--danger" aria-label="Удалить" disabled title="Шаг 3">
+                          <Trash2 size={14} aria-hidden="true" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {SERVICES.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="table-empty">
+                      <Sparkles size={18} style={{ marginBottom: 8, opacity: 0.5 }} aria-hidden="true" />
+                      <div>Услуг пока нет</div>
                     </td>
                   </tr>
-                );
-              })}
-              {SERVICES.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="table-empty">
-                    <Sparkles size={18} style={{ marginBottom: 8, opacity: 0.5 }} aria-hidden="true" />
-                    <div>Услуг пока нет</div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 20px; }
-
-        .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-        .page-eyebrow { margin: 0 0 4px; color: var(--color-accent); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); letter-spacing: -0.02em; }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 6px 0 0; }
-
-        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; border: 1px solid transparent; text-decoration: none; transition: opacity 0.15s; }
-        .btn[aria-disabled="true"], .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
-        .btn-primary { color: var(--color-accent-fg); background: var(--color-accent); }
-
         .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }
 
         .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -320,6 +307,6 @@ export default async function ServicesPage({
           .service-desc { display: none; }
         }
       `}</style>
-    </div>
+    </>
   );
 }

@@ -12,7 +12,7 @@ import OrdersChart from "@/components/ui/orders-chart";
 import { ParcelStatusBadge } from "@/components/ui/status-badge";
 import { startOfDay, startOfWeek, subDays, format } from "date-fns";
 import { ru } from "date-fns/locale";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Операции" };
 
@@ -90,142 +90,116 @@ export default async function DashboardPage() {
   const data = await getDashboardData();
 
   return (
-    <div className="dashboard">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><FavoriteStar />Операции PostmanFox</h1>
-          <p className="page-subtitle">
-            Рабочий центр посылок, {session?.user.name}
-          </p>
-        </div>
-      </div>
+    <>
+      <Form
+        formKey="dashboard"
+        title="Операции PostmanFox"
+        footer={<>Рабочий центр посылок, {session?.user.name}</>}
+      >
+        <div className="metrics-grid">
+          <div className="metric-card">
+            <div className="metric-icon metric-icon--blue">
+              <Truck size={20} />
+            </div>
+            <div className="metric-body">
+              <p className="metric-label">Посылок сегодня</p>
+              <p className="metric-value">{data.ordersToday}</p>
+            </div>
+          </div>
 
-      <div className="metrics-grid">
-        <div className="metric-card">
-          <div className="metric-icon metric-icon--blue">
-            <Truck size={20} />
+          <div className="metric-card">
+            <div className="metric-icon metric-icon--green">
+              <TrendingUp size={20} />
+            </div>
+            <div className="metric-body">
+              <p className="metric-label">Выручка за неделю</p>
+              <p className="metric-value">{formatCny(data.weekRevenue)}</p>
+            </div>
           </div>
-          <div className="metric-body">
-            <p className="metric-label">Посылок сегодня</p>
-            <p className="metric-value">{data.ordersToday}</p>
-          </div>
-        </div>
 
-        <div className="metric-card">
-          <div className="metric-icon metric-icon--green">
-            <TrendingUp size={20} />
-          </div>
-          <div className="metric-body">
-            <p className="metric-label">Выручка за неделю</p>
-            <p className="metric-value">{formatCny(data.weekRevenue)}</p>
-          </div>
-        </div>
-
-        <div className="metric-card">
-          <div className="metric-icon metric-icon--orange">
-            <Users size={20} />
-          </div>
-          <div className="metric-body">
-            <p className="metric-label">Активных получателей</p>
-            <p className="metric-value">{data.activeCustomers}</p>
+          <div className="metric-card">
+            <div className="metric-icon metric-icon--orange">
+              <Users size={20} />
+            </div>
+            <div className="metric-body">
+              <p className="metric-label">Активных получателей</p>
+              <p className="metric-value">{data.activeCustomers}</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="card">
-        <h2 className="card-title">Посылки за последние 7 дней</h2>
-        <OrdersChart data={data.weeklyOrders} />
-      </div>
-
-      <div className="dashboard-grid">
         <div className="card">
-          <h2 className="card-title">Топ-5 заказов</h2>
-          <div className="top-products">
-            {data.topProducts.map((item, i) => (
-              <div key={item.productNameText ?? i} className="top-product-row">
-                <span className="top-product-rank">#{i + 1}</span>
-                <span className="top-product-name">
-                  {item.productNameText ?? "—"}
-                </span>
-                <span className="top-product-qty">
-                  {item._sum.quantity ?? 0} шт.
-                </span>
-              </div>
-            ))}
-            {data.topProducts.length === 0 && (
-              <p className="empty-text">Нет данных по заказам</p>
-            )}
-          </div>
+          <h2 className="card-title">Посылки за последние 7 дней</h2>
+          <OrdersChart data={data.weeklyOrders} />
         </div>
 
-        <div className="card card--wide">
-          <h2 className="card-title">Последние посылки</h2>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Номер</th>
-                  <th>Получатель</th>
-                  <th>Статус</th>
-                  <th>Сумма</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.recentOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td>
-                      <Link href={`/parcels/${order.id}`} className="link">
-                        {order.number}
-                      </Link>
-                    </td>
-                    <td>{order.customer.name}</td>
-                    <td>
-                      <ParcelStatusBadge status={order.status} />
-                    </td>
-                    <td className="tabular">{formatCny(order.totalCny)}</td>
-                  </tr>
-                ))}
-                {data.recentOrders.length === 0 && (
+        <div className="dashboard-grid">
+          <div className="card">
+            <h2 className="card-title">Топ-5 заказов</h2>
+            <div className="top-products">
+              {data.topProducts.map((item, i) => (
+                <div key={item.productNameText ?? i} className="top-product-row">
+                  <span className="top-product-rank">#{i + 1}</span>
+                  <span className="top-product-name">
+                    {item.productNameText ?? "—"}
+                  </span>
+                  <span className="top-product-qty">
+                    {item._sum.quantity ?? 0} шт.
+                  </span>
+                </div>
+              ))}
+              {data.topProducts.length === 0 && (
+                <p className="empty-text">Нет данных по заказам</p>
+              )}
+            </div>
+          </div>
+
+          <div className="card card--wide">
+            <h2 className="card-title">Последние посылки</h2>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
                   <tr>
-                    <td colSpan={4} className="empty-text" style={{ textAlign: "center" }}>
-                      Посылок пока нет
-                    </td>
+                    <th>Номер</th>
+                    <th>Получатель</th>
+                    <th>Статус</th>
+                    <th>Сумма</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.recentOrders.map((order) => (
+                    <tr key={order.id}>
+                      <td>
+                        <Link href={`/parcels/${order.id}`} className="link">
+                          {order.number}
+                        </Link>
+                      </td>
+                      <td>{order.customer.name}</td>
+                      <td>
+                        <ParcelStatusBadge status={order.status} />
+                      </td>
+                      <td className="tabular">{formatCny(order.totalCny)}</td>
+                    </tr>
+                  ))}
+                  {data.recentOrders.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="empty-text" style={{ textAlign: "center" }}>
+                        Посылок пока нет
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      </Form>
 
       <style>{`
-        .dashboard { display: flex; flex-direction: column; gap: 24px; }
-
-        .page-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .page-title {
-          font-size: 24px;
-          font-weight: 700;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        .page-subtitle {
-          font-size: 13px;
-          color: var(--color-muted);
-          margin: 4px 0 0;
-        }
-
         .metrics-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
+          gap: 12px;
         }
 
         .metric-card {
@@ -233,16 +207,16 @@ export default async function DashboardPage() {
           backdrop-filter: blur(16px) saturate(1.4);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          padding: 20px;
+          padding: 12px 14px;
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 12px;
           box-shadow: var(--shadow-card);
         }
 
         .metric-icon {
-          width: 44px;
-          height: 44px;
+          width: 36px;
+          height: 36px;
           border-radius: var(--radius-sm);
           display: flex;
           align-items: center;
@@ -271,7 +245,7 @@ export default async function DashboardPage() {
         .dashboard-grid {
           display: grid;
           grid-template-columns: 280px 1fr;
-          gap: 16px;
+          gap: 12px;
           align-items: start;
         }
 
@@ -280,14 +254,14 @@ export default async function DashboardPage() {
           backdrop-filter: blur(16px) saturate(1.4);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          padding: 20px;
+          padding: 14px 16px;
           box-shadow: var(--shadow-card);
         }
 
         .card-title {
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 600;
-          margin: 0 0 16px;
+          margin: 0 0 10px;
           color: var(--color-text);
         }
 
@@ -374,6 +348,6 @@ export default async function DashboardPage() {
           .metrics-grid { grid-template-columns: 1fr; }
         }
       `}</style>
-    </div>
+    </>
   );
 }

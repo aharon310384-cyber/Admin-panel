@@ -1,0 +1,33 @@
+/* Плотный вид, как в 1С: больше строк и полей на одном экране.
+   Страницы пока держат свои стили в <style> внутри страницы. Правила ниже начинаются с .admin-content,
+   поэтому весомее их и задают общие размеры в одном месте. Отступы внутри карточек — в самих страницах. */
+
+/* Заголовки разделов внутри окна; заголовок самого окна — в components/form/form.tsx */
+.admin-content .section-title { font-size: 14px; margin-bottom: 12px; }
+
+/* Карточки: тень и скругление поменьше */
+.admin-content .card { border-radius: var(--radius-sm); box-shadow: 0 1px 3px rgba(58, 37, 16, 0.08); }
+
+/* Таблицы: строка около 28 px */
+.admin-content .table { font-size: 13px; }
+.admin-content .table th { padding: 6px 10px; font-size: 10.5px; }
+.admin-content .table td { padding: 4px 10px; }
+.admin-content .table-wrap { max-height: calc(100dvh - 170px); }
+
+/* Поля ввода: ниже и мельче шрифт */
+.admin-content :is(.field-input, .of-input, .bi-input, .search-input, .pc-select) {
+  padding-top: 5px; padding-bottom: 5px; font-size: 13px;
+}
+.admin-content :is(.field, .of-field, .bi-field) { gap: 3px; }
+.admin-content .field-label { font-size: 12.5px; }
+.admin-content :is(.field-grid, .field-row) { gap: 10px 14px; }
+
+/* Кнопки */
+.admin-content :is(.btn, .btn-primary, .btn-secondary, .btn-add, .btn-delete, .arm-btn, .ffo-btn, .pc-btn):not(.btn-sm) {
+  padding: 5px 12px; font-size: 13px;
+}
+
+/* Метки внутри строк таблиц (код клиента, статус) — ниже, чтобы не раздували строку */
+.admin-content :is(.code-pill, .st) { padding-top: 1px; padding-bottom: 1px; }
+.admin-content .status-badge { min-height: 20px; padding-top: 2px; padding-bottom: 2px; }
+.admin-content .table input[type="checkbox"] { margin: 0; vertical-align: middle; }

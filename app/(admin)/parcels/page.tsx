@@ -6,7 +6,7 @@ import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Посылки" };
 
@@ -74,63 +74,53 @@ export default async function ParcelsPage({
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><FavoriteStar />Посылки</h1>
-          <p className="page-subtitle">{parcels.length} посылок</p>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
-                <th><SortableHeader label="Номер" href={sortHref("number")} active={sortField === "number"} direction={sortDir} /></th>
-                <th><SortableHeader label="Задача" href={sortHref("taskNumber")} active={sortField === "taskNumber"} direction={sortDir} /></th>
-                <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
-                <th><SortableHeader label="Получатель" href={sortHref("recipientName")} active={sortField === "recipientName"} direction={sortDir} /></th>
-                <th><SortableHeader label="Доставка" href={sortHref("deliveryType")} active={sortField === "deliveryType"} direction={sortDir} /></th>
-                <th><SortableHeader label="Заказов" href={sortHref("ordersCount")} active={sortField === "ordersCount"} direction={sortDir} /></th>
-                <th><SortableHeader label="Вес кг" href={sortHref("billableWeightKg")} active={sortField === "billableWeightKg"} direction={sortDir} /></th>
-                <th><SortableHeader label="Итог $" href={sortHref("totalUsd")} active={sortField === "totalUsd"} direction={sortDir} /></th>
-                <th><SortableHeader label="Оплата" href={sortHref("isPaid")} active={sortField === "isPaid"} direction={sortDir} /></th>
-                <th><SortableHeader label="Создана" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
-              </tr>
-            </thead>
-            <tbody>
-              {parcels.map((p) => (
-                <tr key={p.id}>
-                  <td><span className="code-pill">{p.customer.code ?? "—"}</span></td>
-                  <td><Link href={`/parcels/${p.id}`} className="num">{p.number}</Link></td>
-                  <td className="task-num">{p.parcelTask?.number ?? "—"}</td>
-                  <td><span className={`st st--${PARCEL_STATUS_COLOR[p.status]}`}>{parcelStatusLabel(p.status)}</span></td>
-                  <td className="text-muted">{p.recipient?.name ?? "—"}</td>
-                  <td className="text-muted">{deliveryTypeLabel(p.deliveryType)}</td>
-                  <td className="tabular">{p._count.orders}</td>
-                  <td className="tabular">{formatNumber(Number(p.billableWeightKg ?? 0))}</td>
-                  <td className="tabular strong">{formatUsd(Number(p.totalUsd))}</td>
-                  <td>{p.isPaid ? <span className="paid">Оплачено</span> : <span className="text-muted">—</span>}</td>
-                  <td className="text-muted">{formatDateTime(p.createdAt)}</td>
+    <>
+      <Form formKey="parcels" title="Посылки" footer={<>{parcels.length} посылок</>}>
+        <div className="card">
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Номер" href={sortHref("number")} active={sortField === "number"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Задача" href={sortHref("taskNumber")} active={sortField === "taskNumber"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Получатель" href={sortHref("recipientName")} active={sortField === "recipientName"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Доставка" href={sortHref("deliveryType")} active={sortField === "deliveryType"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Заказов" href={sortHref("ordersCount")} active={sortField === "ordersCount"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Вес кг" href={sortHref("billableWeightKg")} active={sortField === "billableWeightKg"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Итог $" href={sortHref("totalUsd")} active={sortField === "totalUsd"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Оплата" href={sortHref("isPaid")} active={sortField === "isPaid"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Создана" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
                 </tr>
-              ))}
-              {parcels.length === 0 && (
-                <tr><td colSpan={11} className="table-empty">Посылок пока нет</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {parcels.map((p) => (
+                  <tr key={p.id}>
+                    <td><span className="code-pill">{p.customer.code ?? "—"}</span></td>
+                    <td><Link href={`/parcels/${p.id}`} className="num">{p.number}</Link></td>
+                    <td className="task-num">{p.parcelTask?.number ?? "—"}</td>
+                    <td><span className={`st st--${PARCEL_STATUS_COLOR[p.status]}`}>{parcelStatusLabel(p.status)}</span></td>
+                    <td className="text-muted">{p.recipient?.name ?? "—"}</td>
+                    <td className="text-muted">{deliveryTypeLabel(p.deliveryType)}</td>
+                    <td className="tabular">{p._count.orders}</td>
+                    <td className="tabular">{formatNumber(Number(p.billableWeightKg ?? 0))}</td>
+                    <td className="tabular strong">{formatUsd(Number(p.totalUsd))}</td>
+                    <td>{p.isPaid ? <span className="paid">Оплачено</span> : <span className="text-muted">—</span>}</td>
+                    <td className="text-muted">{formatDateTime(p.createdAt)}</td>
+                  </tr>
+                ))}
+                {parcels.length === 0 && (
+                  <tr><td colSpan={11} className="table-empty">Посылок пока нет</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 20px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
-        .btn-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; background: var(--color-accent); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; color: #fff; text-decoration: none; white-space: nowrap; }
-        .btn-add:hover { opacity: 0.9; }
         .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }
         .table-wrap { overflow-x: auto; }
         .table { min-width: 1000px; width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -156,6 +146,6 @@ export default async function ParcelsPage({
         .code-pill { display: inline-flex; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); }
         .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
       `}</style>
-    </div>
+    </>
   );
 }

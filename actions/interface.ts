@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/server-helpers";
+import { FORM_KEY_RE, FORM_PARTS, normalizeForms, type FormPart } from "@/lib/form";
 import {
   FAVORITES_LIMIT,
   HISTORY_LIMIT,
@@ -20,6 +21,7 @@ import {
 
 const panelGroups = z.array(z.array(z.enum(PANEL_CODES)).min(1).max(MAX_GROUP_SIZE)).max(MAX_GROUPS);
 const panelsSchema = z.object({ top: panelGroups, left: panelGroups, right: panelGroups, bottom: panelGroups });
+const formSchema = z.object({ formKey: z.string().regex(FORM_KEY_RE), hidden: z.array(z.enum(FORM_PARTS)).max(FORM_PARTS.length) });
 
 // Адрес страницы админки: только свой сайт, без «//» и схем.
 const pageSchema = z.object({
@@ -95,4 +97,20 @@ export async function recordVisit(page: PageRef) {
     create: { userId: session.user.id, history },
     update: { history },
   });
+}
+
+// «Изменить форму…»: какие части окна скрыты. Пустой список — все видны. Возвращает настройку всех окон.
+export async function saveFormSettings(formKey: string, hidden: FormPart[]) {
+  const session = await requireAuth();
+  const parsed = formSchema.safeParse({ formKey, hidden });
+  if (!parsed.success) return { error: "Неверная настройка формы" };
+  const current = normalizeForms((await settingsOf(session.user.id))?.forms);
+  const forms = normalizeForms({ ...current, [parsed.data.formKey]: { hidden: parsed.data.hidden } });
+  const value = Object.keys(forms).length ? forms : Prisma.DbNull;
+  await prisma.userInterfaceSettings.upsert({
+    where: { userId: session.user.id },
+    create: { userId: session.user.id, forms: value },
+    update: { forms: value },
+  });
+  return { forms };
 }

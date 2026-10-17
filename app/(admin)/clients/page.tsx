@@ -7,7 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 import ClickableRow from "@/components/ui/clickable-row";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Клиенты" };
 
@@ -75,63 +75,58 @@ export default async function ClientsPage({
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><FavoriteStar />Клиенты</h1>
-          <p className="page-subtitle">{clients.length} клиентов</p>
+    <>
+      <Form
+        formKey="clients"
+        title="Клиенты"
+        commands={
+          <Link href="/clients/new" className="cmd cmd--primary" data-command="create">
+            <Plus size={15} />
+            Создать
+          </Link>
+        }
+        footer={<>{clients.length} клиентов</>}
+      >
+        <div className="card">
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th><SortableHeader label="Код" href={sortHref("code")} active={sortField === "code"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Имя" href={sortHref("name")} active={sortField === "name"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Телефон" href={sortHref("phone")} active={sortField === "phone"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Email" href={sortHref("email")} active={sortField === "email"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Город" href={sortHref("city")} active={sortField === "city"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Получателей" href={sortHref("recipientsCount")} active={sortField === "recipientsCount"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Заказов" href={sortHref("ordersCount")} active={sortField === "ordersCount"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Посылок" href={sortHref("parcelsCount")} active={sortField === "parcelsCount"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Создан" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
+                </tr>
+              </thead>
+              <tbody>
+                {clients.map((c) => (
+                  <ClickableRow key={c.id} href={`/clients/${c.id}`}>
+                    <td><span className="code-pill">{dash(c.code)}</span></td>
+                    <td className="strong">{c.name}</td>
+                    <td className="mono text-muted">{dash(c.phone)}</td>
+                    <td className="text-muted">{dash(c.email)}</td>
+                    <td className="text-muted">{dash(c.city)}</td>
+                    <td className="tabular">{c._count.recipients}</td>
+                    <td className="tabular">{c._count.orders}</td>
+                    <td className="tabular">{c._count.parcels}</td>
+                    <td className="text-muted">{formatDateTime(c.createdAt)}</td>
+                  </ClickableRow>
+                ))}
+                {clients.length === 0 && (
+                  <tr><td colSpan={9} className="table-empty">Клиентов пока нет</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <Link href="/clients/new" className="btn-add">
-          <Plus size={16} />
-          Добавить клиента
-        </Link>
-      </div>
-
-      <div className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th><SortableHeader label="Код" href={sortHref("code")} active={sortField === "code"} direction={sortDir} /></th>
-                <th><SortableHeader label="Имя" href={sortHref("name")} active={sortField === "name"} direction={sortDir} /></th>
-                <th><SortableHeader label="Телефон" href={sortHref("phone")} active={sortField === "phone"} direction={sortDir} /></th>
-                <th><SortableHeader label="Email" href={sortHref("email")} active={sortField === "email"} direction={sortDir} /></th>
-                <th><SortableHeader label="Город" href={sortHref("city")} active={sortField === "city"} direction={sortDir} /></th>
-                <th><SortableHeader label="Получателей" href={sortHref("recipientsCount")} active={sortField === "recipientsCount"} direction={sortDir} /></th>
-                <th><SortableHeader label="Заказов" href={sortHref("ordersCount")} active={sortField === "ordersCount"} direction={sortDir} /></th>
-                <th><SortableHeader label="Посылок" href={sortHref("parcelsCount")} active={sortField === "parcelsCount"} direction={sortDir} /></th>
-                <th><SortableHeader label="Создан" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((c) => (
-                <ClickableRow key={c.id} href={`/clients/${c.id}`}>
-                  <td><span className="code-pill">{dash(c.code)}</span></td>
-                  <td className="strong">{c.name}</td>
-                  <td className="mono text-muted">{dash(c.phone)}</td>
-                  <td className="text-muted">{dash(c.email)}</td>
-                  <td className="text-muted">{dash(c.city)}</td>
-                  <td className="tabular">{c._count.recipients}</td>
-                  <td className="tabular">{c._count.orders}</td>
-                  <td className="tabular">{c._count.parcels}</td>
-                  <td className="text-muted">{formatDateTime(c.createdAt)}</td>
-                </ClickableRow>
-              ))}
-              {clients.length === 0 && (
-                <tr><td colSpan={9} className="table-empty">Клиентов пока нет</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 20px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-        .btn-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; background: var(--color-accent); border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; color: #fff; text-decoration: none; white-space: nowrap; transition: opacity 0.15s; }
-        .btn-add:hover { opacity: 0.9; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
         .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }
         .table-wrap { overflow-x: auto; }
         .table { min-width: 900px; width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -146,6 +141,6 @@ export default async function ClientsPage({
         .code-pill { display: inline-flex; min-width: 36px; justify-content: center; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); color: var(--color-text); }
         .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
       `}</style>
-    </div>
+    </>
   );
 }

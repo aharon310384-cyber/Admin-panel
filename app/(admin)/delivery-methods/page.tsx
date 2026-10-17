@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Виды доставки" };
 
@@ -13,59 +13,53 @@ export default async function DeliveryMethodsPage() {
   });
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><FavoriteStar />Виды доставки</h1>
-          <p className="page-subtitle">
-            Справочник видов доставки. Привязан к заказам, посылкам и тарифам по коду.
-          </p>
-        </div>
-      </div>
-
-      <section className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Код</th>
-                <th>Название (RU)</th>
-                <th>EN</th>
-                <th className="tabular">Порядок</th>
-                <th>Активен</th>
-                <th className="tabular">Заказы</th>
-                <th className="tabular">Посылки</th>
-                <th className="tabular">Тарифы</th>
-              </tr>
-            </thead>
-            <tbody>
-              {methods.map((m) => (
-                <tr key={m.code}>
-                  <td><span className="code">{m.code}</span></td>
-                  <td className="strong">{m.nameRu}</td>
-                  <td className="muted">{m.nameEn ?? "—"}</td>
-                  <td className="tabular">{m.sortOrder}</td>
-                  <td>{m.active ? "Да" : "Нет"}</td>
-                  <td className="tabular">{m._count.orders}</td>
-                  <td className="tabular">{m._count.parcels}</td>
-                  <td className="tabular">{m._count.tariffs}</td>
-                </tr>
-              ))}
-              {methods.length === 0 && (
+    <>
+      <Form
+        formKey="delivery-methods"
+        title="Виды доставки"
+        footer="Справочник видов доставки. Привязан к заказам, посылкам и тарифам по коду."
+      >
+        <section className="card">
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
                 <tr>
-                  <td colSpan={8} className="muted">Справочник пуст.</td>
+                  <th>Код</th>
+                  <th>Название (RU)</th>
+                  <th>EN</th>
+                  <th className="tabular">Порядок</th>
+                  <th>Активен</th>
+                  <th className="tabular">Заказы</th>
+                  <th className="tabular">Посылки</th>
+                  <th className="tabular">Тарифы</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody>
+                {methods.map((m) => (
+                  <tr key={m.code}>
+                    <td><span className="code">{m.code}</span></td>
+                    <td className="strong">{m.nameRu}</td>
+                    <td className="muted">{m.nameEn ?? "—"}</td>
+                    <td className="tabular">{m.sortOrder}</td>
+                    <td>{m.active ? "Да" : "Нет"}</td>
+                    <td className="tabular">{m._count.orders}</td>
+                    <td className="tabular">{m._count.parcels}</td>
+                    <td className="tabular">{m._count.tariffs}</td>
+                  </tr>
+                ))}
+                {methods.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="muted">Справочник пуст.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 20px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
         .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }
         .table-wrap { overflow-x: auto; }
         .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -78,6 +72,6 @@ export default async function DeliveryMethodsPage() {
         .muted { color: var(--color-muted); }
         .tabular { font-variant-numeric: tabular-nums; white-space: nowrap; }
       `}</style>
-    </div>
+    </>
   );
 }

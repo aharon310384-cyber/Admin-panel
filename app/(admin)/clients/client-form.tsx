@@ -135,7 +135,7 @@ export default function ClientForm({ countries, action }: Props) {
 
       <style>{`
         .customer-form { display: flex; flex-direction: column; gap: 20px; }
-        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 24px; box-shadow: var(--shadow-card); }
+        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card); }
         .section-title { font-size: 15px; font-weight: 600; margin: 0 0 20px; color: var(--color-text); }
         .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .field { display: flex; flex-direction: column; gap: 6px; }

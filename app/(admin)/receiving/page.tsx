@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { orderStatusLabel } from "@/lib/statuses";
 import ReceivingArm from "@/components/receiving/receiving-arm";
-import FavoriteStar from "@/components/layout/favorite-star";
+import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "АРМ приём заказа" };
 
@@ -36,38 +36,34 @@ export default async function ReceivingPage({
   }));
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title"><FavoriteStar />АРМ приём заказа</h1>
-          <p className="page-subtitle">Заказы, ожидающие приёма на склад — {rows.length}</p>
+    <>
+      <Form
+        formKey="receiving"
+        title="АРМ приём заказа"
+        header={
+          <form className="search-wrap" method="get">
+            <input
+              type="search"
+              name="track"
+              placeholder="Поиск по входящему трек-номеру…"
+              defaultValue={trackQuery ?? ""}
+              className="search-input"
+            />
+          </form>
+        }
+        footer={<>Заказы, ожидающие приёма на склад — {rows.length}</>}
+      >
+        <div className="card">
+          <ReceivingArm rows={rows} />
         </div>
-      </div>
-
-      <form className="search-wrap" method="get">
-        <input
-          type="search"
-          name="track"
-          placeholder="Поиск по входящему трек-номеру…"
-          defaultValue={trackQuery ?? ""}
-          className="search-input"
-        />
-      </form>
-
-      <div className="card">
-        <ReceivingArm rows={rows} />
-      </div>
+      </Form>
 
       <style>{`
-        .page { display: flex; flex-direction: column; gap: 16px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-        .page-title { font-size: 24px; font-weight: 700; margin: 0; color: var(--color-text); }
-        .page-subtitle { font-size: 13px; color: var(--color-muted); margin: 4px 0 0; }
-        .search-wrap { max-width: 420px; }
+        .search-wrap { flex: 1; max-width: 420px; }
         .search-input { width: 100%; padding: 9px 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13.5px; color: var(--color-text); outline: none; }
         .search-input:focus { border-color: var(--color-accent); }
-        .card { padding: 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
+        .card { padding: 14px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
       `}</style>
-    </div>
+    </>
   );
 }
