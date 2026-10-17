@@ -6,6 +6,7 @@ import { getClientCabinetContext } from "@/lib/client-cabinet";
 import { prisma } from "@/lib/prisma";
 import { clientParcelNumber } from "@/lib/parcel-number";
 import StatusPill, { statusLabel } from "@/components/cabinet/status-pill";
+import TrackNumber from "@/components/cabinet/track-number";
 import { formatUsd, formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Обзор" };
@@ -46,6 +47,7 @@ export default async function ClientCabinetOverviewPage() {
           id: true,
           number: true,
           parcelTask: { select: { number: true } },
+          trackingNumber: true,
           status: true,
           totalUsd: true,
           isPaid: true,
@@ -107,13 +109,21 @@ export default async function ClientCabinetOverviewPage() {
       </div>
 
       {latest ? (
-        <Link href={`/cabinet/parcels/${latest.id}`} className="ov-card ov-latest">
+        <div className="ov-card ov-latest">
           <div className="ov-latest-head">
-            <div>
+            <div className="ov-latest-id">
               <span className="ov-card-label">Последняя посылка</span>
-              <span className="ov-latest-num">{clientParcelNumber(latest)}</span>
+              {/* Ссылка растянута на всю карточку (::after), кнопка «Отследить» лежит поверх */}
+              <Link href={`/cabinet/parcels/${latest.id}`} className="ov-latest-num ov-latest-link">
+                {clientParcelNumber(latest)}
+              </Link>
             </div>
-            <StatusPill status={latest.status} />
+            <div className="ov-latest-track">
+              <TrackNumber trackingNumber={latest.trackingNumber} />
+            </div>
+            <div className="ov-latest-status">
+              <StatusPill status={latest.status} />
+            </div>
           </div>
 
           <div className="ov-timeline" aria-hidden="true">
@@ -135,7 +145,7 @@ export default async function ClientCabinetOverviewPage() {
               <span key={step}>{statusLabel(step)}</span>
             ))}
           </div>
-        </Link>
+        </div>
       ) : (
         <div className="ov-card ov-empty">
           <Package size={28} className="ov-empty-icon" />
@@ -238,8 +248,23 @@ export default async function ClientCabinetOverviewPage() {
         .ov-hero-sub { font-size: 12.5px; color: var(--cab-muted); }
 
         .ov-latest { gap: 14px; }
-        .ov-latest-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-        .ov-latest-num { display: block; margin-top: 3px; font-family: var(--font-jetbrains-mono), monospace; font-size: 15px; font-weight: 600; color: var(--cab-text); }
+        .ov-latest:hover { transform: translateY(-2px); box-shadow: var(--cab-shadow-md); }
+        .ov-latest-head {
+          display: grid; gap: 12px 16px; align-items: start;
+          grid-template-columns: 1fr auto;
+          grid-template-areas: "id status" "track track";
+        }
+        .ov-latest-id { grid-area: id; min-width: 0; }
+        .ov-latest-track { grid-area: track; min-width: 0; }
+        .ov-latest-status { grid-area: status; }
+        .ov-latest-num { display: block; margin-top: 3px; font-family: var(--font-jetbrains-mono), monospace; font-size: 15px; font-weight: 600; color: var(--cab-text); text-decoration: none; }
+        .ov-latest-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+        .ov-latest-link:focus-visible { outline: none; }
+        .ov-latest-link:focus-visible::after { outline: 2px solid var(--cab-green); outline-offset: 2px; }
+        @media (min-width: 640px) {
+          .ov-latest-head { grid-template-columns: auto 1fr auto; grid-template-areas: "id track status"; }
+          .ov-latest-track { padding-left: 16px; border-left: 1px solid var(--cab-border); }
+        }
 
         .ov-timeline { display: flex; align-items: center; }
         .ov-step { display: flex; align-items: center; flex: 1; }
