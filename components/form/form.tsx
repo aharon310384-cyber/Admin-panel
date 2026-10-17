@@ -6,15 +6,15 @@
 // в «Ещё», а не поместившиеся в строку прячутся с панели и остаются только в «Ещё».
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Link2, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, Link2, ListTree, X } from "lucide-react";
 import FavoriteStar from "@/components/layout/favorite-star";
 import { useForms } from "@/components/form/form-context";
 import FormSettingsDialog from "@/components/form/form-settings";
 import { applyWidths, attachResize, clearWidths } from "@/components/form/column-widths";
 import MoreMenu, { type BarCommand } from "@/components/form/more-menu";
-import ReportsMenu from "@/components/form/reports-menu";
 import { SEARCH_PARAMS, type ColumnWidths, type FormPart, type MoreCommandId } from "@/lib/form";
-import { relatedDocumentsFor, reportsFor } from "@/lib/reports";
+import { relatedDocumentsFor } from "@/lib/related";
 
 // На обёртке (span вокруг кнопки с подтверждением) нажимается сама кнопка внутри.
 function pressable(el: HTMLElement) {
@@ -55,7 +55,6 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     widthsRef.current = settings?.widths;
     saveRef.current = forms?.saveForm;
   });
-  const reports = reportsFor(formKey, guid);
   const related = relatedDocumentsFor(formKey, guid);
   const parts: FormPart[] = ["commands", ...(header ? (["header"] as const) : []), "pages", ...(footer ? (["footer"] as const) : [])];
   const shown = (part: FormPart) => !hidden.includes(part);
@@ -152,7 +151,6 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
   if (searchActive) enabled.add("cancelFind");
   if (guid) enabled.add("guid");
   if (settings?.widths) enabled.add("defaultSettings");
-  if (related) enabled.add("related");
   for (const id of Object.keys(links ?? {})) enabled.add(id);
 
   const copy = async (text: string, done: string) => {
@@ -177,8 +175,6 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     const link = links?.[id as MoreCommandId];
     if (link) return router.push(link);
     switch (id) {
-      case "related":
-        return related && router.push(related);
       case "refresh":
         router.refresh();
         return setNotice("Обновлено");
@@ -243,8 +239,13 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
 
       <div ref={barRef} className="form-commands" data-form-part="commands">
         {commands}
-        {reports.length > 0 && <ReportsMenu reports={reports} />}
-        <MoreMenu bar={bar} reports={reports} enabled={enabled} onCommand={run} />
+        {related && (
+          <Link href={related} className="cmd" data-command="related" data-shortcut="Ctrl+Shift+S">
+            <ListTree size={15} />
+            Связанные документы
+          </Link>
+        )}
+        <MoreMenu bar={bar} enabled={enabled} onCommand={run} />
       </div>
       {header && shown("header") && (
         <div className="form-header" data-form-part="header">
@@ -314,8 +315,7 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
         .cmd--primary { color: #fff; font-weight: 600; background: var(--color-accent); border-color: var(--color-accent); }
         .cmd--primary:hover { background: var(--color-accent-hover); }
         .form-more { margin-left: auto; }
-        .form-more[data-state="open"], .form-reports[data-state="open"] { background: var(--color-muted-bg); }
-        a.more-item { text-decoration: none; }
+        .form-more[data-state="open"] { background: var(--color-muted-bg); }
 
         .form-header { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
         .form-pages { display: flex; flex-direction: column; gap: 12px; min-width: 0; }

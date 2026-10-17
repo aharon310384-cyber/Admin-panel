@@ -34,6 +34,7 @@ function pageTitle(pathname: string) {
   const base = document.title.replace(/\s*\|\s*Админ-панель\s*$/, "").trim();
   const h1 = document.querySelector(".admin-content h1")?.textContent?.trim() ?? "";
   const isCard = pathname.split("/").filter(Boolean).length >= 2;
+  if (isCard && h1.startsWith(`${base}:`)) return h1.slice(0, 120);
   if (isCard && h1 && h1 !== base && !base.includes(h1) && h1.length <= 60) return `${base}: ${h1}`.slice(0, 120);
   return (base || h1 || pathname).slice(0, 120);
 }
