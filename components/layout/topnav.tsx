@@ -18,6 +18,7 @@ import {
   Receipt,
   Settings,
   Sparkles,
+  Star,
   Tags,
   Truck,
   Users,
@@ -84,9 +85,11 @@ const NAV_GROUPS: NavGroup[] = [
 type TopNavProps = {
   userName: string;
   userRole: string;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 };
 
-export default function TopNav({ userName, userRole }: TopNavProps) {
+export default function TopNav({ userName, userRole, isFavorite, onToggleFavorite }: TopNavProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
@@ -149,6 +152,7 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
           <Link
             href={HOME.href}
             className={cn("topnav-link", itemActive(HOME.href) && "topnav-link--active")}
+            title={HOME.label}
           >
             <HOME.icon size={16} />
             <span>{HOME.label}</span>
@@ -159,6 +163,7 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
               type="button"
               className={cn("topnav-link topnav-trigger", (open || dataActive) && "topnav-link--active")}
               aria-expanded={open}
+              title="Данные"
               onClick={() => setOpen((v) => !v)}
             >
               <Database size={16} />
@@ -205,6 +210,17 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
         </nav>
 
         <div className="topnav-right">
+          <button
+            type="button"
+            className={cn("topnav-icon-link", isFavorite && "topnav-favorite--on")}
+            onClick={onToggleFavorite}
+            title={isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
+            aria-label={isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
+            aria-pressed={isFavorite}
+          >
+            <Star size={18} fill={isFavorite ? "currentColor" : "none"} />
+          </button>
+
           <Link
             href="/settings"
             className={cn("topnav-icon-link", itemActive("/settings") && "topnav-link--active")}
@@ -319,6 +335,8 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
           color: var(--color-text-secondary); text-decoration: none; transition: color 0.15s, background 0.15s;
         }
         .topnav-icon-link:hover { color: var(--color-text); background: var(--color-muted-bg); }
+        button.topnav-icon-link { border: none; background: none; cursor: pointer; }
+        .topnav-favorite--on, .topnav-favorite--on:hover { color: #d99a12; }
 
         .topnav-user { display: flex; align-items: center; gap: 10px; padding-left: 8px; border-left: 1px solid var(--color-border); }
         .topnav-avatar {
@@ -339,6 +357,15 @@ export default function TopNav({ userName, userRole }: TopNavProps) {
 
         @media (max-width: 1024px) {
           .topnav-user-info { display: none; }
+        }
+        /* Телефон: в меню только значки, иначе оно налезает на значки справа */
+        @media (max-width: 640px) {
+          .topnav-inner { gap: 8px; padding: 0 12px; }
+          .topnav-brand .brand-logo-wordmark { display: none; }
+          .topnav-menu .topnav-link > span, .topnav-menu .topnav-caret { display: none; }
+          .topnav-menu .topnav-link { padding: 8px 10px; }
+          .topnav-right { gap: 4px; }
+          .topnav-user { gap: 6px; padding-left: 6px; }
         }
       `}</style>
     </header>

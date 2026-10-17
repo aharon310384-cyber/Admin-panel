@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import TopNav from "@/components/layout/topnav";
+import AdminShell from "@/components/layout/admin-shell";
+import { getUserInterface } from "@/lib/interface-settings";
 
 export default async function AdminLayout({
   children,
@@ -13,42 +14,17 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
+  const { panels, favorites, history } = await getUserInterface(session.user.id);
+
   return (
-    <div className="admin-layout">
-      <TopNav
-        userName={session.user.name ?? "Пользователь"}
-        userRole={session.user.role}
-      />
-      <main className="admin-main">
-        <div className="admin-content">{children}</div>
-      </main>
-
-      <style>{`
-        .admin-layout {
-          display: flex;
-          flex-direction: column;
-          min-height: 100dvh;
-        }
-
-        .admin-main {
-          flex: 1;
-          min-width: 0;
-          overflow-x: hidden;
-        }
-
-        .admin-content {
-          padding: 28px 32px;
-          max-width: 1600px;
-          margin: 0 auto;
-          width: 100%;
-        }
-
-        @media (max-width: 768px) {
-          .admin-content {
-            padding: 20px 16px;
-          }
-        }
-      `}</style>
-    </div>
+    <AdminShell
+      userName={session.user.name ?? "Пользователь"}
+      userRole={session.user.role}
+      panels={panels}
+      favorites={favorites}
+      history={history}
+    >
+      {children}
+    </AdminShell>
   );
 }
