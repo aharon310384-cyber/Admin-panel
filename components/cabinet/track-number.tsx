@@ -14,28 +14,30 @@ export default function TrackNumber({ trackingNumber }: { trackingNumber: string
 
   return (
     <div className="cab-track">
-      <span className="cab-track-label">Трек-номер посылки</span>
-      {number ? (
-        <div className="cab-track-row">
+      <div className="cab-track-info">
+        <span className="cab-track-label">Трек-номер посылки</span>
+        {number ? (
           <span className="cab-track-num">{number}</span>
-          <a
-            className="cab-track-btn"
-            href={trackingUrl(number)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Отследить
-            <ExternalLink size={13} aria-hidden="true" />
-          </a>
-        </div>
-      ) : (
-        <span className="cab-track-none">Пока не присвоен</span>
+        ) : (
+          <span className="cab-track-none">Пока не присвоен</span>
+        )}
+      </div>
+      {number && (
+        <a
+          className="cab-track-btn"
+          href={trackingUrl(number)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Отследить
+          <ExternalLink size={13} aria-hidden="true" />
+        </a>
       )}
 
       <style>{`
-        .cab-track { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .cab-track { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
+        .cab-track-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
         .cab-track-label { font-size: 12px; font-weight: 600; color: var(--cab-muted); }
-        .cab-track-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
         .cab-track-num {
           font-family: var(--font-jetbrains-mono), monospace; font-size: 15px; font-weight: 600;
           color: var(--cab-text); word-break: break-all;
