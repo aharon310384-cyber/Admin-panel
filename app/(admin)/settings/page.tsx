@@ -70,7 +70,7 @@ export default async function SettingsPage() {
         .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
         .settings-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
-        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 24px; box-shadow: var(--shadow-card); }
+        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card); }
         .card-title { font-size: 15px; font-weight: 600; margin: 0 0 20px; color: var(--color-text); }
 
         .account-info { display: flex; gap: 16px; }

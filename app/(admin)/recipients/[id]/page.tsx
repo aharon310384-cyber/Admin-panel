@@ -118,7 +118,7 @@ export default async function RecipientDetailPage({
         .breadcrumb-link { color: var(--color-accent); text-decoration: none; }
         .breadcrumb-sep { color: var(--color-border-strong); }
 
-        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-card); }
+        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card); }
         .card-title { font-size: 14px; font-weight: 600; margin: 0 0 16px; color: var(--color-text); }
 
         .info-list { display: flex; flex-direction: column; gap: 10px; margin: 0; }

@@ -184,7 +184,7 @@ export default function StatusesPage() {
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-primary { color: var(--color-accent-fg); background: var(--color-accent); }
 
-        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); padding: 14px 16px; display: flex; flex-direction: column; gap: 18px; }
         .card-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
         .card-kicker { margin: 0 0 4px; color: var(--color-accent); font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
         .card-title { margin: 0; color: var(--color-text); font-size: 16px; font-weight: 700; }

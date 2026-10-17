@@ -94,7 +94,6 @@ export const SECTIONS: Section[] = [
     items: [
       { href: "/clients", label: "Клиенты", icon: IdCard },
       { href: "/recipients", label: "Получатели", icon: Users },
-      { href: "/orders", label: "Заказы", icon: ClipboardList },
     ],
   },
   {
@@ -102,6 +101,7 @@ export const SECTIONS: Section[] = [
     label: "Склад",
     icon: Warehouse,
     items: [
+      { href: "/orders", label: "Заказы", icon: ClipboardList },
       { href: "/receiving", label: "АРМ приём заказа", icon: PackageCheck },
       { href: "/parcels", label: "Посылки", icon: Package },
       { href: "/product-names", label: "Наименования товаров", icon: Tags },

@@ -199,7 +199,7 @@ export default async function DashboardPage() {
       </div>
 
       <style>{`
-        .dashboard { display: flex; flex-direction: column; gap: 24px; }
+        .dashboard { display: flex; flex-direction: column; gap: 12px; }
 
         .page-header {
           display: flex;
@@ -225,7 +225,7 @@ export default async function DashboardPage() {
         .metrics-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
+          gap: 12px;
         }
 
         .metric-card {
@@ -233,16 +233,16 @@ export default async function DashboardPage() {
           backdrop-filter: blur(16px) saturate(1.4);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          padding: 20px;
+          padding: 12px 14px;
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 12px;
           box-shadow: var(--shadow-card);
         }
 
         .metric-icon {
-          width: 44px;
-          height: 44px;
+          width: 36px;
+          height: 36px;
           border-radius: var(--radius-sm);
           display: flex;
           align-items: center;
@@ -271,7 +271,7 @@ export default async function DashboardPage() {
         .dashboard-grid {
           display: grid;
           grid-template-columns: 280px 1fr;
-          gap: 16px;
+          gap: 12px;
           align-items: start;
         }
 
@@ -280,14 +280,14 @@ export default async function DashboardPage() {
           backdrop-filter: blur(16px) saturate(1.4);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          padding: 20px;
+          padding: 14px 16px;
           box-shadow: var(--shadow-card);
         }
 
         .card-title {
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 600;
-          margin: 0 0 16px;
+          margin: 0 0 10px;
           color: var(--color-text);
         }
 

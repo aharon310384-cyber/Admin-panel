@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import AdminShell from "@/components/layout/admin-shell";
 import { getUserInterface } from "@/lib/interface-settings";
+import "./density.css";
 
 export default async function AdminLayout({
   children,

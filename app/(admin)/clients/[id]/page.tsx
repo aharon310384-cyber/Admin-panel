@@ -276,7 +276,7 @@ export default async function ClientDetailPage({
         .breadcrumb-sep { color: var(--color-border-strong); }
 
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-card); }
+        .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card); }
         .card--full { grid-column: 1 / -1; padding: 20px 0; }
         .card-title { font-size: 14px; font-weight: 600; margin: 0 0 16px; color: var(--color-text); padding: 0 20px; }
 

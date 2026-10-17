@@ -220,52 +220,52 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
       {panels.bottom.length > 0 && <div className="shell-zone shell-zone--bottom">{rows("bottom")}</div>}
 
       <style>{`
-        .admin-layout { display: flex; flex-direction: column; min-height: 100dvh; }
+        .admin-layout { --topnav-h: 42px; display: flex; flex-direction: column; min-height: 100dvh; }
         .shell-body { flex: 1; display: flex; min-width: 0; }
         .admin-main { flex: 1; min-width: 0; overflow-x: hidden; }
-        .admin-content { padding: 28px 32px; max-width: 1600px; margin: 0 auto; width: 100%; }
+        .admin-content { padding: 12px 16px 20px; width: 100%; }
 
         .shell-zone { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); }
         .shell-zone--top { border-bottom: 1px solid var(--color-border); position: relative; z-index: 25; }
         .shell-zone--bottom { border-top: 1px solid var(--color-border); position: sticky; bottom: 0; z-index: 25; }
-        .shell-zone-inner { max-width: 1600px; margin: 0 auto; padding: 0 20px; }
+        .shell-zone-inner { padding: 0 12px; }
         .shell-zone-inner + .shell-zone-inner { border-top: 1px solid var(--color-border); }
         .shell-row { display: flex; align-items: stretch; min-width: 0; }
         .shell-cell { flex: 1 1 auto; min-width: 0; }
-        .shell-cell + .shell-cell { border-left: 1px solid var(--color-border); margin-left: 12px; padding-left: 12px; }
+        .shell-cell + .shell-cell { border-left: 1px solid var(--color-border); margin-left: 8px; padding-left: 8px; }
         .shell-zone--side { flex-shrink: 0; }
         .shell-side-inner {
-          position: sticky; top: 56px; max-height: calc(100dvh - 56px - var(--shell-bottom, 0px)); overflow-y: auto;
-          padding: 12px 10px; display: flex; flex-direction: row; align-items: flex-start;
+          position: sticky; top: var(--topnav-h); max-height: calc(100dvh - var(--topnav-h) - var(--shell-bottom, 0px)); overflow-y: auto;
+          padding: 6px; display: flex; flex-direction: row; align-items: flex-start;
         }
-        .shell-col { width: 212px; display: flex; flex-direction: column; gap: 14px; }
-        .shell-col + .shell-col { border-left: 1px solid var(--color-border); margin-left: 10px; padding-left: 10px; }
+        .shell-col { width: 184px; display: flex; flex-direction: column; gap: 8px; }
+        .shell-col + .shell-col { border-left: 1px solid var(--color-border); margin-left: 6px; padding-left: 6px; }
 
         .fav-star {
-          display: inline-flex; vertical-align: middle; position: relative; top: -2px; margin-right: 8px; padding: 3px;
+          display: inline-flex; vertical-align: middle; position: relative; top: -2px; margin-right: 4px; padding: 2px;
           border: none; background: none; cursor: pointer; border-radius: 6px; color: var(--color-muted); transition: color 0.15s, background 0.15s;
         }
         .fav-star:hover { color: #d99a12; background: var(--color-muted-bg); }
         .fav-star--on, .fav-star--on:hover { color: #e0a414; }
-        .admin-layout--bottom { --shell-bottom: 48px; }
+        .admin-layout--bottom { --shell-bottom: 32px; }
         .shell-zone--left { border-right: 1px solid var(--color-border); }
         .shell-zone--right { border-left: 1px solid var(--color-border); }
 
-        .pnl { display: flex; gap: 4px; min-width: 0; }
-        .pnl--h { flex-direction: row; align-items: center; padding: 6px 0; overflow-x: auto; scrollbar-width: thin; }
+        .pnl { display: flex; gap: 2px; min-width: 0; }
+        .pnl--h { flex-direction: row; align-items: center; padding: 3px 0; overflow-x: auto; scrollbar-width: thin; }
         .pnl--v { flex-direction: column; align-items: stretch; }
         .pnl-title {
-          display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 4px 8px; flex-shrink: 0;
-          font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted);
+          display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 2px 6px; flex-shrink: 0;
+          font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted);
         }
-        .pnl--h .pnl-title { padding-right: 10px; margin-right: 4px; border-right: 1px solid var(--color-border); }
-        .pnl-empty { margin: 0; padding: 6px 8px; font-size: 12.5px; color: var(--color-muted); white-space: nowrap; }
+        .pnl--h .pnl-title { padding-right: 8px; margin-right: 2px; border-right: 1px solid var(--color-border); }
+        .pnl-empty { margin: 0; padding: 3px 6px; font-size: 12px; color: var(--color-muted); white-space: nowrap; }
         .pnl--v .pnl-empty { white-space: normal; }
 
         .pnl-item {
-          display: inline-flex; align-items: center; gap: 8px; padding: 7px 10px; min-width: 0;
-          border: none; background: none; border-radius: var(--radius-sm); cursor: pointer;
-          font: inherit; font-size: 13.5px; font-weight: 500; color: var(--color-text-secondary);
+          display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; min-width: 0;
+          border: none; background: none; border-radius: 6px; cursor: pointer;
+          font: inherit; font-size: 13px; font-weight: 500; color: var(--color-text-secondary);
           text-decoration: none; white-space: nowrap; transition: color 0.15s, background 0.15s;
         }
         .pnl-item span { overflow: hidden; text-overflow: ellipsis; }
@@ -274,7 +274,7 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
         .pnl-item--active { color: var(--color-accent); background: oklch(52% 0.14 42 / 0.08); }
         .pnl--v .pnl-item { display: flex; width: 100%; }
 
-        .pnl-section { padding: 8px 12px; }
+        .pnl-section { padding: 5px 10px; }
         .pnl-section-wrap { flex-shrink: 0; }
         .pnl--v .pnl-section-wrap { width: 100%; }
         .pnl-popup {
@@ -290,14 +290,14 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
         }
 
         .pnl-tab {
-          display: inline-flex; align-items: center; flex-shrink: 0; max-width: 240px;
-          border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface);
+          display: inline-flex; align-items: center; flex-shrink: 0; max-width: 220px;
+          border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface);
         }
         .pnl--v .pnl-tab { max-width: none; width: 100%; }
         .pnl-tab--plain { border-color: transparent; background: none; }
         .pnl-tab--active { border-color: oklch(52% 0.14 42 / 0.45); background: oklch(52% 0.14 42 / 0.08); }
         .pnl-tab-link {
-          flex: 1; min-width: 0; padding: 6px 4px 6px 10px; font-size: 13px; font-weight: 500;
+          flex: 1; min-width: 0; padding: 3px 2px 3px 8px; font-size: 12.5px; font-weight: 500;
           color: var(--color-text-secondary); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .pnl-tab--active .pnl-tab-link { color: var(--color-accent); }
@@ -305,8 +305,8 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
         .pnl-tab--plain .pnl-item { flex: 1; }
         .pnl-tab-close {
           display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-          width: 24px; height: 24px; margin-right: 3px; border: none; background: none; cursor: pointer;
-          border-radius: 6px; color: var(--color-muted);
+          width: 20px; height: 20px; margin-right: 2px; border: none; background: none; cursor: pointer;
+          border-radius: 5px; color: var(--color-muted);
         }
         .pnl-tab-close:hover { color: var(--color-danger); background: var(--color-danger-bg); }
 
@@ -314,12 +314,12 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
         .pnl-pin { color: #23845f; }
         .pnl-history { justify-content: space-between; }
         .pnl-history-title { overflow: hidden; text-overflow: ellipsis; }
-        .pnl-history-time { flex-shrink: 0; font-size: 11.5px; font-weight: 400; color: var(--color-muted); }
+        .pnl-history-time { flex-shrink: 0; font-size: 11px; font-weight: 400; color: var(--color-muted); }
 
         @media (max-width: 900px) {
           .shell-body { flex-direction: column; }
           .shell-zone--side { width: auto; border: none; border-bottom: 1px solid var(--color-border); }
-          .shell-side-inner { position: static; max-height: none; padding: 6px 16px; flex-direction: column; }
+          .shell-side-inner { position: static; max-height: none; padding: 4px 12px; flex-direction: column; }
           .shell-col { width: auto; }
           .shell-col + .shell-col { border-left: none; margin-left: 0; padding-left: 0; }
           .shell-row { flex-direction: column; }
@@ -328,8 +328,7 @@ export default function AdminShell({ userName, userRole, panels, favorites: save
           .shell-zone--side .pnl-item, .shell-zone--side .pnl-section-wrap, .shell-zone--side .pnl-tab { width: auto; }
         }
         @media (max-width: 768px) {
-          .admin-content { padding: 20px 16px; }
-          .shell-zone-inner { padding: 0 16px; }
+          .admin-content { padding: 10px 12px 16px; }
         }
       `}</style>
     </div>

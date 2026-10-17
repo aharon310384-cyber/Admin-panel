@@ -66,7 +66,7 @@ export default async function ReceivingPage({
         .search-wrap { max-width: 420px; }
         .search-input { width: 100%; padding: 9px 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13.5px; color: var(--color-text); outline: none; }
         .search-input:focus { border-color: var(--color-accent); }
-        .card { padding: 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
+        .card { padding: 14px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
       `}</style>
     </div>
   );
