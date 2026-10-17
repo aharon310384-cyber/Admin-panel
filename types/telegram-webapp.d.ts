@@ -3,6 +3,7 @@ interface TelegramWebApp {
   ready: () => void;
   expand: () => void;
   close?: () => void;
+  openLink?: (url: string) => void;
   enableClosingConfirmation?: () => void;
   setHeaderColor?: (color: string) => void;
   setBackgroundColor?: (color: string) => void;
