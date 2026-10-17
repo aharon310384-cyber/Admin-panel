@@ -9,7 +9,8 @@ import StatusPill, { statusLabel } from "@/components/cabinet/status-pill";
 import TrackNumber from "@/components/cabinet/track-number";
 import { formatUsd, formatDate } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Обзор" };
+// Шаблон «%s | PostmanFox» из layout кабинета не действует на страницу того же сегмента
+export const metadata: Metadata = { title: { absolute: "Обзор | PostmanFox" } };
 
 const ACTIVE_STATUSES: ParcelStatus[] = ["FORMED", "ASSEMBLED", "PACKED", "READY_TO_SHIP", "SHIPPED"];
 const TIMELINE: ParcelStatus[] = ["FORMED", "ASSEMBLED", "PACKED", "READY_TO_SHIP", "SHIPPED", "DELIVERED"];
