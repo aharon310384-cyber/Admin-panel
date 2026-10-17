@@ -103,8 +103,8 @@ export default function PaymentsTab({ data, filter, sortField, sortDir }: Props)
           <table className="table">
             <thead>
               <tr>
-                <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
                 <th><SortableHeader label="Дата" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
+                <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
                 <th><SortableHeader label="Номер" href={sortHref("number")} active={sortField === "number"} direction={sortDir} /></th>
                 <th>Задача</th>
                 <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
@@ -117,8 +117,8 @@ export default function PaymentsTab({ data, filter, sortField, sortDir }: Props)
             <tbody>
               {data.rows.map((row) => (
                 <TableRowLink key={row.id} href={`/parcels/${row.id}`}>
-                  <td><span className="code-pill">{row.customerCode ?? "—"}</span></td>
                   <td className="text-muted">{formatDateTime(row.createdAt)}</td>
+                  <td><span className="code-pill">{row.customerCode ?? "—"}</span></td>
                   <td className="mono link">{row.number}</td>
                   <td className="mono text-muted">{row.taskNumber ?? "—"}</td>
                   <td>

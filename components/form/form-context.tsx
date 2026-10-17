@@ -2,12 +2,13 @@
 
 // Настройка форм сотрудника и закрытие окна — для рамки окна (Form). Даёт AdminShell.
 import { createContext, useContext } from "react";
-import type { FormPart, FormsSettings } from "@/lib/form";
+import type { FormSettingsPatch } from "@/actions/interface";
+import type { FormsSettings } from "@/lib/form";
 
 export type FormsApi = {
   forms: FormsSettings;
-  saveForm: (formKey: string, hidden: FormPart[]) => Promise<boolean>;
-  closeCurrent: () => void;
+  saveForm: (formKey: string, patch: FormSettingsPatch) => Promise<boolean>;
+  closeCurrent: (() => void) | null; // null — окно не закрывается (начальная страница)
 };
 
 export const FormsContext = createContext<FormsApi | null>(null);

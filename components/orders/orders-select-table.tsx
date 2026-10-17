@@ -99,19 +99,19 @@ export default function OrdersSelectTable({
             <thead>
               <tr>
                 <th className="cell-narrow" aria-label="Выбор" />
-                <th><SortableHeader label="Клиент" href={sortHrefs.customerCode} active={sortField === "customerCode"} direction={sortDir} /></th>
-                <th><SortableHeader label="Номер" href={sortHrefs.number} active={sortField === "number"} direction={sortDir} /></th>
-                <th><SortableHeader label="Наименование" href={sortHrefs.productNameText} active={sortField === "productNameText"} direction={sortDir} /></th>
+                <th><SortableHeader label="Дата" href={sortHrefs.createdAt} active={sortField === "createdAt"} direction={sortDir} /></th>
                 <th><SortableHeader label="Входящий трек-номер" href={sortHrefs.trackNumber} active={sortField === "trackNumber"} direction={sortDir} /></th>
-                <th>Комментарий</th>
+                <th><SortableHeader label="Номер" href={sortHrefs.number} active={sortField === "number"} direction={sortDir} /></th>
+                <th><SortableHeader label="Клиент" href={sortHrefs.customerCode} active={sortField === "customerCode"} direction={sortDir} /></th>
+                <th><SortableHeader label="Вес кг" href={sortHrefs.actualWeightKg} active={sortField === "actualWeightKg"} direction={sortDir} /></th>
+                <th><SortableHeader label="Статус" href={sortHrefs.status} active={sortField === "status"} direction={sortDir} /></th>
+                <th><SortableHeader label="Наименование" href={sortHrefs.productNameText} active={sortField === "productNameText"} direction={sortDir} /></th>
                 <th><SortableHeader label="Кол-во" href={sortHrefs.quantity} active={sortField === "quantity"} direction={sortDir} /></th>
                 <th><SortableHeader label="Цена $" href={sortHrefs.unitPriceUsd} active={sortField === "unitPriceUsd"} direction={sortDir} /></th>
                 <th><SortableHeader label="Объявл. $" href={sortHrefs.declaredValueUsd} active={sortField === "declaredValueUsd"} direction={sortDir} /></th>
-                <th><SortableHeader label="Вес кг" href={sortHrefs.actualWeightKg} active={sortField === "actualWeightKg"} direction={sortDir} /></th>
                 <th><SortableHeader label="Доставка" href={sortHrefs.deliveryType} active={sortField === "deliveryType"} direction={sortDir} /></th>
                 <th><SortableHeader label="Получатель" href={sortHrefs.recipientName} active={sortField === "recipientName"} direction={sortDir} /></th>
-                <th><SortableHeader label="Статус" href={sortHrefs.status} active={sortField === "status"} direction={sortDir} /></th>
-                <th><SortableHeader label="Создан" href={sortHrefs.createdAt} active={sortField === "createdAt"} direction={sortDir} /></th>
+                <th>Комментарий</th>
               </tr>
             </thead>
             <tbody>
@@ -142,19 +142,19 @@ export default function OrdersSelectTable({
                         title={disabled ? reasonWhyNot(o) : undefined}
                       />
                     </td>
-                    <td><span className="code-pill">{dash(o.customerCode)}</span></td>
-                    <td className="mono text-muted">{dash(o.number)}</td>
-                    <td className="strong">{dash(o.productNameText)}</td>
+                    <td className="text-muted">{o.createdAtLabel}</td>
                     <td className="mono text-muted">{dash(o.trackNumber)}</td>
-                    <td className="text-muted comment" title={o.customerComment ?? undefined}>{dash(o.customerComment)}</td>
+                    <td className="mono text-muted">{dash(o.number)}</td>
+                    <td><span className="code-pill">{dash(o.customerCode)}</span></td>
+                    <td className="tabular">{o.actualWeightKg != null ? formatNumber(o.actualWeightKg) : "—"}</td>
+                    <td><span className={`st st--${ORDER_STATUS_COLOR[o.status]}`}>{orderStatusLabel(o.status)}</span></td>
+                    <td className="strong">{dash(o.productNameText)}</td>
                     <td className="tabular">{o.quantity}</td>
                     <td className="tabular">{o.unitPriceUsd != null ? formatUsd(o.unitPriceUsd) : "—"}</td>
                     <td className="tabular text-muted">{o.declaredValueUsd != null ? formatUsd(o.declaredValueUsd) : "—"}</td>
-                    <td className="tabular">{o.actualWeightKg != null ? formatNumber(o.actualWeightKg) : "—"}</td>
                     <td className="text-muted">{deliveryTypeLabel(o.deliveryType)}</td>
                     <td className="text-muted">{dash(o.recipientName)}</td>
-                    <td><span className={`st st--${ORDER_STATUS_COLOR[o.status]}`}>{orderStatusLabel(o.status)}</span></td>
-                    <td className="text-muted">{o.createdAtLabel}</td>
+                    <td className="text-muted comment" title={o.customerComment ?? undefined}>{dash(o.customerComment)}</td>
                   </tr>
                 );
               })}
@@ -210,7 +210,7 @@ export default function OrdersSelectTable({
         .st--completed { color: var(--color-status-completed); background: var(--color-status-completed-bg); }
         .st--canceled { color: var(--color-status-canceled); background: var(--color-status-canceled-bg); }
 
-        .sticky-bar { position: sticky; bottom: 16px; margin-top: 16px; padding: 12px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.18); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; backdrop-filter: blur(16px) saturate(1.4); z-index: 10; }
+        .sticky-bar { position: sticky; bottom: calc(var(--shell-bottom, 0px) + 36px); z-index: 4; margin-top: 16px; padding: 12px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.18); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; backdrop-filter: blur(16px) saturate(1.4); z-index: 10; }
         .sticky-info { font-size: 13.5px; color: var(--color-text); }
         .sticky-actions { display: flex; align-items: center; gap: 10px; }
         .btn-secondary { display: inline-flex; align-items: center; padding: 8px 14px; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--color-text); cursor: pointer; transition: background 0.15s; }
