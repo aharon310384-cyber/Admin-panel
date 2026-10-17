@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
+import InterfaceMenu from "@/components/settings/interface-menu";
+import { getUserInterface } from "@/lib/interface-settings";
 import ChangePasswordForm from "./change-password-form";
 
 export const metadata: Metadata = { title: "Настройки" };
 
-// Настройки интерфейса по образцу 1С. Что будет в каждом окне — обсуждается, пока только пункты.
-const INTERFACE_SETTINGS = [
-  "Настройка панелей…",
-  "Настройка начальной страницы…",
-  "Настройка панели разделов…",
-];
-
 export default async function SettingsPage() {
   const session = await auth();
+  const { panels } = session ? await getUserInterface(session.user.id) : { panels: undefined };
 
   const { USER_ROLE_LABELS } = await import("@/types");
 
@@ -55,14 +51,7 @@ export default async function SettingsPage() {
           {/* Интерфейс */}
           <div className="card">
             <h2 className="card-title">Интерфейс</h2>
-            <ul className="ui-menu">
-              {INTERFACE_SETTINGS.map((label) => (
-                <li key={label} className="ui-menu-item">
-                  <span>{label}</span>
-                  <span className="ui-menu-soon">скоро</span>
-                </li>
-              ))}
-            </ul>
+            {panels && <InterfaceMenu panels={panels} />}
           </div>
         </div>
 
@@ -97,7 +86,12 @@ export default async function SettingsPage() {
 
         .ui-menu { list-style: none; margin: 0; padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
         .ui-menu-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; font-size: 14px; color: var(--color-text-secondary); cursor: default; }
-        .ui-menu-item + .ui-menu-item { border-top: 1px solid var(--color-border); }
+        .ui-menu > li + li { border-top: 1px solid var(--color-border); }
+        .ui-menu-item--action {
+          width: 100%; border: none; background: none; font: inherit; font-size: 14px; text-align: left;
+          color: var(--color-text); cursor: pointer; transition: background 0.15s;
+        }
+        .ui-menu-item--action:hover, .ui-menu-item--action:focus-visible { background: #f9c77a; outline: none; }
         .ui-menu-soon { flex-shrink: 0; padding: 2px 8px; border-radius: var(--radius-full); background: var(--color-muted-bg); color: var(--color-muted); font-size: 11px; font-weight: 500; }
 
         @media (max-width: 768px) { .settings-grid { grid-template-columns: 1fr; } }
