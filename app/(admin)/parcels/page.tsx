@@ -96,7 +96,7 @@ export default async function ParcelsPage({
               </thead>
               <tbody>
                 {parcels.map((p) => (
-                  <ClickableRow key={p.id} href={`/parcels/${p.id}`}>
+                  <ClickableRow key={p.id} href={`/parcels/${p.id}`} doc={{ entity: "parcel", id: p.id }}>
                     <td className="text-muted">{formatDateTime(p.createdAt)}</td>
                     <td className="track">{p.trackingNumber ?? "—"}</td>
                     <td className="task-num">{p.parcelTask?.number ?? "—"}</td>

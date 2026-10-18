@@ -13,6 +13,7 @@ import {
   FORM_PARTS,
   MAX_COLUMNS,
   normalizeForms,
+  type ColumnLayout,
   type ColumnWidths,
   type FormPart,
 } from "@/lib/form";
@@ -37,6 +38,13 @@ const formSchema = z.object({
   widths: z
     .record(z.string().max(COLUMN_KEY_MAX), z.number().int().min(COLUMN_MIN).max(COLUMN_MAX))
     .refine((value) => Object.keys(value).length <= MAX_COLUMNS)
+    .nullable()
+    .optional(),
+  columns: z
+    .object({
+      order: z.array(z.string().max(COLUMN_KEY_MAX)).max(MAX_COLUMNS).optional(),
+      hidden: z.array(z.string().max(COLUMN_KEY_MAX)).max(MAX_COLUMNS).optional(),
+    })
     .nullable()
     .optional(),
 });
@@ -118,14 +126,15 @@ export async function recordVisit(page: PageRef) {
 }
 
 // Настройка окна: hidden — скрытые части («Изменить форму…», пустой список — все видны),
-// widths — ширины столбцов (null — стандартные). Что не передано, не меняется. Возвращает настройку всех окон.
-export type FormSettingsPatch = { hidden?: FormPart[]; widths?: ColumnWidths | null };
+// widths — ширины столбцов, columns — порядок и скрытые столбцы (null — стандартные).
+// Что не передано, не меняется. Возвращает настройку всех окон.
+export type FormSettingsPatch = { hidden?: FormPart[]; widths?: ColumnWidths | null; columns?: ColumnLayout | null };
 
 export async function saveFormSettings(formKey: string, patch: FormSettingsPatch) {
   const session = await requireAuth();
   const parsed = formSchema.safeParse({ formKey, ...patch });
   if (!parsed.success) return { error: "Неверная настройка формы" };
-  const { hidden, widths } = parsed.data;
+  const { hidden, widths, columns } = parsed.data;
   const current = normalizeForms((await settingsOf(session.user.id))?.forms);
   const entry = current[parsed.data.formKey] ?? { hidden: [] };
   const forms = normalizeForms({
@@ -133,6 +142,7 @@ export async function saveFormSettings(formKey: string, patch: FormSettingsPatch
     [parsed.data.formKey]: {
       hidden: hidden ?? entry.hidden,
       widths: widths === undefined ? entry.widths : widths ?? undefined,
+      columns: columns === undefined ? entry.columns : columns ?? undefined,
     },
   });
   const value = Object.keys(forms).length ? forms : Prisma.DbNull;

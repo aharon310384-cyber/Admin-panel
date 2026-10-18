@@ -35,3 +35,7 @@
 /* Границы столбцов в заголовке — за них тянут мышью, меняя ширину (components/form/column-widths.ts) */
 .admin-content .table thead th + th { box-shadow: inset 1px 0 0 var(--color-border); }
 .admin-content table[data-resized] :is(th, td) { overflow: hidden; text-overflow: ellipsis; }
+/* Столбцы, скрытые в «Настройке формы» (components/form/columns.ts) */
+.admin-content [data-col-hidden] { display: none !important; }
+/* Текущая строка списка — как в 1С; по ней работают «Изменить», «Связанные документы», «История изменений» */
+.admin-content tr[data-current] > td { background: #fde7b8 !important; }

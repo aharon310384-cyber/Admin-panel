@@ -122,6 +122,8 @@ export default function OrdersSelectTable({
                 return (
                   <tr
                     key={o.id}
+                    data-doc="order"
+                    data-doc-id={o.id}
                     className={`row-clickable ${disabled ? "row-dim" : ""}`}
                     title="Двойной клик — открыть"
                     onDoubleClick={(e) => {

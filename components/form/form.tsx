@@ -4,17 +4,20 @@
 // шапка, страницы и подвал. Какие части видны — «Ещё» → «Изменить форму…»: своё у каждого сотрудника.
 // Кнопки панели помечаются data-command="код" (и при нужде data-label, data-shortcut): каждая повторяется
 // в «Ещё», а не поместившиеся в строку прячутся с панели и остаются только в «Ещё».
+// Строки списков документов помечаются data-doc="order|parcel" и data-doc-id: щелчок делает строку текущей,
+// и «Изменить» (F2), «Связанные документы» (Ctrl+Shift+S), «История изменений» работают по ней.
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Link2, ListTree, X } from "lucide-react";
 import FavoriteStar from "@/components/layout/favorite-star";
 import { useForms } from "@/components/form/form-context";
-import FormSettingsDialog from "@/components/form/form-settings";
+import FormSettingsDialog, { type FormSettingsResult } from "@/components/form/form-settings";
 import { applyWidths, attachResize, clearWidths } from "@/components/form/column-widths";
+import { applyColumns, describeTables, type TableInfo } from "@/components/form/columns";
 import MoreMenu, { type BarCommand } from "@/components/form/more-menu";
-import { SEARCH_PARAMS, type ColumnWidths, type FormPart, type MoreCommandId } from "@/lib/form";
-import { relatedDocumentsFor } from "@/lib/related";
+import { SEARCH_PARAMS, type ColumnLayout, type ColumnWidths, type FormPart, type MoreCommandId } from "@/lib/form";
+import { DOC_LINKS, cardTarget, isDocEntity, type DocTarget } from "@/lib/related";
 
 // На обёртке (span вокруг кнопки с подтверждением) нажимается сама кнопка внутри.
 function pressable(el: HTMLElement) {
@@ -44,18 +47,28 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
   const [bar, setBar] = useState<BarCommand[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hasSearch, setHasSearch] = useState(false);
+  const [hasDocRows, setHasDocRows] = useState(false);
+  const [current, setCurrent] = useState<DocTarget | null>(null);
+  const [tables, setTables] = useState<TableInfo[]>([]);
   const [notice, setNotice] = useState("");
 
   const settings = forms?.forms[formKey];
   const hidden = settings?.hidden ?? [];
-  // Ширины столбцов и сохранение — через ref: их читают обработчики, навешенные один раз.
+  // Ширины и столбцы, сохранение — через ref: их читают обработчики, навешенные один раз.
   const widthsRef = useRef<ColumnWidths | undefined>(settings?.widths);
+  const columnsRef = useRef<ColumnLayout | undefined>(settings?.columns);
   const saveRef = useRef(forms?.saveForm);
   useEffect(() => {
     widthsRef.current = settings?.widths;
+    columnsRef.current = settings?.columns;
     saveRef.current = forms?.saveForm;
   });
-  const related = relatedDocumentsFor(formKey, guid);
+  // Документ окна: в карточке — сама запись, в списке — текущая строка.
+  const card = cardTarget(formKey, guid);
+  const target = card ?? current;
+  const related = target ? DOC_LINKS[target.entity].related(target.id) : null;
+  const history = target ? DOC_LINKS[target.entity].history(target.id) : null;
+  const openCurrent = !card && current ? DOC_LINKS[current.entity].open(current.id) : null;
   const parts: FormPart[] = ["commands", ...(header ? (["header"] as const) : []), "pages", ...(footer ? (["footer"] as const) : [])];
   const shown = (part: FormPart) => !hidden.includes(part);
 
@@ -68,6 +81,8 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     if (!form || !panel) return;
     const scan = () => {
       setHasSearch(Boolean(form.querySelector('input[type="search"]')));
+      setHasDocRows(Boolean(form.querySelector(".form-pages tr[data-doc-id]")));
+      if (!form.querySelector(".form-pages tr[data-current]")) setCurrent((now) => (now ? null : now));
       const items = [...panel.querySelectorAll<HTMLElement>("[data-command]")].map((el) => ({
         id: el.dataset.command ?? "",
         label: el.dataset.label ?? el.textContent?.trim() ?? "",
@@ -95,7 +110,17 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     fitRef.current = fit;
     scan();
     fit();
+    applyColumns(form, columnsRef.current);
     applyWidths(form, widthsRef.current);
+    // Щелчок по строке списка документов — текущая строка (подсветка — в density.css).
+    const onRowClick = (event: MouseEvent) => {
+      const row = (event.target as HTMLElement).closest<HTMLTableRowElement>(".form-pages tr[data-doc-id]");
+      if (!row || !form.contains(row) || !isDocEntity(row.dataset.doc)) return;
+      form.querySelectorAll("tr[data-current]").forEach((el) => el !== row && el.removeAttribute("data-current"));
+      row.setAttribute("data-current", "");
+      setCurrent({ entity: row.dataset.doc, id: row.dataset.docId ?? "" });
+    };
+    form.addEventListener("click", onRowClick);
     const detach = attachResize(
       form,
       () => widthsRef.current ?? {},
@@ -109,6 +134,7 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     const changes = new MutationObserver(() => {
       scan();
       fit();
+      applyColumns(form, columnsRef.current);
       applyWidths(form, widthsRef.current);
     });
     changes.observe(form, {
@@ -122,21 +148,25 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
       resize.disconnect();
       changes.disconnect();
       detach();
+      form.removeEventListener("click", onRowClick);
     };
   }, [formKey]);
 
-  // Ctrl+Shift+S — «Связанные документы», как в 1С.
+  // Ctrl+Shift+S — «Связанные документы», F2 — открыть текущую строку списка, как в 1С.
   useEffect(() => {
-    if (!related) return;
+    if (!related && !openCurrent) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.shiftKey && event.code === "KeyS") {
+      if (related && event.ctrlKey && event.shiftKey && event.code === "KeyS") {
         event.preventDefault();
         router.push(related);
+      } else if (openCurrent && event.key === "F2") {
+        event.preventDefault();
+        router.push(openCurrent);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [related, router]);
+  }, [related, openCurrent, router]);
 
   useEffect(() => {
     if (!notice) return;
@@ -150,8 +180,22 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
   if (hasSearch) enabled.add("find");
   if (searchActive) enabled.add("cancelFind");
   if (guid) enabled.add("guid");
-  if (settings?.widths) enabled.add("defaultSettings");
+  if (settings?.widths || settings?.columns) enabled.add("defaultSettings");
+  if (history) enabled.add("changeHistory");
+  if (openCurrent) enabled.add("edit");
   for (const id of Object.keys(links ?? {})) enabled.add(id);
+
+  // «Настройка формы» → ОК / Применить: сохранить и сразу показать.
+  const applySettings = async (result: FormSettingsResult) => {
+    widthsRef.current = result.widths ?? undefined;
+    columnsRef.current = result.columns ?? undefined;
+    if (ref.current) {
+      clearWidths(ref.current);
+      applyColumns(ref.current, columnsRef.current);
+      applyWidths(ref.current, widthsRef.current);
+    }
+    return forms ? forms.saveForm(formKey, result) : false;
+  };
 
   const copy = async (text: string, done: string) => {
     try {
@@ -179,7 +223,12 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
         router.refresh();
         return setNotice("Обновлено");
       case "editForm":
+        if (ref.current) setTables(describeTables(ref.current));
         return setSettingsOpen(true);
+      case "changeHistory":
+        return history && router.push(history);
+      case "edit":
+        return openCurrent && router.push(openCurrent);
       case "find":
         return ref.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
       case "cancelFind": {
@@ -191,9 +240,12 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
       case "guid":
         return guid && copy(guid, `Идентификатор скопирован: ${guid}`);
       case "defaultSettings":
-        if (ref.current) clearWidths(ref.current);
-        widthsRef.current = undefined;
-        forms?.saveForm(formKey, { widths: null });
+        widthsRef.current = columnsRef.current = undefined;
+        if (ref.current) {
+          clearWidths(ref.current);
+          applyColumns(ref.current, undefined);
+        }
+        forms?.saveForm(formKey, { widths: null, columns: null });
         return setNotice("Стандартные настройки");
     }
   };
@@ -239,11 +291,18 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
 
       <div ref={barRef} className="form-commands" data-form-part="commands">
         {commands}
-        {related && (
+        {related ? (
           <Link href={related} className="cmd" data-command="related" data-shortcut="Ctrl+Shift+S">
             <ListTree size={15} />
             Связанные документы
           </Link>
+        ) : (
+          hasDocRows && (
+            <button type="button" className="cmd" data-command="related" data-shortcut="Ctrl+Shift+S" disabled title="Выберите строку списка">
+              <ListTree size={15} />
+              Связанные документы
+            </button>
+          )
         )}
         <MoreMenu bar={bar} enabled={enabled} onCommand={run} />
       </div>
@@ -270,7 +329,10 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
           title={title}
           parts={parts}
           hidden={hidden}
-          onSave={(next) => forms.saveForm(formKey, { hidden: next })}
+          tables={tables}
+          columns={settings?.columns}
+          widths={settings?.widths}
+          onSave={(result) => applySettings(result)}
         />
       )}
 

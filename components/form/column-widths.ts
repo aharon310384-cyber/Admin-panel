@@ -2,21 +2,15 @@
 // Ширины своих у каждого сотрудника и окна (FormSettings.widths); ключ столбца — «номер таблицы:заголовок».
 // Таблица с заданными ширинами переходит на table-layout: fixed, длинный текст в ячейке обрезается.
 import { COLUMN_MAX, COLUMN_MIN, type ColumnWidths } from "@/lib/form";
+import { columnKey, headCells, tablesOf } from "@/components/form/columns";
 
 const EDGE = 6; // сколько пикселей у правого края заголовка ловят мышь
 
-function tablesOf(root: HTMLElement) {
-  return [...root.querySelectorAll<HTMLTableElement>(".form-pages table")].filter((table) => table.tHead);
-}
-
-function headCells(table: HTMLTableElement) {
-  const row = table.tHead?.rows[table.tHead.rows.length - 1];
-  return row ? [...row.cells] : [];
-}
-
-function columnKey(tableIndex: number, cell: HTMLTableCellElement, index: number) {
-  const label = cell.textContent?.trim() || cell.getAttribute("aria-label") || `#${index + 1}`;
-  return `${tableIndex}:${label}`.slice(0, 80);
+// Ширина таблицы — сумма видимых столбцов (скрытые в «Настройке формы» не считаются).
+function tableWidth(table: HTMLTableElement) {
+  return headCells(table)
+    .filter((cell) => !cell.hasAttribute("data-col-hidden"))
+    .reduce((sum, cell) => sum + parseFloat(cell.style.width || "0"), 0);
 }
 
 // Зафиксировать ширины: сохранённые — как есть, остальные — как сейчас на экране.
@@ -26,15 +20,20 @@ function fix(table: HTMLTableElement, tableIndex: number, widths: ColumnWidths) 
   cells.forEach((cell, i) => (cell.style.width = `${sizes[i]}px`));
   table.style.tableLayout = "fixed";
   table.style.minWidth = "0";
-  table.style.width = `${sizes.reduce((sum, size) => sum + size, 0)}px`;
+  table.style.width = `${tableWidth(table)}px`;
   table.dataset.resized = "";
 }
 
 // Применить сохранённые ширины к таблицам окна, которые ещё не зафиксированы.
+// У зафиксированной — пересчитать ширину таблицы: могли скрыть или показать столбец.
 export function applyWidths(root: HTMLElement, widths: ColumnWidths | undefined) {
   if (!widths) return;
   tablesOf(root).forEach((table, tableIndex) => {
-    if (table.dataset.resized !== undefined) return;
+    if (table.dataset.resized !== undefined) {
+      const width = `${tableWidth(table)}px`;
+      if (table.style.width !== width) table.style.width = width;
+      return;
+    }
     const known = headCells(table).some((cell, i) => widths[columnKey(tableIndex, cell, i)] !== undefined);
     if (known) fix(table, tableIndex, widths);
   });
@@ -66,7 +65,7 @@ export function attachResize(root: HTMLElement, getWidths: () => ColumnWidths, o
     if (drag) {
       const width = Math.min(COLUMN_MAX, Math.max(COLUMN_MIN, drag.startWidth + event.clientX - drag.startX));
       drag.cell.style.width = `${width}px`;
-      drag.table.style.width = `${headCells(drag.table).reduce((sum, cell) => sum + parseFloat(cell.style.width || "0"), 0)}px`;
+      drag.table.style.width = `${tableWidth(drag.table)}px`;
       return;
     }
     const cell = (event.target as HTMLElement | null)?.closest<HTMLTableCellElement>("thead th");

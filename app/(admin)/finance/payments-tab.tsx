@@ -116,7 +116,7 @@ export default function PaymentsTab({ data, filter, sortField, sortDir }: Props)
             </thead>
             <tbody>
               {data.rows.map((row) => (
-                <TableRowLink key={row.id} href={`/parcels/${row.id}`}>
+                <TableRowLink key={row.id} href={`/parcels/${row.id}`} doc={{ entity: "parcel", id: row.id }}>
                   <td className="text-muted">{formatDateTime(row.createdAt)}</td>
                   <td><span className="code-pill">{row.customerCode ?? "—"}</span></td>
                   <td className="mono link">{row.number}</td>

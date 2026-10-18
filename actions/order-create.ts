@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { auth } from "@/auth";
 import { resolveProductCatalog } from "@/lib/products";
+import { recordVersion } from "@/lib/versions";
 
 const schema = z.object({
   customerId: z.string().min(1, "Выберите клиента"),
@@ -52,8 +53,8 @@ export async function createOrder(formData: FormData): Promise<void> {
     ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true } })
     : null;
 
-  await prisma.$transaction(async (tx) =>
-    tx.order.create({
+  await prisma.$transaction(async (tx) => {
+    const order = await tx.order.create({
       data: {
         number: await nextDocumentNumber(tx, "order"),
         customerId: data.customerId,
@@ -78,8 +79,9 @@ export async function createOrder(formData: FormData): Promise<void> {
         status: "NEW",
         authorId: author?.id ?? null,
       },
-    })
-  );
+    });
+    await recordVersion("order", order.id, { authorId: author?.id, comment: "Создан" }, tx);
+  });
 
   revalidatePath("/orders");
   redirect("/orders");

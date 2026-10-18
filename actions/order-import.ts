@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { requireAdmin } from "@/lib/server-helpers";
 import { parseOrdersFromText, type ParsedOrderDraft } from "@/lib/ai-order-parser";
+import { recordVersion } from "@/lib/versions";
 
 export type ParseOrdersResponse =
   | { ok: true; orders: ParsedOrderDraft[] }
@@ -97,8 +98,8 @@ export async function createOrdersBulk(
       select: { id: true, nameRu: true, category: true, hsCode: true },
     });
 
-    await prisma.$transaction(async (tx) =>
-      tx.order.create({
+    await prisma.$transaction(async (tx) => {
+      const order = await tx.order.create({
         data: {
           number: await nextDocumentNumber(tx, "order"),
           customerId: data.customerId,
@@ -119,8 +120,9 @@ export async function createOrdersBulk(
           status: "NEW",
           authorId,
         },
-      })
-    );
+      });
+      await recordVersion("order", order.id, { authorId, comment: "Создан (массовый ввод)" }, tx);
+    });
     created += 1;
   }
 
