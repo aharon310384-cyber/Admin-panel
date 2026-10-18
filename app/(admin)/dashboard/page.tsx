@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getAdminBrand } from "@/lib/company";
 import { formatCny } from "@/lib/utils";
 import {
   TrendingUp,
@@ -87,13 +88,13 @@ async function getDashboardData() {
 
 export default async function DashboardPage() {
   const session = await auth();
-  const data = await getDashboardData();
+  const [data, brand] = await Promise.all([getDashboardData(), getAdminBrand()]);
 
   return (
     <>
       <Form
         formKey="dashboard"
-        title="Операции PostmanFox"
+        title={`Операции ${brand.name}`}
         footer={<>Рабочий центр посылок, {session?.user.name}</>}
       >
         <div className="metrics-grid">

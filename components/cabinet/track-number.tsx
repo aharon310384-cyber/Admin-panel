@@ -2,9 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
-
-/** Страница отслеживания на сайте PostmanFox. */
-export const TRACKING_PAGE_URL = "https://postmanfox.com/ru/treking-posylok/";
+import { useBrand } from "@/components/brand/brand-context";
 
 /** Копирует текст в буфер обмена; запасной способ — для старых браузеров и WebView. */
 async function copyText(text: string): Promise<boolean> {
@@ -31,11 +29,12 @@ async function copyText(text: string): Promise<boolean> {
 
 /**
  * Блок «Трек-номер посылки»: подпись, номер, иконка копирования и кнопка «Отследить».
- * «Отследить» копирует номер и открывает страницу отслеживания на сайте, где его остаётся вставить.
- * Если номера нет — короткая подсказка без кнопок.
+ * «Отследить» копирует номер и открывает страницу отслеживания на сайте компании, где его остаётся вставить;
+ * без такой страницы в настройках компании кнопки нет. Если номера нет — короткая подсказка без кнопок.
  */
 export default function TrackNumber({ trackingNumber }: { trackingNumber: string | null }) {
   const number = trackingNumber?.trim() || null;
+  const trackingUrl = useBrand().trackingUrl;
   const [notice, setNotice] = useState<"copied" | "track" | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,14 +53,14 @@ export default function TrackNumber({ trackingNumber }: { trackingNumber: string
   };
 
   const onTrack = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!number) return;
+    if (!number || !trackingUrl) return;
     // Копирование запускается в момент клика, переход по ссылке его не ждёт
     void copyText(number).then((ok) => ok && show("track", 6000));
     // Внутри Telegram внешние ссылки открываются через SDK
     const wa = window.Telegram?.WebApp;
     if (wa?.initData && wa.openLink) {
       e.preventDefault();
-      wa.openLink(TRACKING_PAGE_URL);
+      wa.openLink(trackingUrl);
     }
   };
 
@@ -86,10 +85,10 @@ export default function TrackNumber({ trackingNumber }: { trackingNumber: string
           <span className="cab-track-none">Пока не присвоен</span>
         )}
       </div>
-      {number && (
+      {number && trackingUrl && (
         <a
           className="cab-track-btn"
-          href={TRACKING_PAGE_URL}
+          href={trackingUrl}
           target="_blank"
           rel="noopener noreferrer"
           onClick={onTrack}

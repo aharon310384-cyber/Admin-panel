@@ -1,8 +1,13 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { brandInitials, wordmarkParts } from "@/lib/brand";
 
 type BrandLogoSize = "xs" | "sm" | "md" | "lg";
 
+// Знак и название компании из настроек: знак — картинка компании, а без неё — первые буквы названия.
 type BrandLogoProps = {
+  name: string;
+  iconUrl?: string | null;
   size?: BrandLogoSize;
   showWordmark?: boolean;
   className?: string;
@@ -19,37 +24,52 @@ const SIZES: Record<
 };
 
 export function BrandLogo({
+  name,
+  iconUrl,
   size = "md",
   showWordmark = true,
   className,
 }: BrandLogoProps) {
   const s = SIZES[size];
+  const [soft, accent] = wordmarkParts(name);
 
   return (
     <span
       className={cn("brand-logo", className)}
       style={{ gap: `${s.gap}px` }}
     >
-      <span
-        className="brand-logo-mark"
-        style={{
-          width: `${s.box}px`,
-          height: `${s.box}px`,
-          borderRadius: `${s.radius}px`,
-          fontSize: `${s.mark}px`,
-        }}
-        aria-hidden="true"
-      >
-        <span className="brand-logo-mark-text">PF</span>
-      </span>
+      {iconUrl ? (
+        <Image
+          src={iconUrl}
+          alt=""
+          width={s.box}
+          height={s.box}
+          unoptimized
+          className="brand-logo-icon"
+          style={{ width: `${s.box}px`, height: `${s.box}px` }}
+        />
+      ) : (
+        <span
+          className="brand-logo-mark"
+          style={{
+            width: `${s.box}px`,
+            height: `${s.box}px`,
+            borderRadius: `${s.radius}px`,
+            fontSize: `${s.mark}px`,
+          }}
+          aria-hidden="true"
+        >
+          <span className="brand-logo-mark-text">{brandInitials(name)}</span>
+        </span>
+      )}
 
       {showWordmark && (
         <span
           className="brand-logo-wordmark"
           style={{ fontSize: `${s.wordmark}px` }}
         >
-          <span className="brand-logo-wordmark-soft">Postman</span>
-          <span className="brand-logo-wordmark-accent">Fox</span>
+          <span className="brand-logo-wordmark-soft">{soft}</span>
+          {accent && <span className="brand-logo-wordmark-accent">{accent}</span>}
         </span>
       )}
 
@@ -58,6 +78,11 @@ export function BrandLogo({
           display: inline-flex;
           align-items: center;
           line-height: 1;
+        }
+
+        .brand-logo-icon {
+          flex-shrink: 0;
+          object-fit: contain;
         }
 
         .brand-logo-mark {

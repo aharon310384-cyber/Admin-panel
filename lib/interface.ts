@@ -2,6 +2,7 @@
 // Общий модуль для сервера и браузера: без обращения к базе.
 import {
   BookOpen,
+  Building2,
   ClipboardList,
   CircleDollarSign,
   Globe,
@@ -139,7 +140,10 @@ export const SECTIONS: Section[] = [
     code: "admin",
     label: "Администрирование",
     icon: ShieldCheck,
-    items: [{ href: "/settings", label: "Настройки", icon: Settings }],
+    items: [
+      { href: "/settings", label: "Настройки", icon: Settings },
+      { href: "/companies", label: "Компании", icon: Building2 },
+    ],
   },
 ];
 

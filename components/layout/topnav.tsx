@@ -29,6 +29,8 @@ import { cn } from "@/lib/utils";
 import { USER_ROLE_LABELS } from "@/types";
 import type { UserRole } from "@prisma/client";
 import { BrandLogo } from "@/components/ui/brand-logo";
+import { useBrand } from "@/components/brand/brand-context";
+import { siteLabel } from "@/lib/brand";
 import FavoritesMenu from "@/components/layout/favorites-menu";
 import type { Favorite } from "@/lib/interface";
 
@@ -97,6 +99,7 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
   const currentTab = searchParams.get("tab");
   const [open, setOpen] = useState(false);
   const dataRef = useRef<HTMLDivElement>(null);
+  const brand = useBrand();
 
   const roleLabel = USER_ROLE_LABELS[userRole as UserRole] ?? userRole;
 
@@ -140,15 +143,21 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
   return (
     <header className="topnav">
       <div className="topnav-inner">
-        <a
-          href="https://postmanfox.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="topnav-brand"
-          aria-label="Перейти на postmanfox.com"
-        >
-          <BrandLogo size="xs" />
-        </a>
+        {brand.siteUrl ? (
+          <a
+            href={brand.siteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="topnav-brand"
+            aria-label={`Перейти на ${siteLabel(brand.siteUrl)}`}
+          >
+            <BrandLogo name={brand.name} iconUrl={brand.iconUrl} size="xs" />
+          </a>
+        ) : (
+          <span className="topnav-brand" title={brand.name}>
+            <BrandLogo name={brand.name} iconUrl={brand.iconUrl} size="xs" />
+          </span>
+        )}
 
         <nav className="topnav-menu" aria-label="Разделы">
           <Link

@@ -1,37 +1,48 @@
 import type { Metadata } from "next";
 import LoginForm from "./login-form";
 import { BrandLogo } from "@/components/ui/brand-logo";
+import { siteLabel } from "@/lib/brand";
+import { getAdminBrand } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "Вход",
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const brand = await getAdminBrand();
+  const logo = <BrandLogo name={brand.name} iconUrl={brand.iconUrl} size="lg" />;
+
   return (
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <a
-            href="https://postmanfox.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="login-brand"
-            aria-label="Перейти на postmanfox.com"
-          >
-            <BrandLogo size="lg" />
-          </a>
+          {brand.siteUrl ? (
+            <a
+              href={brand.siteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="login-brand"
+              aria-label={`Перейти на ${siteLabel(brand.siteUrl)}`}
+            >
+              {logo}
+            </a>
+          ) : (
+            <span className="login-brand">{logo}</span>
+          )}
           <h1 className="login-title">Добро пожаловать</h1>
-          <p className="login-subtitle">Войдите в админ-панель PostmanFox</p>
+          <p className="login-subtitle">Войдите в админ-панель</p>
         </div>
         <LoginForm />
-        <a
-          href="https://postmanfox.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="login-site-link"
-        >
-          Перейти на postmanfox.com →
-        </a>
+        {brand.siteUrl && (
+          <a
+            href={brand.siteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="login-site-link"
+          >
+            Перейти на {siteLabel(brand.siteUrl)} →
+          </a>
+        )}
       </div>
 
       <style>{`

@@ -4,13 +4,16 @@ import Script from "next/script";
 import Image from "next/image";
 import { Send } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useBrand } from "@/components/brand/brand-context";
+import { siteLabel, wordmarkParts } from "@/lib/brand";
 
 type State = "loading" | "need-link" | "browser-login" | "error";
 
 const BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT_NAME;
-const SITE_URL = "https://postmanfox.com/";
 
 export default function TelegramEntryPage() {
+  const brand = useBrand();
+  const [wordSoft, wordAccent] = wordmarkParts(brand.name);
   const [state, setState] = useState<State>("loading");
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -118,15 +121,17 @@ export default function TelegramEntryPage() {
           <>
             <a
               className="tg-brand"
-              href={SITE_URL}
+              href={brand.siteUrl ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Перейти на postmanfox.com"
+              aria-label={brand.siteUrl ? `Перейти на ${siteLabel(brand.siteUrl)}` : brand.name}
             >
-              <Image src="/brand/favicon.png" alt="" width={52} height={52} className="tg-brand-fox" priority />
+              {brand.iconUrl && (
+                <Image src={brand.iconUrl} alt="" width={52} height={52} unoptimized className="tg-brand-fox" priority />
+              )}
               <span className="tg-wordmark">
-                <span className="tg-wordmark-soft">Postman</span>
-                <span className="tg-wordmark-accent">Fox</span>
+                <span className="tg-wordmark-soft">{wordSoft}</span>
+                {wordAccent && <span className="tg-wordmark-accent">{wordAccent}</span>}
               </span>
             </a>
             <h1 className="tg-title">Вход в кабинет</h1>
@@ -171,9 +176,11 @@ export default function TelegramEntryPage() {
               </a>
             )}
 
-            <a className="tg-site" href={SITE_URL} target="_blank" rel="noopener noreferrer">
-              Перейти на postmanfox.com →
-            </a>
+            {brand.siteUrl && (
+              <a className="tg-site" href={brand.siteUrl} target="_blank" rel="noopener noreferrer">
+                Перейти на {siteLabel(brand.siteUrl)} →
+              </a>
+            )}
           </>
         )}
 
