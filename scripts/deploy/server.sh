@@ -10,6 +10,8 @@
 #             При ошибке админка возвращается на SQLite и прежний код. Файл SQLite не меняется.
 #   cleanup — самоочистка журналов: PM2 — через logrotate, системный журнал — не больше 300 МБ. Повторять можно.
 #
+# deploy заодно ставит проверку отслеживания посылок раз в 2 часа: ключ TRACKING_CRON_KEY в .env и /etc/cron.d/postmanfox-tracking.
+#
 # Журнал задачи виден в GitHub Actions, а репозиторий публичный: не выводить секреты, адреса, пути к данным.
 set -Eeuo pipefail
 
@@ -22,6 +24,7 @@ PG_MARK=postmanfox-admin  # комментарий к ним: так скрип�
 LOGROTATE_CONF=/etc/logrotate.d/postmanfox-pm2
 JOURNALD_CONF=/etc/systemd/journald.conf.d/postmanfox.conf
 JOURNAL_MAX=300M
+TRACKING_CRON=/etc/cron.d/postmanfox-tracking
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
@@ -256,6 +259,41 @@ disk_report() {
   echo "  Система (/usr): $(size_of /usr)"
 }
 
+# Проверка отслеживания посылок (17TRACK) раз в 2 часа: ключ для вызова админки в .env (в журнал не выводится)
+# и строка в /etc/cron.d. Повторять можно.
+tracking_schedule() {
+  if ! grep -qE '^TRACKING_CRON_KEY=' .env; then
+    [ -z "$(tail -c1 .env)" ] || echo >> .env
+    printf 'TRACKING_CRON_KEY="%s"\n' "$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')" >> .env
+    echo "Ключ для проверки по расписанию добавлен в .env"
+  fi
+  printf '%s\n' \
+    "# Отслеживание посылок 17TRACK раз в 2 часа. Ставит scripts/deploy/server.sh (deploy)." \
+    "SHELL=/bin/bash" \
+    "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    "17 */2 * * * root bash $APP/scripts/deploy/tracking-cron.sh 2>&1 | logger -t postmanfox-tracking" \
+    > "$TRACKING_CRON.new"
+  chmod 644 "$TRACKING_CRON.new"
+  mv "$TRACKING_CRON.new" "$TRACKING_CRON"
+  echo "Проверка посылок в 17TRACK: раз в 2 часа"
+}
+
+# Только время и успех последнего запуска: сам ответ содержит трек-номера, а журнал задачи публичный.
+tracking_report() {
+  local cron="не настроена" last when
+  [ -f "$TRACKING_CRON" ] && cron="раз в 2 часа"
+  grep -qE '^TRACKING_CRON_KEY=' .env 2>/dev/null || cron="$cron, ключа в .env нет"
+  last=$(journalctl -t postmanfox-tracking -n 1 --no-pager -o short-iso 2>/dev/null | grep -v '^-- ' | tail -1 || true)
+  if [ -z "$last" ]; then
+    when="ещё не запускалась"
+  else
+    local result="с ошибкой — подробности в настройках админки"
+    if grep -q '"ok":true' <<<"$last"; then result="успешно"; elif grep -q 'не задан' <<<"$last"; then result="ключ 17TRACK ещё не введён в настройках админки"; fi
+    when="последняя ${last%% *}, $result"
+  fi
+  echo "Проверка отслеживания посылок: $cron; $when"
+}
+
 status() {
   local missing
   missing=$(missing_tools)
@@ -299,6 +337,7 @@ status() {
   [ -z "$boot" ] || [ "$boot" = "not-found" ] && boot="не настроен"
   echo "Автозапуск PM2 после перезагрузки: $boot"
   echo "Админка отвечает: $(health_code)"
+  tracking_report
   echo "== Сервер"
   echo "Node $(node -v 2>/dev/null), npm $(npm -v 2>/dev/null)"
   disk_report
@@ -390,6 +429,9 @@ deploy() {
 
   echo "== Обновления данных"
   npm run --if-present db:upgrade
+
+  echo "== Расписание"
+  tracking_schedule
 
   echo "== Сборка"
   npm run build

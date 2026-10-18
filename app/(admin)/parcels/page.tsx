@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
-import { parcelStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
-import SortableHeader from "@/components/ui/sortable-header";
+import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
+import { formatDateTime } from "@/lib/utils";
+import { deliveryTypeLabel } from "@/lib/statuses";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
+import { trackingStatusLabel } from "@/lib/tracking-labels";
 import Form from "@/components/form/form";
-import ClickableRow from "@/components/ui/clickable-row";
+import ParcelsTable, { type ParcelRow } from "@/components/parcels/parcels-table";
+import StatusByTracks from "@/components/parcels/status-by-tracks";
 
 export const metadata: Metadata = { title: "Посылки" };
 
@@ -56,96 +59,86 @@ function parcelOrderBy(field: SortField, dir: SortDirection): Prisma.ParcelOrder
 export default async function ParcelsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; tracking?: string }>;
 }) {
   const params = await searchParams;
   const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+  const onlyProblems = params.tracking === "problem";
+  // «Требуют внимания»: отправленные, по которым 17TRACK сообщил о проблеме
+  const problemWhere: Prisma.ParcelWhereInput = { status: "SHIPPED", tracking: { problem: true } };
 
-  const parcels = await prisma.parcel.findMany({
-    where: { deletedAt: null },
-    include: { customer: { select: { name: true, code: true } }, recipient: { select: { name: true } }, parcelTask: { select: { number: true } }, _count: { select: { orders: true } } },
-    orderBy: parcelOrderBy(sortField, sortDir),
-    take: 200,
+  const [parcels, problemCount] = await Promise.all([
+    prisma.parcel.findMany({
+      where: { deletedAt: null, ...(onlyProblems ? problemWhere : {}) },
+      include: {
+        customer: { select: { name: true, code: true } },
+        recipient: { select: { name: true } },
+        parcelTask: { select: { number: true } },
+        tracking: { select: { status: true, subStatus: true, problem: true, registeredAt: true, error: true, event: true, location: true, eventAt: true } },
+        _count: { select: { orders: true } },
+      },
+      orderBy: parcelOrderBy(sortField, sortDir),
+      take: 200,
+    }),
+    prisma.parcel.count({ where: { deletedAt: null, ...problemWhere } }),
+  ]);
+
+  const filter = { tracking: onlyProblems ? "problem" : undefined };
+  const sortHrefs = Object.fromEntries(
+    SORT_FIELDS.map((field) => {
+      const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+      return [field, buildListHref("/parcels", filter, { sort: `${field}_${nextDir}` })];
+    }),
+  ) as Record<string, string>;
+  const sort = params.sort;
+
+  const rows: ParcelRow[] = parcels.map((p) => {
+    const t = p.tracking;
+    const shipped = p.status === "SHIPPED";
+    const tone: NonNullable<ParcelRow["tracking"]>["tone"] =
+      t?.problem && shipped ? "problem" : t?.status === "Delivered" ? "done" : t?.registeredAt ? "on" : "none";
+    const label = t?.registeredAt ? trackingStatusLabel(t.status, t.subStatus) : t?.error ? "Не на слежении" : null;
+    const hint = [t?.error, t?.event, t?.location, t?.eventAt ? formatDateTime(t.eventAt) : null].filter(Boolean).join(" · ") || null;
+    return {
+      id: p.id,
+      createdAtLabel: formatDateTime(p.createdAt),
+      trackingNumber: p.trackingNumber,
+      taskNumber: p.parcelTask?.number ?? null,
+      customerCode: p.customer.code,
+      status: p.status,
+      recipientName: p.recipient?.name ?? null,
+      deliveryLabel: deliveryTypeLabel(p.deliveryType),
+      ordersCount: p._count.orders,
+      weightKg: Number(p.billableWeightKg ?? 0),
+      totalUsd: Number(p.totalUsd),
+      isPaid: p.isPaid,
+      tracking: label ? { label, tone: t?.error && !t.registeredAt ? "problem" : tone, hint } : null,
+    };
   });
 
-  const sortHref = (field: SortField) => {
-    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
-    return buildListHref("/parcels", {}, { sort: `${field}_${nextDir}` });
-  };
-
   return (
-    <>
-      <Form formKey="parcels" title="Посылки" footer={<>{parcels.length} посылок</>}>
-        <div className="card">
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th><SortableHeader label="Дата" href={sortHref("createdAt")} active={sortField === "createdAt"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Трек-номер" href={sortHref("trackingNumber")} active={sortField === "trackingNumber"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Задача" href={sortHref("taskNumber")} active={sortField === "taskNumber"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Клиент" href={sortHref("customerCode")} active={sortField === "customerCode"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Статус" href={sortHref("status")} active={sortField === "status"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Получатель" href={sortHref("recipientName")} active={sortField === "recipientName"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Доставка" href={sortHref("deliveryType")} active={sortField === "deliveryType"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Заказов" href={sortHref("ordersCount")} active={sortField === "ordersCount"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Вес кг" href={sortHref("billableWeightKg")} active={sortField === "billableWeightKg"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Итог $" href={sortHref("totalUsd")} active={sortField === "totalUsd"} direction={sortDir} /></th>
-                  <th><SortableHeader label="Оплата" href={sortHref("isPaid")} active={sortField === "isPaid"} direction={sortDir} /></th>
-                </tr>
-              </thead>
-              <tbody>
-                {parcels.map((p) => (
-                  <ClickableRow key={p.id} href={`/parcels/${p.id}`} doc={{ entity: "parcel", id: p.id }}>
-                    <td className="text-muted">{formatDateTime(p.createdAt)}</td>
-                    <td className="track">{p.trackingNumber ?? "—"}</td>
-                    <td className="task-num">{p.parcelTask?.number ?? "—"}</td>
-                    <td><span className="code-pill">{p.customer.code ?? "—"}</span></td>
-                    <td><span className={`st st--${PARCEL_STATUS_COLOR[p.status]}`}>{parcelStatusLabel(p.status)}</span></td>
-                    <td className="text-muted">{p.recipient?.name ?? "—"}</td>
-                    <td className="text-muted">{deliveryTypeLabel(p.deliveryType)}</td>
-                    <td className="tabular">{p._count.orders}</td>
-                    <td className="tabular">{formatNumber(Number(p.billableWeightKg ?? 0))}</td>
-                    <td className="tabular strong">{formatUsd(Number(p.totalUsd))}</td>
-                    <td>{p.isPaid ? <span className="paid">Оплачено</span> : <span className="text-muted">—</span>}</td>
-                  </ClickableRow>
-                ))}
-                {parcels.length === 0 && (
-                  <tr><td colSpan={11} className="table-empty">Посылок пока нет</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </Form>
-
-      <style>{`
-        .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }
-        .table-wrap { overflow-x: auto; }
-        .table { min-width: 1000px; width: 100%; border-collapse: collapse; font-size: 13.5px; }
-        .table th { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
-        .table td { padding: 11px 14px; border-bottom: 1px solid var(--color-border); color: var(--color-text); white-space: nowrap; }
-        .table tbody tr:last-child td { border-bottom: none; }
-        .table tbody tr:hover td { background: var(--color-muted-bg); }
-        .track { font-family: var(--font-mono); color: var(--color-text); }
-        .task-num { font-family: var(--font-mono); color: var(--color-text-secondary); }
-        .st { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
-        .st--new { color: var(--color-status-new); background: var(--color-status-new-bg); }
-        .st--assembled { color: var(--color-status-assembled); background: var(--color-status-assembled-bg); }
-        .st--processing { color: var(--color-status-processing); background: var(--color-status-processing-bg); }
-        .st--ready { color: var(--color-status-ready); background: var(--color-status-ready-bg); }
-        .st--shipped { color: var(--color-status-shipped); background: var(--color-status-shipped-bg); }
-        .st--completed { color: var(--color-status-completed); background: var(--color-status-completed-bg); }
-        .st--canceled { color: var(--color-status-canceled); background: var(--color-status-canceled-bg); }
-        .st--utilized { color: var(--color-status-utilized); background: var(--color-status-utilized-bg); }
-        .strong { font-weight: 700; }
-        .tabular { font-variant-numeric: tabular-nums; }
-        .text-muted { color: var(--color-muted); }
-        .paid { color: var(--color-status-completed); font-weight: 600; }
-        .code-pill { display: inline-flex; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); }
-        .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
-      `}</style>
-    </>
+    <Form
+      formKey="parcels"
+      title="Посылки"
+      commands={
+        <>
+          <Link
+            href={buildListHref("/parcels", { sort }, { tracking: onlyProblems ? null : "problem" })}
+            className={`cmd${onlyProblems ? " cmd--on" : ""}`}
+            data-command="tracking-problems"
+            aria-pressed={onlyProblems}
+            title="Отправленные посылки, по которым отслеживание сообщило о проблеме: возврат, не вручена, таможня, нет данных"
+          >
+            <AlertTriangle size={15} />
+            Требуют внимания{problemCount ? ` (${problemCount})` : ""}
+          </Link>
+          <StatusByTracks />
+        </>
+      }
+      footer={<>{parcels.length} посылок{onlyProblems ? " требуют внимания" : ""} · отметьте посылки слева, чтобы поставить статус сразу нескольким</>}
+    >
+      <ParcelsTable rows={rows} sortHrefs={sortHrefs} sortField={sortField} sortDir={sortDir} />
+      <style>{`.cmd--on { background: #fde7b8; border-color: #e0a84a; }`}</style>
+    </Form>
   );
 }

@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getFinanceSettings } from "@/lib/finance";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, orderStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
 import { computeEuCustomsDuty, hasIncompleteHsCodes } from "@/lib/eu-customs";
 import ParcelControls from "@/components/parcels/parcel-controls";
+import TrackingBlock, { type TrackingView } from "@/components/parcels/tracking-block";
+import { getTrackingKey, type TrackingEvent } from "@/lib/tracking";
+import { trackingStatusLabel, trackingUrl } from "@/lib/tracking-labels";
 import Form from "@/components/form/form";
 
 const DUTY_REASON_LABEL: Record<string, string> = {
@@ -42,6 +44,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
       orders: { orderBy: { createdAt: "asc" } },
       services: { orderBy: { id: "asc" } },
       statusHistory: { orderBy: { createdAt: "asc" } },
+      tracking: true,
     },
   });
   if (!parcel) notFound();
@@ -105,8 +108,23 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
   // Даты отправки/доставки — из истории статусов
   const shippedAt = parcel.statusHistory.find((h) => h.status === "SHIPPED")?.createdAt ?? null;
   const deliveredAt = parcel.statusHistory.find((h) => h.status === "DELIVERED")?.createdAt ?? null;
-  const trackUrl = parcel.trackingNumber
-    ? `https://t.17track.net/en#nums=${encodeURIComponent(parcel.trackingNumber)}`
+  const trackUrl = parcel.trackingNumber ? trackingUrl(parcel.trackingNumber) : null;
+  const trackingEnabled = Boolean(await getTrackingKey());
+  const t = parcel.tracking;
+  const tracking: TrackingView | null = t
+    ? {
+        statusLabel: trackingStatusLabel(t.status, t.subStatus),
+        problem: t.problem,
+        delivered: t.status === "Delivered",
+        registered: Boolean(t.registeredAt),
+        carrierName: t.carrierName,
+        event: t.event,
+        location: t.location,
+        eventAt: t.eventAt ? formatDateTime(t.eventAt) : null,
+        checkedAt: t.checkedAt ? formatDateTime(t.checkedAt) : null,
+        error: t.error,
+        events: ((t.events ?? []) as TrackingEvent[]).map((e) => ({ ...e, at: e.at ? formatDateTime(new Date(e.at)) : null })),
+      }
     : null;
   const tone = PARCEL_STATUS_COLOR[parcel.status];
 
@@ -121,6 +139,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
           <>
             <span className={`badge badge--${tone}`}>{parcelStatusLabel(parcel.status)}</span>
             {parcel.isPaid && <span className="badge badge--paid">Оплачено</span>}
+            {t?.problem && parcel.status === "SHIPPED" && <span className="badge badge--canceled" title="Отслеживание сообщило о проблеме — см. «Отслеживание»">Требует внимания</span>}
           </>
         }
         guid={parcel.id}
@@ -267,17 +286,15 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
             {/* Отслеживание */}
             <section className="card">
               <h2 className="card-title">Отслеживание</h2>
-              <dl className="info-list">
-                <div className="info-row"><dt>Трек-номер посылки</dt><dd>
-                  {parcel.trackingNumber ? (
-                    <a className="link track-link" href={trackUrl!} target="_blank" rel="noopener noreferrer">
-                      <span className="mono">{parcel.trackingNumber}</span> <ExternalLink size={13} />
-                    </a>
-                  ) : <span className="muted">не присвоен</span>}
-                </dd></div>
-                <div className="info-row"><dt>Отправлена</dt><dd>{shippedAt ? formatDateTime(shippedAt) : "—"}</dd></div>
-                <div className="info-row"><dt>Доставлена</dt><dd>{deliveredAt ? formatDateTime(deliveredAt) : "—"}</dd></div>
-              </dl>
+              <TrackingBlock
+                parcelId={parcel.id}
+                trackingNumber={parcel.trackingNumber}
+                trackUrl={trackUrl}
+                shippedAt={shippedAt ? formatDateTime(shippedAt) : null}
+                deliveredAt={deliveredAt ? formatDateTime(deliveredAt) : null}
+                enabled={trackingEnabled}
+                tracking={tracking}
+              />
             </section>
           </div>
 
@@ -344,7 +361,6 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
         .info-row dd { flex: 1; color: var(--color-text); margin: 0; min-width: 0; word-break: break-word; }
         .link { color: var(--color-accent); text-decoration: none; }
         .link:hover { text-decoration: underline; }
-        .track-link { display: inline-flex; align-items: center; gap: 5px; }
         .code-pill { display: inline-flex; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--color-muted-bg); }
         .muted { color: var(--color-muted); }
         .empty { margin: 0; font-size: 13px; color: var(--color-muted); }
