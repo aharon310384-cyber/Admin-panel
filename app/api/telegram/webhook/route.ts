@@ -5,6 +5,7 @@ import {
   sendTelegramMessage,
 } from "@/lib/telegram";
 import { linkCustomerByPhone } from "@/lib/client-link";
+import { getTelegramTexts } from "@/lib/company";
 
 /**
  * Webhook Telegram-бота.
@@ -70,11 +71,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // /start или любой текст → просим номер
+  // /start или любой текст → приветствие компании (настройки компании) и просьба поделиться номером
   if (msg.text) {
+    const { greeting } = await getTelegramTexts();
     await sendContactRequest(
       chatId,
-      "Здравствуйте! 🦊 Это кабинет PostmanFox.\n\nЧтобы войти, подтвердите номер телефона — нажмите кнопку ниже."
+      `${greeting}\n\nЧтобы войти, подтвердите номер телефона — нажмите кнопку ниже.`
     );
   }
 

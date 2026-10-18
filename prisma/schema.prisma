@@ -117,6 +117,36 @@ enum LedgerReason {
   ADJUSTMENT    // ручная корректировка
 }
 
+// ─────────────────────────── КОМПАНИИ ───────────────────────────
+
+/// Компания — чей бренд показывает система: название, логотип, сайт, контакты, тексты Telegram.
+/// Всё о компании — здесь, а не в коде (docs/product/будущее.md, раздел 0). Меняется в «Администрирование → Компании».
+/// Бренд админки — у компании с adminBrand, бренд кабинета клиента и Telegram — у компании с cabinetBrand.
+model Company {
+  id                String   @id @default(cuid())
+  code              String   @unique // латиницей, для начальных данных и связей: MYCARGO
+  name              String   // как пишется в интерфейсе
+  legalName         String?  // полное юридическое название
+  tagline           String?  // коротко о компании — в описании страниц кабинета («посылки из Китая»)
+  siteUrl           String?  // сайт: ссылка с логотипа
+  trackingUrl       String?  // страница отслеживания посылки на сайте — кнопка «Отследить» в кабинете
+  phone             String?
+  email             String?
+  telegram          String?  // контакт в Telegram для связи (@username)
+  address           String?
+  telegramGreeting  String?  // приветствие бота, когда клиент пишет ему впервые
+  telegramSignature String?  // подпись под уведомлениями клиенту
+  logo              Bytes?   // логотип с надписью — шапка кабинета
+  logoType          String?  // image/png, image/jpeg, image/webp
+  icon              Bytes?   // знак без надписи — рядом с названием (вход, админка)
+  iconType          String?
+  adminBrand        Boolean  @default(false) // её бренд — в админке (склад); такая компания одна
+  cabinetBrand      Boolean  @default(false) // её бренд — в кабинете клиента и Telegram; такая компания одна
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  updatedBy         String?
+}
+
 // ─────────────────────────── СОТРУДНИКИ ───────────────────────────
 
 model User {

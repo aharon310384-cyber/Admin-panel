@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BadgeDollarSign,
@@ -15,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { clientLogout, exitClientCabinet } from "@/actions/client-cabinet";
+import CabinetBrand from "@/components/cabinet/cabinet-brand";
 import type { ClientCabinetMode } from "@/lib/client-cabinet";
 
 type Item = { href: string; label: string; icon: typeof LayoutGrid };
@@ -46,15 +46,7 @@ export default function CabinetSidebar({ mode }: { mode: ClientCabinetMode }) {
   return (
     <aside className="cs">
       <div className="cs-top">
-        <a
-          href="https://postmanfox.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="cs-brand"
-          aria-label="Перейти на postmanfox.com"
-        >
-          <Image src="/brand/logo.png" alt="PostmanFox" width={150} height={49} priority className="cs-brand-img" />
-        </a>
+        <CabinetBrand className="cs-brand" imgClassName="cs-brand-img" />
         {isAdminView && (
           <span className="cs-mode" title="Режим просмотра клиента">
             <Eye size={12} aria-hidden="true" />

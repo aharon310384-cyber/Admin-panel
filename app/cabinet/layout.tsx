@@ -1,66 +1,59 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Script from "next/script";
 import { Eye } from "lucide-react";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
+import { getCabinetBrand } from "@/lib/company";
+import { cabinetDescription } from "@/lib/brand";
+import { BrandProvider } from "@/components/brand/brand-context";
+import CabinetBrand from "@/components/cabinet/cabinet-brand";
 import CabinetNav from "@/components/cabinet/cabinet-nav";
 import CabinetSidebar from "@/components/cabinet/cabinet-sidebar";
 import TelegramInit from "@/components/cabinet/telegram-init";
 
-// Своё название вкладки у кабинета: «Обзор | PostmanFox» вместо общего «… | Админ-панель»
-export const metadata: Metadata = {
-  title: {
-    default: "Личный кабинет | PostmanFox",
-    template: "%s | PostmanFox",
-  },
-  description: "Личный кабинет клиента PostmanFox — посылки из Китая",
-};
+// Своё название вкладки у кабинета: «Обзор | <компания>» вместо общего «… | Админ-панель»
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getCabinetBrand();
+  return {
+    title: {
+      default: `Личный кабинет | ${brand.name}`,
+      template: `%s | ${brand.name}`,
+    },
+    description: cabinetDescription(brand),
+  };
+}
 
 export default async function ClientCabinetLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { mode } = await getClientCabinetContext();
+  const [{ mode }, brand] = await Promise.all([getClientCabinetContext(), getCabinetBrand()]);
   const isAdminView = mode === "admin";
 
   return (
     <div className="cab-root">
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       <TelegramInit />
-      <CabinetSidebar mode={mode} />
+      <BrandProvider brand={brand}>
+        <CabinetSidebar mode={mode} />
 
-      <div className="cab-viewport">
-        <header className="cab-header">
-          <a
-            href="https://postmanfox.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="cab-brand"
-            aria-label="Перейти на postmanfox.com"
-          >
-            <Image
-              src="/brand/logo.png"
-              alt="PostmanFox"
-              width={150}
-              height={49}
-              priority
-              className="cab-brand-img"
-            />
-          </a>
+        <div className="cab-viewport">
+          <header className="cab-header">
+            <CabinetBrand className="cab-brand" imgClassName="cab-brand-img" />
 
-          {isAdminView && (
-            <span className="cab-mode-pill" title="Режим просмотра клиента">
-              <Eye size={13} aria-hidden="true" />
-              Просмотр
-            </span>
-          )}
-        </header>
+            {isAdminView && (
+              <span className="cab-mode-pill" title="Режим просмотра клиента">
+                <Eye size={13} aria-hidden="true" />
+                Просмотр
+              </span>
+            )}
+          </header>
 
-        <main className="cab-main">{children}</main>
+          <main className="cab-main">{children}</main>
 
-        <CabinetNav />
-      </div>
+          <CabinetNav />
+        </div>
+      </BrandProvider>
 
       <style>{`
         .cab-root {
