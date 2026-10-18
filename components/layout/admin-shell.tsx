@@ -174,9 +174,11 @@ export default function AdminShell({
       const entry = now[formKey] ?? { hidden: [] };
       const hidden = patch.hidden ?? entry.hidden;
       const widths = patch.widths === undefined ? entry.widths : patch.widths ?? undefined;
+      const columns = patch.columns === undefined ? entry.columns : patch.columns ?? undefined;
       const next = { ...now };
-      if (hidden.length || widths) next[formKey] = widths ? { hidden, widths } : { hidden };
-      else delete next[formKey];
+      if (hidden.length || widths || columns) {
+        next[formKey] = { hidden, ...(widths ? { widths } : {}), ...(columns ? { columns } : {}) };
+      } else delete next[formKey];
       return next;
     });
     const result = await saveFormSettings(formKey, patch).catch(() => null);

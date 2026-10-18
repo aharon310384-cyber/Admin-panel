@@ -21,10 +21,12 @@ export const FORM_PART_HINTS: Record<FormPart, string> = {
 // Командную панель не скрыть — иначе не добраться до «Изменить форму…». Как в 1С: у неё галочка без флажка.
 export const HIDEABLE_PARTS: FormPart[] = ["header", "pages", "footer"];
 
-// hidden — скрытые части окна; widths — ширины столбцов таблиц окна в пикселях
-// (ключ — «номер таблицы:заголовок столбца», см. components/form/column-widths.ts).
+// hidden — скрытые части окна; widths — ширины столбцов таблиц окна в пикселях;
+// columns — порядок и скрытые столбцы таблиц. Ключ столбца — «номер таблицы:заголовок»
+// (components/form/columns.ts, column-widths.ts).
 export type ColumnWidths = Record<string, number>;
-export type FormSettings = { hidden: FormPart[]; widths?: ColumnWidths };
+export type ColumnLayout = { order?: string[]; hidden?: string[] };
+export type FormSettings = { hidden: FormPart[]; widths?: ColumnWidths; columns?: ColumnLayout };
 export type FormsSettings = Record<string, FormSettings>;
 
 export const FORM_KEY_RE = /^[a-z0-9-]{1,40}$/;
@@ -45,6 +47,21 @@ function normalizeWidths(raw: unknown): ColumnWidths | undefined {
   return Object.keys(widths).length ? widths : undefined;
 }
 
+function normalizeKeys(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const keys = [...new Set(raw.filter((key): key is string => typeof key === "string" && key.length <= COLUMN_KEY_MAX))];
+  return keys.length ? keys.slice(0, MAX_COLUMNS) : undefined;
+}
+
+function normalizeColumns(raw: unknown): ColumnLayout | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const entry = raw as { order?: unknown; hidden?: unknown };
+  const order = normalizeKeys(entry.order);
+  const hidden = normalizeKeys(entry.hidden);
+  if (!order && !hidden) return undefined;
+  return { ...(order ? { order } : {}), ...(hidden ? { hidden } : {}) };
+}
+
 // Приводит сохранённое значение к допустимому: известные окна и части, без повторов, разумные ширины.
 // Окно без настроек в результат не попадает.
 export function normalizeForms(raw: unknown): FormsSettings {
@@ -52,11 +69,14 @@ export function normalizeForms(raw: unknown): FormsSettings {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return result;
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!FORM_KEY_RE.test(key) || Object.keys(result).length >= MAX_FORMS) continue;
-    const entry = (value ?? {}) as { hidden?: unknown; widths?: unknown };
+    const entry = (value ?? {}) as { hidden?: unknown; widths?: unknown; columns?: unknown };
     const list = Array.isArray(entry.hidden) ? entry.hidden : [];
     const hidden = HIDEABLE_PARTS.filter((part) => list.includes(part));
     const widths = normalizeWidths(entry.widths);
-    if (hidden.length || widths) result[key] = widths ? { hidden, widths } : { hidden };
+    const columns = normalizeColumns(entry.columns);
+    if (hidden.length || widths || columns) {
+      result[key] = { hidden, ...(widths ? { widths } : {}), ...(columns ? { columns } : {}) };
+    }
   }
   return result;
 }
