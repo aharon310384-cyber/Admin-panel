@@ -9,8 +9,9 @@ import { nextParcelTaskNumber } from "@/lib/parcel-number";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { notifyParcelStatusChange, notifyParcelPaid } from "@/lib/notify";
 import { computeEuCustomsDuty, type DutyOrderLine, type DutyResult } from "@/lib/eu-customs";
-import { parcelStatusLabel } from "@/lib/statuses";
+import { parcelStatusLabel, PARCEL_STATUS_LABELS } from "@/lib/statuses";
 import { ensureBaseline, ensureBaselines, recordVersion, recordVersions } from "@/lib/versions";
+import { trackAfterResponse } from "@/lib/tracking";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -321,33 +322,99 @@ export async function setParcelTracking(parcelId: string, trackingNumber: string
   if (!session) redirect("/login");
   const trimmed = trackingNumber.trim();
   await ensureBaseline("parcel", parcelId);
-  await prisma.parcel.update({
+  const parcel = await prisma.parcel.update({
     where: { id: parcelId },
     data: { trackingNumber: trimmed || null },
   });
   await recordVersion("parcel", parcelId, { authorId: session.user.id, comment: "Изменён трек-номер посылки" });
+  if (trimmed && parcel.status === "SHIPPED") trackAfterResponse([parcelId]);
   revalidatePath(`/parcels/${parcelId}`);
 }
 
-/** Смена статуса посылки. Для оплаты «до отправки» блокирует SHIPPED без оплаты. */
-export async function setParcelStatus(parcelId: string, status: ParcelStatus): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
-  if (!session) return { ok: false, error: "Не авторизован" };
+const PARCEL_STATUSES = Object.keys(PARCEL_STATUS_LABELS) as ParcelStatus[];
 
-  const parcel = await prisma.parcel.findUnique({ where: { id: parcelId } });
-  if (!parcel) return { ok: false, error: "Посылка не найдена" };
-
+/** Сменить статус одной посылки от имени сотрудника. Для оплаты «до отправки» не даёт SHIPPED без оплаты. */
+async function changeParcelStatus(parcelId: string, status: ParcelStatus, userId: string): Promise<string | null> {
+  const parcel = await prisma.parcel.findFirst({ where: { id: parcelId, deletedAt: null } });
+  if (!parcel) return "Посылка не найдена";
+  if (parcel.status === status) return null;
   if (status === "SHIPPED" && parcel.paymentTiming === "BEFORE" && !parcel.isPaid) {
-    return { ok: false, error: "Нельзя отправить: посылка не оплачена (оплата до отправки)" };
+    return "Нельзя отправить: посылка не оплачена (оплата до отправки)";
   }
 
   await ensureBaseline("parcel", parcelId);
   await prisma.parcel.update({ where: { id: parcelId }, data: { status } });
-  await prisma.parcelStatusHistory.create({ data: { parcelId, status, changedBy: session.user.id } });
-  await recordVersion("parcel", parcelId, { authorId: session.user.id, comment: `Статус «${parcelStatusLabel(status)}»` });
+  await prisma.parcelStatusHistory.create({ data: { parcelId, status, changedBy: userId } });
+  await recordVersion("parcel", parcelId, { authorId: userId, comment: `Статус «${parcelStatusLabel(status)}»` });
   await notifyParcelStatusChange(parcelId, status);
+  return null;
+}
+
+/** Смена статуса посылки. */
+export async function setParcelStatus(parcelId: string, status: ParcelStatus): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (!session) return { ok: false, error: "Не авторизован" };
+  if (!PARCEL_STATUSES.includes(status)) return { ok: false, error: "Неизвестный статус" };
+  const error = await changeParcelStatus(parcelId, status, session.user.id);
+  if (error) return { ok: false, error };
+  if (status === "SHIPPED") trackAfterResponse([parcelId]);
   revalidatePath(`/parcels/${parcelId}`);
   return { ok: true };
+}
+
+/**
+ * Статус сразу нескольким посылкам — ручной инструмент на крайний случай, когда отслеживание не помогло
+ * (номер не отслеживается, перевозчик молчит). Каждая посылка — как при смене статуса в карточке.
+ */
+export async function setParcelsStatus(
+  parcelIds: string[],
+  status: ParcelStatus,
+): Promise<{ ok: boolean; changed: number; errors: string[] }> {
+  const session = await auth();
+  if (!session) return { ok: false, changed: 0, errors: ["Не авторизован"] };
+  if (!PARCEL_STATUSES.includes(status)) return { ok: false, changed: 0, errors: ["Неизвестный статус"] };
+  const ids = [...new Set(parcelIds)].slice(0, 500);
+  const parcels = await prisma.parcel.findMany({ where: { id: { in: ids }, deletedAt: null }, select: { id: true, number: true, status: true } });
+
+  const changedIds: string[] = [];
+  const errors: string[] = [];
+  for (const parcel of parcels) {
+    if (parcel.status === status) continue;
+    const error = await changeParcelStatus(parcel.id, status, session.user.id);
+    if (error) errors.push(`${parcel.number}: ${error}`);
+    else changedIds.push(parcel.id);
+  }
+  if (status === "SHIPPED") trackAfterResponse(changedIds);
+  revalidatePath("/parcels");
+  return { ok: errors.length === 0, changed: changedIds.length, errors };
+}
+
+export type TrackMatch = { id: string; number: string; trackingNumber: string; customerCode: string | null; status: ParcelStatus };
+
+/** Найти посылки по списку трек-номеров (через пробел, запятую или с новой строки) — для смены статуса списком. */
+export async function findParcelsByTracks(text: string): Promise<{ found: TrackMatch[]; missing: string[] }> {
+  const session = await auth();
+  if (!session) return { found: [], missing: [] };
+  const numbers = [...new Set(text.split(/[\s,;]+/).map((n) => n.trim().toUpperCase()).filter(Boolean))].slice(0, 500);
+  if (!numbers.length) return { found: [], missing: [] };
+
+  const parcels = await prisma.parcel.findMany({
+    where: {
+      deletedAt: null,
+      OR: [{ trackingNumber: { in: numbers, mode: "insensitive" } }, { tracking: { number: { in: numbers } } }],
+    },
+    select: { id: true, number: true, trackingNumber: true, status: true, customer: { select: { code: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  const found = parcels.map((p) => ({
+    id: p.id,
+    number: p.number,
+    trackingNumber: p.trackingNumber ?? "",
+    customerCode: p.customer.code,
+    status: p.status,
+  }));
+  const seen = new Set(found.map((p) => p.trackingNumber.replace(/\s+/g, "").toUpperCase()));
+  return { found, missing: numbers.filter((n) => !seen.has(n)) };
 }
 
 /** Отметить оплату посылки. */
