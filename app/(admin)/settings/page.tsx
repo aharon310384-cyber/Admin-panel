@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { auth } from "@/auth";
 import InterfaceMenu from "@/components/settings/interface-menu";
 import { getUserInterface } from "@/lib/interface-settings";
@@ -63,6 +64,14 @@ export default async function SettingsPage() {
               <h2 className="card-title">Интерфейс</h2>
               {panels && <InterfaceMenu panels={panels} />}
             </div>
+
+            <div className="card">
+              <h2 className="card-title">Компании</h2>
+              <p className="settings-text">
+                Название, логотип, сайт и тексты Telegram: чей бренд в админке, а чей — в кабинете клиента.
+              </p>
+              <Link href="/companies" className="settings-link">Открыть «Компании» →</Link>
+            </div>
           </div>
 
           <div className="settings-col">
@@ -93,6 +102,9 @@ export default async function SettingsPage() {
 
         .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card); }
         .card-title { font-size: 15px; font-weight: 600; margin: 0 0 20px; color: var(--color-text); }
+        .settings-text { margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
+        .settings-link { font-size: 13px; font-weight: 500; color: var(--color-accent); text-decoration: none; }
+        .settings-link:hover { text-decoration: underline; }
 
         .account-info { display: flex; gap: 16px; }
         .account-avatar { width: 56px; height: 56px; background: oklch(52% 0.14 42 / 0.12); color: var(--color-accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; flex-shrink: 0; }

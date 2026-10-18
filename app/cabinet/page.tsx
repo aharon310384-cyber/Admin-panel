@@ -3,14 +3,18 @@ import Link from "next/link";
 import { ArrowRight, Package, Plus, Truck, Wallet } from "lucide-react";
 import type { ParcelStatus, Prisma } from "@prisma/client";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
+import { getCabinetBrand } from "@/lib/company";
 import { prisma } from "@/lib/prisma";
 import { clientParcelNumber } from "@/lib/parcel-number";
 import StatusPill, { statusLabel } from "@/components/cabinet/status-pill";
 import TrackNumber from "@/components/cabinet/track-number";
 import { formatUsd, formatDate } from "@/lib/utils";
 
-// Шаблон «%s | PostmanFox» из layout кабинета не действует на страницу того же сегмента
-export const metadata: Metadata = { title: { absolute: "Обзор | PostmanFox" } };
+// Шаблон «%s | <компания>» из layout кабинета не действует на страницу того же сегмента
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getCabinetBrand();
+  return { title: { absolute: `Обзор | ${brand.name}` } };
+}
 
 const ACTIVE_STATUSES: ParcelStatus[] = ["FORMED", "ASSEMBLED", "PACKED", "READY_TO_SHIP", "SHIPPED"];
 const TIMELINE: ParcelStatus[] = ["FORMED", "ASSEMBLED", "PACKED", "READY_TO_SHIP", "SHIPPED", "DELIVERED"];
