@@ -9,6 +9,8 @@ import { nextParcelTaskNumber } from "@/lib/parcel-number";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { notifyParcelStatusChange, notifyParcelPaid } from "@/lib/notify";
 import { computeEuCustomsDuty, type DutyOrderLine, type DutyResult } from "@/lib/eu-customs";
+import { parcelStatusLabel } from "@/lib/statuses";
+import { ensureBaseline, ensureBaselines, recordVersion, recordVersions } from "@/lib/versions";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -171,14 +173,19 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
         totalCny: round2(totalUsd * rate),
       },
     });
+    const formedIds = orders.map((o) => o.id);
+    await ensureBaselines("order", formedIds, tx);
     await tx.order.updateMany({
-      where: { id: { in: orders.map((o) => o.id) } },
+      where: { id: { in: formedIds } },
       data: { parcelId: created.id, parcelTaskId: task.id, status: "FORMED" },
     });
     await tx.parcelStatusHistory.create({
       data: { parcelId: created.id, status: "FORMED", changedBy: session.user.id },
     });
     await saveParcelServices(created.id, serviceLines, rate, tx);
+    // История изменений: посылка создана, заказы оформлены в неё
+    await recordVersion("parcel", created.id, { authorId: session.user.id, comment: "Создана" }, tx);
+    await recordVersions("order", formedIds, { authorId: session.user.id, comment: `Оформлен в посылку ${created.number}` }, tx);
     return created;
   });
 
@@ -275,6 +282,7 @@ export async function applyParcelServices(
   if (opts.insurancePercent && opts.insurancePercent > 0) services.push({ code: "INSURANCE", name: "Дополнительная страховка", priceUsd: round2(declaredTotal * (opts.insurancePercent / 100)) });
   if (parcel.orders.some((o) => o.keepOriginalPackaging)) services.push({ code: "KEEP_ORIGINAL_PACK", name: "Оставить оригинальную упаковку", priceUsd: 0 });
 
+  await ensureBaseline("parcel", parcelId);
   const servicesTotal = await saveParcelServices(parcelId, services, rate);
   const subtotal = round2(shipping + servicesTotal);
   const discountPercent = opts.discountPercent ?? 0;
@@ -302,6 +310,7 @@ export async function applyParcelServices(
       totalCny: round2(totalUsd * rate),
     },
   });
+  await recordVersion("parcel", parcelId, { authorId: session.user.id, comment: "Пересчитана квитанция" });
   revalidatePath(`/parcels/${parcelId}`);
   return { ok: true, warning };
 }
@@ -311,10 +320,12 @@ export async function setParcelTracking(parcelId: string, trackingNumber: string
   const session = await auth();
   if (!session) redirect("/login");
   const trimmed = trackingNumber.trim();
+  await ensureBaseline("parcel", parcelId);
   await prisma.parcel.update({
     where: { id: parcelId },
     data: { trackingNumber: trimmed || null },
   });
+  await recordVersion("parcel", parcelId, { authorId: session.user.id, comment: "Изменён трек-номер посылки" });
   revalidatePath(`/parcels/${parcelId}`);
 }
 
@@ -330,8 +341,10 @@ export async function setParcelStatus(parcelId: string, status: ParcelStatus): P
     return { ok: false, error: "Нельзя отправить: посылка не оплачена (оплата до отправки)" };
   }
 
+  await ensureBaseline("parcel", parcelId);
   await prisma.parcel.update({ where: { id: parcelId }, data: { status } });
   await prisma.parcelStatusHistory.create({ data: { parcelId, status, changedBy: session.user.id } });
+  await recordVersion("parcel", parcelId, { authorId: session.user.id, comment: `Статус «${parcelStatusLabel(status)}»` });
   await notifyParcelStatusChange(parcelId, status);
   revalidatePath(`/parcels/${parcelId}`);
   return { ok: true };
@@ -341,9 +354,14 @@ export async function setParcelStatus(parcelId: string, status: ParcelStatus): P
 export async function setParcelPaid(parcelId: string, paid: boolean): Promise<void> {
   const session = await auth();
   if (!session) redirect("/login");
+  await ensureBaseline("parcel", parcelId);
   await prisma.parcel.update({
     where: { id: parcelId },
     data: { isPaid: paid, paidAt: paid ? new Date() : null },
+  });
+  await recordVersion("parcel", parcelId, {
+    authorId: session.user.id,
+    comment: paid ? "Отмечена оплата" : "Снята отметка об оплате",
   });
   if (paid) await notifyParcelPaid(parcelId);
   revalidatePath(`/parcels/${parcelId}`);

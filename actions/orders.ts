@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
 import { resolveProductCatalog } from "@/lib/products";
+import { ensureBaseline, recordVersion } from "@/lib/versions";
 
 const schema = z.object({
   customerId: z.string().min(1, "Выберите клиента"),
@@ -27,7 +28,7 @@ const schema = z.object({
 });
 
 export async function updateOrder(id: string, formData: FormData): Promise<void> {
-  await requireAdmin();
+  const session = await requireAdmin();
 
   const raw = Object.fromEntries(formData) as Record<string, string>;
   const data = schema.parse({
@@ -44,6 +45,7 @@ export async function updateOrder(id: string, formData: FormData): Promise<void>
   const declaredValueUsd = unit * data.quantity;
   const catalog = await resolveProductCatalog(data.productNameId);
 
+  await ensureBaseline("order", id);
   await prisma.order.update({
     where: { id },
     data: {
@@ -68,6 +70,7 @@ export async function updateOrder(id: string, formData: FormData): Promise<void>
       reinforcedPackRequested: !!data.reinforcedPackRequested,
     },
   });
+  await recordVersion("order", id, { authorId: session.user.id, comment: "Изменён" });
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${id}/edit`);
@@ -75,7 +78,7 @@ export async function updateOrder(id: string, formData: FormData): Promise<void>
 }
 
 export async function deleteOrder(id: string): Promise<{ error?: string } | void> {
-  await requireAdmin();
+  const session = await requireAdmin();
 
   const order = await prisma.order.findUnique({
     where: { id },
@@ -88,10 +91,12 @@ export async function deleteOrder(id: string): Promise<{ error?: string } | void
     };
   }
 
+  await ensureBaseline("order", id);
   await prisma.order.update({
     where: { id },
     data: { deletedAt: new Date() },
   });
+  await recordVersion("order", id, { authorId: session.user.id, comment: "Помечен на удаление" });
 
   revalidatePath("/orders");
 }

@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { ensureBaseline, recordVersion } from "@/lib/versions";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -11,8 +12,9 @@ type Db = PrismaClient | Prisma.TransactionClient;
  * (setParcelPaid) остаётся для исправлений, и её нельзя отличить от автоматической.
  * Вызывать после создания или изменения распределения, в той же транзакции.
  * Возвращает true, если посылка только что стала оплаченной (для уведомления клиента).
+ * authorId — сотрудник, который провёл распределение (для «Истории изменений» посылки).
  */
-export async function markParcelPaidIfCovered(db: Db, parcelId: string): Promise<boolean> {
+export async function markParcelPaidIfCovered(db: Db, parcelId: string, authorId: string | null = null): Promise<boolean> {
   const parcel = await db.parcel.findUnique({
     where: { id: parcelId },
     select: { isPaid: true, totalCny: true, exchangeRateCnyPerUsd: true },
@@ -45,9 +47,11 @@ export async function markParcelPaidIfCovered(db: Db, parcelId: string): Promise
   // Допуск в полфэня на округления.
   if (coveredCny + 0.005 < totalCny) return false;
 
+  await ensureBaseline("parcel", parcelId, db);
   await db.parcel.update({
     where: { id: parcelId },
     data: { isPaid: true, paidAt: lastReceivedAt ?? new Date() },
   });
+  await recordVersion("parcel", parcelId, { authorId, comment: "Оплачена по распределению оплат" }, db);
   return true;
 }

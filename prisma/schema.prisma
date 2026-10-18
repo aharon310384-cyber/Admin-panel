@@ -155,6 +155,7 @@ model User {
   ledgerEntries      ClientLedger[]
 
   interfaceSettings UserInterfaceSettings?
+  objectVersions    ObjectVersion[]
 }
 
 /// Настройки интерфейса сотрудника — как «Настройка панелей» в 1С. Свои у каждого.
@@ -954,6 +955,25 @@ model ClientLedger {
   @@index([customerId])
   @@index([parcelId])
   @@index([paymentAllocationId])
+}
+
+// ─────────────────────────── ИСТОРИЯ ИЗМЕНЕНИЙ ───────────────────────────
+
+/// Версии документов — «История изменений», как версионирование объектов в 1С.
+model ObjectVersion {
+  id        String   @id @default(cuid())
+  entity    String   // "order" | "parcel"
+  entityId  String
+  version   Int      // 1, 2, 3… по каждому документу
+  authorId  String?
+  comment   String?  // «Создан», «Изменён», «Принят на склад», «Оформлен в посылку», «Помечен на удаление»…
+  data      Json     // снимок: { fields: [{ key, label, value }], tables: [{ key, label, columns: [...], rows: [[...]] }] }, значения уже строками для показа
+  createdAt DateTime @default(now())
+
+  author User? @relation(fields: [authorId], references: [id])
+
+  @@unique([entity, entityId, version])
+  @@index([entity, entityId])
 }
 
 // ─────────────────────────── ИСТОРИЯ СТАТУСОВ ───────────────────────────
