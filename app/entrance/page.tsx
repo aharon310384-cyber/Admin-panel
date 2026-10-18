@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 type State = "loading" | "need-link" | "browser-login" | "error";
 
 const BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT_NAME;
+const SITE_URL = "https://postmanfox.com/";
 
 export default function TelegramEntryPage() {
   const [state, setState] = useState<State>("loading");
@@ -22,6 +23,11 @@ export default function TelegramEntryPage() {
     e.preventDefault();
     if (submitting) return;
     setFormError(null);
+    // Браузер мог подставить сохранённый email от админки (тот же сайт) — подсказываем, что нужен код
+    if (code.includes("@")) {
+      setFormError("Здесь вход для клиентов: введите код клиента (например, ABC), а не email.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch("/api/cabinet/password-login", {
@@ -110,7 +116,19 @@ export default function TelegramEntryPage() {
 
         {state === "browser-login" && (
           <>
-            <Image src="/brand/favicon.png" alt="PostmanFox" width={60} height={60} className="tg-logo" priority />
+            <a
+              className="tg-brand"
+              href={SITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Перейти на postmanfox.com"
+            >
+              <Image src="/brand/favicon.png" alt="" width={52} height={52} className="tg-brand-fox" priority />
+              <span className="tg-wordmark">
+                <span className="tg-wordmark-soft">Postman</span>
+                <span className="tg-wordmark-accent">Fox</span>
+              </span>
+            </a>
             <h1 className="tg-title">Вход в кабинет</h1>
             <p className="tg-sub">Войдите по коду клиента и паролю.</p>
             {notice && <p className="tg-notice">{notice}</p>}
@@ -119,8 +137,12 @@ export default function TelegramEntryPage() {
               <input
                 className="tg-input"
                 type="text"
+                name="client-code"
                 placeholder="Код клиента"
-                autoComplete="username"
+                // off: не подставлять сохранённый логин от админки, она на том же сайте
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 required
@@ -148,6 +170,10 @@ export default function TelegramEntryPage() {
                 Войти через Telegram
               </a>
             )}
+
+            <a className="tg-site" href={SITE_URL} target="_blank" rel="noopener noreferrer">
+              Перейти на postmanfox.com →
+            </a>
           </>
         )}
 
@@ -195,7 +221,20 @@ export default function TelegramEntryPage() {
           background: #fff; border: 1px solid rgba(29,39,24,0.09); box-shadow: 0 8px 24px rgba(29,39,24,0.08);
         }
         .tg-emoji { font-size: 40px; }
-        .tg-logo { width: 60px; height: 60px; object-fit: contain; }
+        .tg-brand {
+          display: inline-flex; align-items: center; gap: 10px; margin-bottom: 4px;
+          text-decoration: none; border-radius: 12px;
+        }
+        .tg-brand:focus-visible { outline: 2px solid #6dab3c; outline-offset: 4px; }
+        .tg-brand-fox { width: 52px; height: 52px; object-fit: contain; }
+        .tg-wordmark { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; line-height: 1; }
+        .tg-wordmark-soft { color: #3c4a32; }
+        .tg-wordmark-accent { color: #e8730e; }
+        .tg-site {
+          margin-top: 6px; font-size: 13px; color: #79836f; text-decoration: none;
+          transition: color 0.15s;
+        }
+        .tg-site:hover { color: #4e8a2a; text-decoration: underline; }
         .tg-title { margin: 0; font-size: 20px; font-weight: 700; }
         .tg-sub { margin: 0; font-size: 14px; line-height: 1.5; color: #79836f; }
         .tg-notice {
