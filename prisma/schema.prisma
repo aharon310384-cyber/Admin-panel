@@ -463,6 +463,7 @@ model Parcel {
   statusHistory   ParcelStatusHistory[]
   allocationItems PaymentAllocationItem[]
   ledgerEntries   ClientLedger[]
+  tracking        ParcelTracking?
 
   @@index([customerId])
   @@index([boxId])
@@ -996,12 +997,47 @@ model ParcelStatusHistory {
   id        String       @id @default(cuid())
   parcelId  String
   status    ParcelStatus
-  changedBy String
+  changedBy String?      // пусто — статус поставила система (отслеживание 17TRACK)
   note      String?
   createdAt DateTime     @default(now())
 
   parcel Parcel @relation(fields: [parcelId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [changedBy], references: [id])
+  user   User?  @relation(fields: [changedBy], references: [id])
 
   @@index([parcelId])
+}
+
+/// Отслеживание посылки в 17TRACK: номер на слежении и последнее известное состояние.
+/// Пишет lib/tracking.ts; посылку «Доставлена» ставит сама, сложные случаи помечает problem.
+model ParcelTracking {
+  parcelId     String    @id
+  number       String    // номер на слежении: трек-номер посылки без пробелов, заглавными
+  carrier      Int?      // код перевозчика в 17TRACK
+  carrierName  String?
+  registeredAt DateTime? // поставлен на слежение; пусто — не поставлен (причина в error)
+  status       String?   // основной статус 17TRACK: NotFound, InfoReceived, InTransit, AvailableForPickup, OutForDelivery, DeliveryFailure, Delivered, Exception, Expired
+  subStatus    String?   // уточнение статуса, напр. Exception_Returning
+  event        String?   // последнее событие
+  location     String?
+  eventAt      DateTime?
+  events       Json?     // события: [{ at, text, location }], новые первыми
+  problem      Boolean   @default(false) // нужна проверка человеком: возврат, не вручена, таможня, нет данных
+  error        String?   // последняя ошибка 17TRACK по номеру
+  checkedAt    DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  parcel Parcel @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+
+  @@index([number])
+  @@index([problem])
+}
+
+/// Настройки отслеживания посылок (17TRACK). Одна запись.
+model TrackingSettings {
+  id         String    @id @default(cuid())
+  apiKey     String?   // ключ API 17TRACK (заголовок 17token); в браузер не отдаётся
+  lastSyncAt DateTime?
+  lastSync   String?   // итог последней проверки одной строкой
+  updatedAt  DateTime  @updatedAt
+  updatedBy  String?
 }

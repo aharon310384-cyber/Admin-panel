@@ -4,6 +4,9 @@ import InterfaceMenu from "@/components/settings/interface-menu";
 import { getUserInterface } from "@/lib/interface-settings";
 import ChangePasswordForm from "./change-password-form";
 import Form from "@/components/form/form";
+import TrackingSettings from "@/components/settings/tracking-settings";
+import { prisma } from "@/lib/prisma";
+import { formatDateTime } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Настройки" };
 
@@ -12,6 +15,13 @@ export default async function SettingsPage() {
   const { panels } = session ? await getUserInterface(session.user.id) : { panels: undefined };
 
   const { USER_ROLE_LABELS } = await import("@/types");
+
+  const shipped = { parcel: { status: "SHIPPED" as const, deletedAt: null } };
+  const [tracking, tracked, problems] = await Promise.all([
+    prisma.trackingSettings.findFirst(),
+    prisma.parcelTracking.count({ where: { ...shipped, registeredAt: { not: null } } }),
+    prisma.parcelTracking.count({ where: { ...shipped, problem: true } }),
+  ]);
 
   return (
     <>
@@ -55,10 +65,24 @@ export default async function SettingsPage() {
             </div>
           </div>
 
-          {/* Смена пароля */}
-          <div className="card">
-            <h2 className="card-title">Сменить пароль</h2>
-            <ChangePasswordForm />
+          <div className="settings-col">
+            {/* Смена пароля */}
+            <div className="card">
+              <h2 className="card-title">Сменить пароль</h2>
+              <ChangePasswordForm />
+            </div>
+
+            <div className="card">
+              <h2 className="card-title">Отслеживание посылок (17TRACK)</h2>
+              <TrackingSettings
+                keyTail={tracking?.apiKey ? tracking.apiKey.slice(-4) : null}
+                isAdmin={session?.user.role === "ADMIN"}
+                lastSyncAt={tracking?.lastSyncAt ? formatDateTime(tracking.lastSyncAt) : null}
+                lastSync={tracking?.lastSync ?? null}
+                tracked={tracked}
+                problems={problems}
+              />
+            </div>
           </div>
         </div>
       </Form>
