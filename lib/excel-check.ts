@@ -82,3 +82,25 @@ export function sameName(a: string, b: string): boolean {
   const left = words(a);
   return left.length > 0 && left === words(b);
 }
+
+/**
+ * Товары по входящему треку, в порядке появления: один трек — одна строка с его товарами
+ * (в базе это несколько заказов с одним треком — «Заказ = товар»). Товар без трека — отдельной строкой.
+ */
+export function groupByTrack<T>(items: T[], trackOf: (item: T) => string | null): { track: string | null; items: T[] }[] {
+  const groups: { track: string | null; items: T[] }[] = [];
+  const byTrack = new Map<string, { track: string | null; items: T[] }>();
+  for (const item of items) {
+    const track = trackOf(item);
+    const key = track ? track.replace(/\s+/g, "").toUpperCase() : null;
+    const group = key ? byTrack.get(key) : undefined;
+    if (group) {
+      group.items.push(item);
+      continue;
+    }
+    const created = { track, items: [item] };
+    groups.push(created);
+    if (key) byTrack.set(key, created);
+  }
+  return groups;
+}

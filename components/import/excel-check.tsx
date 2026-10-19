@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { Copy, Loader2, Trash2 } from "lucide-react";
-import { checkExcelRow, type Checked, type ExcelCheckResult } from "@/actions/excel-import";
+import { checkExcelRow, type Checked, type ExcelCheckOrder, type ExcelCheckResult } from "@/actions/excel-import";
 
 // «Загрузка из Excel» → шаг 1, проверка ИИ-разборщика: вставить большую ячейку строки, посмотреть, что нашёл ИИ.
 // ✓ — значение есть в тексте ячейки, ⚠ — нет (ИИ мог ошибиться или додумать). Ничего не сохраняется.
+// Один входящий трек — одна строка (№), под ней его товары.
 
 type Run = { id: number; orderNumber: string; info: string; at: string; result: ExcelCheckResult };
 
@@ -31,6 +32,13 @@ function Value({ c }: { c: Checked }) {
 
 const money = (n: number | null, sign: string) => (n == null ? "—" : `${sign}${n.toFixed(2)}`);
 const show = (c: Checked) => `${c.value ?? "—"}${c.ok === false ? " ⚠" : ""}`;
+const services = (o: ExcelCheckOrder) =>
+  [o.detailedCheck ? "фото / проверка" : null, o.keepOriginalPackaging ? null : "без оригинальной упаковки", o.deliveryType ? DELIVERY[o.deliveryType] : null].filter(Boolean).join(" · ");
+
+/** Товар одной строкой: «Сумка (Сумки, обувь, аксессуары) · 1 шт · ¥6900.00 / $1014.71». */
+const itemLine = (o: ExcelCheckOrder) =>
+  `${show(o.name)}${o.group ? ` (${o.group})` : ""} · ${o.quantity} шт · ${money(o.priceCny, "¥")} / ${money(o.priceUsd, "$")}${o.priceOk === false ? " ⚠" : ""}` +
+  `${o.comment ? ` · комментарий клиента: ${o.comment}` : ""}${services(o) ? ` · ${services(o)}` : ""}`;
 
 /** Итог одной проверки обычным текстом — чтобы переслать в чат. */
 function summary(run: Run): string {
@@ -42,11 +50,7 @@ function summary(run: Run): string {
     run.info.trim(),
     `Трек посылки: ${show(r.parcelTrack)}`,
     "Заказы:",
-    ...r.orders.map(
-      (o, i) =>
-        `${i + 1}. трек ${show(o.track)} · ${show(o.name)} · ${o.quantity} шт · ${money(o.priceCny, "¥")} / ${money(o.priceUsd, "$")}${o.priceOk === false ? " ⚠" : ""}` +
-        `${o.comment ? ` · комментарий клиента: ${o.comment}` : ""}${o.detailedCheck ? " · фото/проверка" : ""}${o.keepOriginalPackaging ? "" : " · без ориг. упаковки"}`,
-    ),
+    ...r.tracks.map((t, i) => `${i + 1}. трек ${show(t.track)} · ${t.items.map(itemLine).join(", ")}`),
   ];
   if (r.recipient) {
     const p = r.recipient;
@@ -119,7 +123,7 @@ export default function ExcelCheck() {
           <div className="xc-run-head">
             <h3 className="xc-run-title">
               <span className="xc-mono">{run.orderNumber || "без задачи"}</span>
-              <span className="xc-muted"> · {run.at}{run.result.ok ? ` · курс ${run.result.rate}` : ""}</span>
+              <span className="xc-muted"> · {run.at}{run.result.ok ? ` · курс ${run.result.rate}` : ""} · в базу не записано</span>
             </h3>
             <button type="button" className="xc-btn" onClick={() => copy(run)}>
               <Copy size={13} /> {copied === run.id ? "Скопировано" : "Скопировать для чата"}
@@ -170,6 +174,8 @@ export default function ExcelCheck() {
         .xc-table { width: 100%; border-collapse: collapse; }
         .xc-table th { text-align: left; padding: 5px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--color-muted); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
         .xc-table td { padding: 5px 8px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+        .xc-table tr.xc-same td:not([rowspan]) { border-bottom-style: dashed; }
+        .xc-track { border-right: 1px solid var(--color-border); }
         .xc-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .xc-recipient { margin: 10px 0 0; display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; }
         .xc-recipient dt { color: var(--color-muted); }
@@ -196,29 +202,28 @@ function RunResult({ run, result }: { run: Run; result: Extract<ExcelCheckResult
         <table className="xc-table">
           <thead>
             <tr>
-              <th>№</th><th>Входящий трек</th><th>Наименование</th><th className="xc-num">Кол-во</th>
+              <th>№</th><th>Входящий трек</th><th>Наименование</th><th>Группа</th><th className="xc-num">Кол-во</th>
               <th className="xc-num">Цена ¥</th><th className="xc-num">Цена $</th><th>Комментарий клиента</th><th>Услуги</th>
             </tr>
           </thead>
           <tbody>
-            {result.orders.map((o, i) => (
-              <tr key={i}>
-                <td>{i + 1}</td>
-                <td className="xc-mono"><Value c={o.track} /></td>
-                <td><Value c={o.name} /></td>
-                <td className="xc-num">{o.quantity}</td>
-                <td className="xc-num">{money(o.priceCny, "¥")}</td>
-                <td className="xc-num">
-                  {money(o.priceUsd, "$")} {o.priceOk === false && <span className="xc-bad" title="Такой цены нет в тексте ячейки">⚠</span>}
-                </td>
-                <td>{o.comment ?? <span className="xc-muted">—</span>}</td>
-                <td>
-                  {[o.detailedCheck ? "фото / проверка" : null, o.keepOriginalPackaging ? null : "без оригинальной упаковки", o.deliveryType ? DELIVERY[o.deliveryType] : null]
-                    .filter(Boolean)
-                    .join(" · ") || <span className="xc-muted">—</span>}
-                </td>
-              </tr>
-            ))}
+            {result.tracks.map((t, i) =>
+              t.items.map((o, j) => (
+                <tr key={`${i}-${j}`} className={j < t.items.length - 1 ? "xc-same" : undefined}>
+                  {j === 0 && <td rowSpan={t.items.length}>{i + 1}</td>}
+                  {j === 0 && <td rowSpan={t.items.length} className="xc-mono xc-track"><Value c={t.track} /></td>}
+                  <td><Value c={o.name} /></td>
+                  <td>{o.group ?? <span className="xc-muted">—</span>}</td>
+                  <td className="xc-num">{o.quantity}</td>
+                  <td className="xc-num">{money(o.priceCny, "¥")}</td>
+                  <td className="xc-num">
+                    {money(o.priceUsd, "$")} {o.priceOk === false && <span className="xc-bad" title="Такой цены нет в тексте ячейки">⚠</span>}
+                  </td>
+                  <td>{o.comment ?? <span className="xc-muted">—</span>}</td>
+                  <td>{services(o) || <span className="xc-muted">—</span>}</td>
+                </tr>
+              )),
+            )}
           </tbody>
         </table>
       </div>
