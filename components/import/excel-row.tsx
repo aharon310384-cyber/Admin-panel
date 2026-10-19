@@ -104,7 +104,9 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
     // eslint-disable-next-line react-hooks/exhaustive-deps -- один раз при открытии по кнопке из Excel
   }, []);
 
-  const formula = `=HYPERLINK("${origin}/import/excel?row="&${(columns.taskNumber || "B")}2,"Отправить")`;
+  // Разделитель аргументов формулы зависит от настроек Windows: в WPS с русскими настройками — «;».
+  const [separator, setSeparator] = useState<";" | ",">(";");
+  const formula = `=HYPERLINK("${origin}/import/excel?row="&${(columns.taskNumber || "B")}2${separator}"Отправить")`;
   const copyFormula = async () => {
     try {
       await navigator.clipboard.writeText(formula);
@@ -166,19 +168,28 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
               <button type="button" className="xr-btn xr-btn--primary" onClick={saveColumns} disabled={pending}>Сохранить колонки</button>
               {columnsMessage && <span className={columnsMessage.ok ? "xr-ok" : "xr-bad"}>{columnsMessage.text}</span>}
             </div>
-            <div className="xr-formula">
-              <b>Кнопка «Отправить» в Excel.</b> Вставьте формулу в свободную колонку (например X) во второй строке листа и протяните вниз.
-              Нажатие: щёлкните по номеру строки слева, Ctrl+C, затем «Отправить» — откроется эта страница со строкой.
-              <div className="xr-actions" style={{ marginTop: 6 }}>
-                <code className="xr-mono xr-code">{formula}</code>
-                <button type="button" className="xr-btn" onClick={() => void copyFormula()}>
-                  <Copy size={13} /> {formulaCopied ? "Скопировано" : "Скопировать формулу"}
-                </button>
-              </div>
-            </div>
           </>
         ) : (
           columnsMessage && <p className={columnsMessage.ok ? "xr-ok" : "xr-bad"} style={{ margin: 0 }}>{columnsMessage.text}</p>
+        )}
+        {!fromExcel && (
+          <div className="xr-formula">
+            <b>Кнопка «Отправить» в Excel.</b> Скопируйте формулу (в ней уже адрес этой админки), вставьте в свободную колонку (например X)
+            во второй строке листа и протяните вниз. Нажатие: щёлкните по номеру строки слева, Ctrl+C, затем «Отправить» — откроется эта страница со строкой.
+            <div className="xr-actions" style={{ marginTop: 6 }}>
+              <code className="xr-mono xr-code">{formula}</code>
+              <button type="button" className="xr-btn" onClick={() => void copyFormula()}>
+                <Copy size={13} /> {formulaCopied ? "Скопировано" : "Скопировать формулу"}
+              </button>
+              <label className="xr-check" title="Если WPS пишет об ошибке в формуле — попробуйте другой разделитель">
+                Разделитель
+                <select className="xr-input" value={separator} onChange={(e) => { setSeparator(e.target.value as ";" | ","); setFormulaCopied(false); }}>
+                  <option value=";">; (точка с запятой)</option>
+                  <option value=",">, (запятая)</option>
+                </select>
+              </label>
+            </div>
+          </div>
         )}
       </section>
 
