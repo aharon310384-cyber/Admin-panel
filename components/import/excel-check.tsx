@@ -35,9 +35,9 @@ const show = (c: Checked) => `${c.value ?? "—"}${c.ok === false ? " ⚠" : ""}
 const services = (o: ExcelCheckOrder) =>
   [o.detailedCheck ? "фото / проверка" : null, o.keepOriginalPackaging ? null : "без оригинальной упаковки", o.deliveryType ? DELIVERY[o.deliveryType] : null].filter(Boolean).join(" · ");
 
-/** Товар одной строкой: «Сумка (Сумки, обувь, аксессуары) · 1 шт · ¥6900.00 / $1014.71». */
+/** Товар одной строкой: «Сумка · 1 шт · ¥6900.00 / $971.83». */
 const itemLine = (o: ExcelCheckOrder) =>
-  `${show(o.name)}${o.group ? ` (${o.group})` : ""} · ${o.quantity} шт · ${money(o.priceCny, "¥")} / ${money(o.priceUsd, "$")}${o.priceOk === false ? " ⚠" : ""}` +
+  `${show(o.name)} · ${o.quantity} шт · ${money(o.priceCny, "¥")} / ${money(o.priceUsd, "$")}${o.priceOk === false ? " ⚠" : ""}` +
   `${o.comment ? ` · комментарий клиента: ${o.comment}` : ""}${services(o) ? ` · ${services(o)}` : ""}`;
 
 /** Итог одной проверки обычным текстом — чтобы переслать в чат. */
@@ -202,7 +202,7 @@ function RunResult({ run, result }: { run: Run; result: Extract<ExcelCheckResult
         <table className="xc-table">
           <thead>
             <tr>
-              <th>№</th><th>Входящий трек</th><th>Наименование</th><th>Группа</th><th className="xc-num">Кол-во</th>
+              <th>№</th><th>Входящий трек</th><th>Наименование</th><th className="xc-num">Кол-во</th>
               <th className="xc-num">Цена ¥</th><th className="xc-num">Цена $</th><th>Комментарий клиента</th><th>Услуги</th>
             </tr>
           </thead>
@@ -213,7 +213,6 @@ function RunResult({ run, result }: { run: Run; result: Extract<ExcelCheckResult
                   {j === 0 && <td rowSpan={t.items.length}>{i + 1}</td>}
                   {j === 0 && <td rowSpan={t.items.length} className="xc-mono xc-track"><Value c={t.track} /></td>}
                   <td><Value c={o.name} /></td>
-                  <td>{o.group ?? <span className="xc-muted">—</span>}</td>
                   <td className="xc-num">{o.quantity}</td>
                   <td className="xc-num">{money(o.priceCny, "¥")}</td>
                   <td className="xc-num">

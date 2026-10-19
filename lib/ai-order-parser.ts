@@ -33,8 +33,6 @@ export type ParsedOrderDraft = {
   recipientNameText: string | null;
   detailedCheckRequested: boolean;
   keepOriginalPackaging: boolean;
-  /** группа справочника наименований (секция), к которой ИИ отнёс товар; только для Excel */
-  group: string | null;
 };
 
 export type ParsedRecipient = {
@@ -45,17 +43,6 @@ export type ParsedRecipient = {
   countryCode: string | null;
   phone: string | null;
 };
-
-/** Группа справочника наименований (секция) и товары в ней — подсказка ИИ, к какой группе отнести товар. */
-export type CatalogGroup = { group: string; items: string[] };
-
-function groupsBlock(groups: CatalogGroup[]): string {
-  return groups.length
-    ? `\n\nГРУППЫ ТОВАРОВ (справочник: группа — примеры товаров в ней):\n${groups
-        .map((g) => `- ${g.group}${g.items.length ? `: ${g.items.join("; ")}` : ""}`)
-        .join("\n")}`
-    : "";
-}
 
 function catalogBlock(catalog: string[]): string {
   return catalog.length
@@ -91,17 +78,16 @@ ${PRICE_RULES}
 - Никакого текста вне JSON. Только JSON-объект.${catalogBlock(catalog)}`;
 }
 
-function buildExcelPrompt(groups: CatalogGroup[]): string {
+function buildExcelPrompt(): string {
   return `Ты — помощник склада карго-доставки. Тебе дают содержимое «большой ячейки» из рабочего Excel-файла склада: одна строка файла — одна посылка клиента. В ячейке обычно: входящие трек-номера китайских служб доставки, товары (иногда с ценой), получатель, адрес, телефон, пожелания клиента. Разбери ячейку: товары — позаказно, получатель — отдельно.
 
 Верни СТРОГО JSON-объект вида:
-{"orders":[{"productNameText":"...","group":null,"quantity":1,"unitPriceUsd":null,"unitPriceCny":null,"trackNumber":null,"customerComment":null,"deliveryType":null,"recipientNameText":null,"detailedCheckRequested":false,"keepOriginalPackaging":true}],"recipient":{"name":null,"address":null,"city":null,"postalCode":null,"countryCode":null,"phone":null},"parcelTrackNumber":null}
+{"orders":[{"productNameText":"...","quantity":1,"unitPriceUsd":null,"unitPriceCny":null,"trackNumber":null,"customerComment":null,"deliveryType":null,"recipientNameText":null,"detailedCheckRequested":false,"keepOriginalPackaging":true}],"recipient":{"name":null,"address":null,"city":null,"postalCode":null,"countryCode":null,"phone":null},"parcelTrackNumber":null}
 
 Правила по заказам (orders):
 - Один товар = один заказ. Несколько входящих трек-номеров — это несколько заказов: у каждого заказа свой trackNumber. Если у одного трека несколько разных товаров — несколько заказов с одинаковым trackNumber. Если трек один, а товаров несколько — у всех этот трек.
 - trackNumber — входящий трек-номер китайской службы (SF, JT, YT, ZTO, 京东 и т. п.) — точно как в тексте. НЕ путай с телефоном, артикулом, номером заказа клиента и с треком посылки до получателя (он — в parcelTrackNumber). Трек есть, а товар не назван — productNameText = "не указано".
-- productNameText — наименование товара ТОЧНО как в тексте ячейки (например «Сумка», «Платок»), обязательно. НЕ заменяй его названием группы и не подбирай похожее название из справочника. quantity — целое, минимум 1; не указано — 1.
-- group — группа из списка ГРУППЫ ТОВАРОВ, к которой относится товар (например «Сумка» и «Платок» → «Сумки, обувь, аксессуары»), точно как в списке. Ни одна не подходит или списка нет — null.
+- productNameText — наименование товара ТОЧНО как в тексте ячейки (например «Сумка», «Платок»), обязательно. Не обобщай, не переименовывай и не заменяй названием категории. quantity — целое, минимум 1; не указано — 1.
 ${PRICE_RULES}
 - customerComment — номер заказа клиента, пожелания по упаковке, прочие заметки к этому товару; нет — null.
 - deliveryType — "AIR", "SEA", "TRAIN" или "TRUCK", если указано явно; иначе null.
@@ -118,7 +104,7 @@ ${PRICE_RULES}
 
 parcelTrackNumber — трек-номер самой посылки до получателя, если он есть в тексте: почтовый международный (вида CB772705834DE, EV071583494CN, LC000123456MG), DHL (00340…, 20 цифр), Meest (MGRMY…). Это НЕ входящий трек и НЕ заказ. Нет — null.
 
-Ничего не выдумывай: если чего-то нет в тексте — null. Никакого текста вне JSON.${groupsBlock(groups)}`;
+Ничего не выдумывай: если чего-то нет в тексте — null. Никакого текста вне JSON.`;
 }
 
 type ParseResult =
@@ -167,7 +153,6 @@ function coerceDraft(raw: unknown, rateCnyPerUsd: number): ParsedOrderDraft | nu
 
   const detailedCheckRequested = o.detailedCheckRequested === true;
   const keepOriginalPackaging = o.keepOriginalPackaging === false ? false : true;
-  const group = str(o.group);
 
   return {
     productNameText: name,
@@ -180,7 +165,6 @@ function coerceDraft(raw: unknown, rateCnyPerUsd: number): ParsedOrderDraft | nu
     recipientNameText,
     detailedCheckRequested,
     keepOriginalPackaging,
-    group,
   };
 }
 
@@ -349,10 +333,10 @@ export type ExcelInfoResult =
 
 /**
  * «Большая ячейка» строки Excel → заказы и получатель. Курс — из строки Excel или из настроек.
- * Наименование товара — как в тексте; группы справочника — чтобы ИИ отнёс товар к группе.
+ * Наименование товара — как в ячейке; справочник наименований не используется (решение владельца — отдельной веткой).
  */
-export async function parseExcelInfo(text: string, groups: CatalogGroup[], rateCnyPerUsd: number): Promise<ExcelInfoResult> {
-  const answer = await askModel(buildExcelPrompt(groups), text, "PostmanFox Admin - Excel row parser");
+export async function parseExcelInfo(text: string, rateCnyPerUsd: number): Promise<ExcelInfoResult> {
+  const answer = await askModel(buildExcelPrompt(), text, "PostmanFox Admin - Excel row parser");
   if (!answer.ok) return answer;
   const orders = coerceOrders(answer.json, answer.model, rateCnyPerUsd);
   if (!orders.ok) return orders;

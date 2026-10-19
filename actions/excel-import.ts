@@ -3,8 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
 import { getFinanceSettings } from "@/lib/finance";
-import { parseExcelInfo, type CatalogGroup } from "@/lib/ai-order-parser";
-import { addressInText, foundInText, groupByTrack, missedTracks, normalizeText, parcelTracks, priceInText, sameName } from "@/lib/excel-check";
+import { parseExcelInfo } from "@/lib/ai-order-parser";
+import { addressInText, foundInText, groupByTrack, missedTracks, parcelTracks, priceInText, sameName } from "@/lib/excel-check";
 
 // Загрузка из Excel, шаг 1 — проверка ИИ-разборщика (docs/product/задание-excel.md).
 // «Большая ячейка» строки → что нашёл ИИ, и есть ли это на самом деле в тексте ячейки. Ничего не сохраняется.
@@ -12,10 +12,9 @@ import { addressInText, foundInText, groupByTrack, missedTracks, normalizeText, 
 /** Значение и проверка по тексту ячейки: ok = null — проверять нечего (пусто). */
 export type Checked = { value: string | null; ok: boolean | null; note?: string };
 
-/** Товар = будущий заказ. group — группа справочника наименований («Сумки, обувь, аксессуары»). */
+/** Товар = будущий заказ. Наименование — как в ячейке, без справочника наименований. */
 export type ExcelCheckOrder = {
   name: Checked;
-  group: string | null;
   quantity: number;
   priceCny: number | null;
   priceUsd: number | null;
@@ -72,30 +71,16 @@ export async function checkExcelRow(input: { orderNumber?: string; rate?: string
   // Код клиента — буквы в начале номера: SM2992UA → SM, служебный ABC0001UA → ABC.
   const clientCode = orderNumber.match(/^[A-Z]{2,4}(?=\d)/)?.[0] ?? null;
 
-  const groups = await catalogGroups();
-  const parsed = await parseExcelInfo(info, groups, rate);
+  const parsed = await parseExcelInfo(info, rate);
   if (!parsed.ok) return parsed;
 
-  const groupByName = new Map(groups.map((g) => [normalizeText(g.group), g.group]));
-  const itemNames = new Set(groups.flatMap((g) => g.items).map(normalizeText));
   const text = (value: string | null): Checked => ({ value, ok: value ? foundInText(value, info) : null });
 
   const items = parsed.orders.map((o) => {
-    const unnamed = o.productNameText === NO_NAME;
-    const key = normalizeText(o.productNameText);
-    const name: Checked = unnamed
-      ? { value: null, ok: false, note: "товар не назван" }
-      : foundInText(o.productNameText, info)
-        ? { value: o.productNameText, ok: true }
-        : groupByName.has(key)
-          ? { value: o.productNameText, ok: false, note: "это название группы, а не товара" }
-          : itemNames.has(key)
-            ? { value: o.productNameText, ok: true, note: "по справочнику наименований" }
-            : { value: o.productNameText, ok: false };
+    const name: Checked = o.productNameText === NO_NAME ? { value: null, ok: false, note: "товар не назван" } : text(o.productNameText);
     const price = o.unitPriceCny ?? o.unitPriceUsd;
     const order: ExcelCheckOrder = {
       name,
-      group: o.group ? (groupByName.get(normalizeText(o.group)) ?? null) : null,
       quantity: o.quantity,
       priceCny: o.unitPriceCny,
       priceUsd: o.unitPriceUsd,
@@ -169,7 +154,6 @@ export async function checkExcelRow(input: { orderNumber?: string; rate?: string
   ].filter((c) => c.ok === false && c.value).length;
   if (notInText) warnings.push(`Значений, которых нет в тексте ячейки: ${notInText} — отмечены ⚠, проверьте.`);
   if (orders.some((o) => o.priceOk === false)) warnings.push("Цена не совпадает ни с одним числом в ячейке — отмечено ⚠.");
-  if (groups.length && orders.some((o) => !o.group)) warnings.push("Не у всех товаров определена группа справочника наименований.");
 
   return {
     ok: true,
@@ -183,21 +167,4 @@ export async function checkExcelRow(input: { orderNumber?: string; rate?: string
     warnings,
     raw: JSON.stringify(parsed.raw, null, 2).slice(0, 8000),
   };
-}
-
-/** Группы справочника наименований — секции, в которых есть товары, — и товары в них. */
-async function catalogGroups(): Promise<CatalogGroup[]> {
-  const rows = await prisma.productName.findMany({
-    where: { deletedAt: null },
-    select: { id: true, nameRu: true, parentId: true },
-    orderBy: { nameRu: "asc" },
-  });
-  return rows
-    .filter((r) => !r.parentId)
-    .map((section) => ({
-      group: section.nameRu,
-      items: rows.filter((r) => r.parentId === section.id).slice(0, 40).map((r) => r.nameRu),
-    }))
-    .filter((g) => g.items.length > 0)
-    .slice(0, 60);
 }
