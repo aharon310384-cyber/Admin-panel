@@ -11,6 +11,7 @@ import { cellOf, cleanColumns, isPaidMark, numberOf, productItems, sentDateOf, t
 import { foundInText, missedTracks, sameName } from "@/lib/excel-check";
 import { splitLegacyTaskNumber } from "@/lib/parcel-number";
 import { nextDocumentNumber } from "@/lib/document-numbers";
+import { EU_DUTY_PER_ITEM_EUR } from "@/lib/eu-customs";
 import { ensureBaselines, recordVersions } from "@/lib/versions";
 
 // Загрузка из Excel, шаг 2 (docs/product/задание-excel.md): строка листа целиком → заказы → задача → посылка.
@@ -44,7 +45,9 @@ export type ExcelRowPreview = {
   rate: number;
   rateFromRow: boolean;
   euItemKinds: number | null;
+  dutyEur: number | null;
   dutyCny: number | null;
+  rateEur: number;
   localDeliveryCny: number | null;
   discountPercent: number | null;
   totalCny: number | null;
@@ -259,9 +262,12 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
     services.push({ code: s.code, name: tariff.name, usd, cny: s.cny ?? round2(usd * rate) });
   }
 
-  const rateEur = num("rateEur");
+  // Пошлина ЕС: €3 за вид товара × курс евро строки (нет — из «Финансы»). Решение владельца 2026-10-19.
+  const rowRateEur = positive(num("rateEur"));
+  const rateEur = rowRateEur ?? finance.exchangeRateCnyPerEur;
   const euItemKinds = positive(num("euItemKinds"));
-  const dutyCny = euItemKinds && rateEur ? round2(rateEur * euItemKinds) : null;
+  const dutyEur = euItemKinds ? euItemKinds * EU_DUTY_PER_ITEM_EUR : null;
+  const dutyCny = dutyEur != null ? round2(dutyEur * rateEur) : null;
   const shippingUsd = num("shippingUsd");
   const totalUsdCell = num("totalUsd");
   const localDeliveryCny = positive(num("localDeliveryCny"));
@@ -322,7 +328,9 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
       rate,
       rateFromRow: Boolean(rowRate),
       euItemKinds,
+      dutyEur,
       dutyCny,
+      rateEur,
       localDeliveryCny,
       discountPercent,
       totalCny: finalCny,
@@ -438,7 +446,7 @@ export async function saveExcelRow(text: string, found: ExcelRowTracks): Promise
       customsDutyLineCount: p.euItemKinds,
       customsDutyManualLines: p.euItemKinds,
       customsDutyUsd: p.dutyCny != null ? round2(p.dutyCny / p.rate) : null,
-      customsDutyEur: p.dutyCny != null ? p.euItemKinds : null,
+      customsDutyEur: p.dutyEur,
       totalUsd: p.totalUsd ?? 0,
       totalCny: p.totalCny ?? 0,
       isPaid: paid,

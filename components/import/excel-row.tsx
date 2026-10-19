@@ -226,7 +226,9 @@ export default function ExcelRow({ initialColumns }: { initialColumns: ExcelColu
               ))}
               <dt>Итого, $</dt><dd>{money(preview.totalUsd, "$")}</dd>
               <dt>Курс</dt><dd>{preview.rate}{preview.rateFromRow ? "" : " (из настроек)"}</dd>
-              {preview.dutyCny != null && (<><dt>Пошлина ЕС</dt><dd>{preview.euItemKinds} вид. · {money(preview.dutyCny, "¥")}</dd></>)}
+              {preview.dutyCny != null && (
+                <><dt>Пошлина ЕС</dt><dd>{preview.euItemKinds} вид. × €3 = €{preview.dutyEur} × {preview.rateEur} = {money(preview.dutyCny, "¥")}</dd></>
+              )}
               {preview.discountPercent != null && (<><dt>Скидка</dt><dd>{preview.discountPercent}%</dd></>)}
               <dt>Итого, ¥</dt><dd><b>{money(preview.totalCny, "¥")}</b></dd>
             </dl>
