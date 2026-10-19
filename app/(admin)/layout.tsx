@@ -1,10 +1,16 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import AdminShell from "@/components/layout/admin-shell";
 import { BrandProvider } from "@/components/brand/brand-context";
-import { getAdminBrand } from "@/lib/company";
+import { adminTabIcon, getAdminBrand } from "@/lib/company";
 import { getUserInterface } from "@/lib/interface-settings";
 import "./density.css";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const icon = await adminTabIcon();
+  return { icons: { icon, apple: icon } };
+}
 
 export default async function AdminLayout({
   children,

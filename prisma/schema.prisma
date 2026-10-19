@@ -406,8 +406,9 @@ model Order {
   reinforcedPackRequested Boolean @default(false) // «Усиленная упаковка» — сумму задаёт админ на посылке
   productUrl             String?
   imageUrl               String?
-  // комментарий клиента к заказу (пожелания/примечания; ИИ тоже может заполнить)
+  // комментарий клиента к заказу (пожелания/примечания; ИИ тоже может заполнить); клиент видит его в кабинете
   customerComment        String?
+  internalComment        String? // внутренний комментарий: видят только сотрудники
   // процесс
   status       OrderStatus @default(NEW)
   sortingId    String?     // документ «Сортировка» коробки
@@ -480,6 +481,7 @@ model Parcel {
   // отслеживание
   trackingNumber String?  // трек-номер посылки (международный)
   notes          String?
+  internalComment String? // внутренний комментарий: видят только сотрудники
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
@@ -681,6 +683,7 @@ model ParcelTask {
   customerId         String
   destinationCountry String?
   note               String?
+  internalComment    String? // внутренний комментарий: видят только сотрудники
   createdById        String
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt

@@ -35,16 +35,17 @@ const show = (c: Checked) => `${c.value ?? "—"}${c.ok === false ? " ⚠" : ""}
 /** Итог одной проверки обычным текстом — чтобы переслать в чат. */
 function summary(run: Run): string {
   const r = run.result;
-  if (!r.ok) return `Строка ${run.orderNumber || "—"}: ошибка — ${r.error}`;
+  if (!r.ok) return `Задача ${run.orderNumber || "—"}: ошибка — ${r.error}`;
   const lines = [
-    `Строка ${run.orderNumber || "—"} · курс ${r.rate} · клиент ${r.client ? `${r.client.code} ${r.client.name}` : r.clientCode ?? "—"}`,
+    `Задача ${run.orderNumber || "—"} · курс ${r.rate} · клиент ${r.client ? `${r.client.code} ${r.client.name}` : r.clientCode ?? "—"}`,
     "Ячейка:",
     run.info.trim(),
+    `Трек посылки: ${show(r.parcelTrack)}`,
     "Заказы:",
     ...r.orders.map(
       (o, i) =>
         `${i + 1}. трек ${show(o.track)} · ${show(o.name)} · ${o.quantity} шт · ${money(o.priceCny, "¥")} / ${money(o.priceUsd, "$")}${o.priceOk === false ? " ⚠" : ""}` +
-        `${o.comment ? ` · ${o.comment}` : ""}${o.detailedCheck ? " · фото/проверка" : ""}${o.keepOriginalPackaging ? "" : " · без ориг. упаковки"}`,
+        `${o.comment ? ` · комментарий клиента: ${o.comment}` : ""}${o.detailedCheck ? " · фото/проверка" : ""}${o.keepOriginalPackaging ? "" : " · без ориг. упаковки"}`,
     ),
   ];
   if (r.recipient) {
@@ -58,9 +59,8 @@ function summary(run: Run): string {
   return lines.join("\n");
 }
 
-export default function ExcelCheck({ defaultRate }: { defaultRate: number }) {
+export default function ExcelCheck() {
   const [orderNumber, setOrderNumber] = useState("");
-  const [rate, setRate] = useState(String(defaultRate));
   const [info, setInfo] = useState("");
   const [runs, setRuns] = useState<Run[]>([]);
   const [copied, setCopied] = useState<number | null>(null);
@@ -68,7 +68,7 @@ export default function ExcelCheck({ defaultRate }: { defaultRate: number }) {
 
   const check = () =>
     startTransition(async () => {
-      const result = await checkExcelRow({ orderNumber, rate, info }).catch(
+      const result = await checkExcelRow({ orderNumber, info }).catch(
         (): ExcelCheckResult => ({ ok: false, error: "Не получилось — попробуйте ещё раз" }),
       );
       const at = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
@@ -98,12 +98,8 @@ export default function ExcelCheck({ defaultRate }: { defaultRate: number }) {
         </p>
         <div className="xc-fields">
           <label className="xc-field">
-            <span>Номер строки (order_number)</span>
-            <input className="xc-input xc-mono" value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="ABC0001UA" />
-          </label>
-          <label className="xc-field xc-field--rate">
-            <span>Курс, ¥ за $</span>
-            <input className="xc-input" value={rate} onChange={(e) => setRate(e.target.value)} inputMode="decimal" />
+            <span>Задача (номер строки)</span>
+            <input className="xc-input xc-mono" value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="SM4277DE" />
           </label>
         </div>
         <label className="xc-field">
@@ -122,7 +118,7 @@ export default function ExcelCheck({ defaultRate }: { defaultRate: number }) {
         <section key={run.id} className="card xc-run">
           <div className="xc-run-head">
             <h3 className="xc-run-title">
-              <span className="xc-mono">{run.orderNumber || "без номера"}</span>
+              <span className="xc-mono">{run.orderNumber || "без задачи"}</span>
               <span className="xc-muted"> · {run.at}{run.result.ok ? ` · курс ${run.result.rate}` : ""}</span>
             </h3>
             <button type="button" className="xc-btn" onClick={() => copy(run)}>
@@ -151,7 +147,6 @@ export default function ExcelCheck({ defaultRate }: { defaultRate: number }) {
         .xc-hint { margin: 0 0 10px; color: var(--color-text-secondary); line-height: 1.5; }
         .xc-fields { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
         .xc-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; color: var(--color-muted); }
-        .xc-field--rate { flex: 0 0 140px; min-width: 120px; }
         .xc-input { padding: 6px 9px; border: 1px solid var(--color-border-strong); border-radius: 4px; font: inherit; color: var(--color-text); background: #fff; }
         .xc-input:focus { outline: none; border-color: var(--color-accent); }
         .xc-text { resize: vertical; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.45; }
@@ -202,7 +197,7 @@ function RunResult({ run, result }: { run: Run; result: Extract<ExcelCheckResult
           <thead>
             <tr>
               <th>№</th><th>Входящий трек</th><th>Наименование</th><th className="xc-num">Кол-во</th>
-              <th className="xc-num">Цена ¥</th><th className="xc-num">Цена $</th><th>Пожелания</th>
+              <th className="xc-num">Цена ¥</th><th className="xc-num">Цена $</th><th>Комментарий клиента</th><th>Услуги</th>
             </tr>
           </thead>
           <tbody>
@@ -216,8 +211,9 @@ function RunResult({ run, result }: { run: Run; result: Extract<ExcelCheckResult
                 <td className="xc-num">
                   {money(o.priceUsd, "$")} {o.priceOk === false && <span className="xc-bad" title="Такой цены нет в тексте ячейки">⚠</span>}
                 </td>
+                <td>{o.comment ?? <span className="xc-muted">—</span>}</td>
                 <td>
-                  {[o.comment, o.detailedCheck ? "фото / проверка" : null, o.keepOriginalPackaging ? null : "без оригинальной упаковки", o.deliveryType ? DELIVERY[o.deliveryType] : null]
+                  {[o.detailedCheck ? "фото / проверка" : null, o.keepOriginalPackaging ? null : "без оригинальной упаковки", o.deliveryType ? DELIVERY[o.deliveryType] : null]
                     .filter(Boolean)
                     .join(" · ") || <span className="xc-muted">—</span>}
                 </td>
@@ -227,6 +223,9 @@ function RunResult({ run, result }: { run: Run; result: Extract<ExcelCheckResult
         </table>
       </div>
 
+      <dl className="xc-recipient">
+        <dt>Трек посылки</dt><dd className="xc-mono"><Value c={result.parcelTrack} /></dd>
+      </dl>
       {p ? (
         <dl className="xc-recipient">
           <dt>Получатель</dt><dd><Value c={p.name} /></dd>

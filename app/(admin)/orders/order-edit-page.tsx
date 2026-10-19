@@ -96,6 +96,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
               productNameText: order.productNameText ?? "",
               trackNumber: order.trackNumber,
               customerComment: order.customerComment,
+              internalComment: order.internalComment,
               quantity: order.quantity,
               unitPriceUsd: order.unitPriceUsd != null ? Number(order.unitPriceUsd) : null,
               actualWeightKg: order.actualWeightKg != null ? Number(order.actualWeightKg) : null,

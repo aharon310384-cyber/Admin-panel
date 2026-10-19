@@ -69,6 +69,12 @@ export async function getAdminBrand(): Promise<Brand> {
   return toBrand(await findAdminCompany(), "Админ-панель");
 }
 
+/** Значок вкладки браузера для админки и её входа: знак или буквы компании-склада, а не значок кабинета клиента. */
+export async function adminTabIcon(): Promise<string> {
+  const brand = await getAdminBrand();
+  return `/api/company/admin-icon?v=${encodeURIComponent(`${brand.name}-${brand.iconUrl ?? ""}`)}`;
+}
+
 /** Бренд кабинета клиента. */
 export async function getCabinetBrand(): Promise<Brand> {
   return toBrand(await findCabinetCompany(), "Личный кабинет");
