@@ -6,10 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { requireAdmin } from "@/lib/server-helpers";
 import { parseOrdersFromText, type ParsedOrderDraft } from "@/lib/ai-order-parser";
+import { getFinanceSettings } from "@/lib/finance";
 import { recordVersion } from "@/lib/versions";
 
 export type ParseOrdersResponse =
-  | { ok: true; orders: ParsedOrderDraft[] }
+  | { ok: true; orders: ParsedOrderDraft[]; rateCnyPerUsd: number }
   | { ok: false; error: string; detail?: string };
 
 /** Разобрать свободный текст в черновики заказов (ИИ, OpenRouter). */
@@ -24,7 +25,10 @@ export async function parseOrderText(text: string): Promise<ParseOrdersResponse>
     take: 400,
   });
 
-  return parseOrdersFromText(text, catalog.map((c) => c.nameRu));
+  // Юани → доллары по курсу из «Финансы → Курс».
+  const { exchangeRateCnyPerUsd } = await getFinanceSettings();
+  const result = await parseOrdersFromText(text, catalog.map((c) => c.nameRu), exchangeRateCnyPerUsd);
+  return result.ok ? { ...result, rateCnyPerUsd: exchangeRateCnyPerUsd } : result;
 }
 
 const draftSchema = z.object({

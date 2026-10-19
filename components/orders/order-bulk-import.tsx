@@ -66,6 +66,7 @@ export default function OrderBulkImport({
   const [deliveryType, setDeliveryType] = useState<DeliveryValue>("");
   const [recipientList, setRecipientList] = useState<RecipientOpt[]>(recipients);
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
+  const [rate, setRate] = useState<number | null>(null);
   const [error, setError] = useState<{ message: string; detail?: string } | null>(null);
   const [pendingRecipient, setPendingRecipient] = useState<{ name: string; country: string } | null>(null);
   const [parsing, startParse] = useTransition();
@@ -97,6 +98,7 @@ export default function OrderBulkImport({
         setError({ message: res.error, detail: res.detail });
         return;
       }
+      setRate(res.rateCnyPerUsd);
 
       // Получатель → клиент (пп. 5, 10): ищем получателя по имени во всём списке.
       let nextCustomerId = customerId;
@@ -407,7 +409,7 @@ export default function OrderBulkImport({
                   <label className="bi-field">
                     <span className="bi-label">Цена за ед., $</span>
                     <input className="bi-input" type="number" min={0} step="0.01" value={r.unitPriceUsd ?? ""} onChange={(e) => updateRow(i, { unitPriceUsd: e.target.value === "" ? null : Number(e.target.value) })} placeholder="0.00" />
-                    {r.unitPriceCny != null && <span className="bi-hint bi-hint--muted">≈ {r.unitPriceCny}¥ по курсу 7.1</span>}
+                    {r.unitPriceCny != null && <span className="bi-hint bi-hint--muted">≈ {r.unitPriceCny}¥{rate ? ` по курсу ${rate}` : ""}</span>}
                   </label>
                   <div className="bi-field bi-row-total">
                     <span className="bi-label">Итого стоимость товаров</span>

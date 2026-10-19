@@ -21,6 +21,7 @@ import {
   Workflow,
   BadgeDollarSign,
   type LucideIcon,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export const PANEL_CODES = ["sections", "functions", "open", "favorites", "history"] as const;
@@ -106,6 +107,7 @@ export const SECTIONS: Section[] = [
       { href: "/receiving", label: "АРМ приём заказа", icon: PackageCheck },
       { href: "/parcels", label: "Посылки", icon: Package },
       { href: "/product-names", label: "Наименования товаров", icon: Tags },
+      { href: "/import/excel", label: "Загрузка из Excel", icon: FileSpreadsheet },
     ],
   },
   {
