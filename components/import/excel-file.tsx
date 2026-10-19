@@ -36,7 +36,7 @@ export default function ExcelFile({ columns }: { columns: ExcelColumns }) {
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [filter, setFilter] = useState<Filter>("new");
   const [shown, setShown] = useState(PAGE);
-  const [createRecipients, setCreateRecipients] = useState(true);
+  const [createRecipients, setCreateRecipients] = useState(false);
   const [results, setResults] = useState<Map<number, Result>>(new Map());
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ total: number; processed: number } | null>(null);

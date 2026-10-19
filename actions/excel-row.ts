@@ -7,7 +7,7 @@ import { requireAdmin } from "@/lib/server-helpers";
 import { getFinanceSettings } from "@/lib/finance";
 import { findExcelTracks } from "@/lib/ai-order-parser";
 import { splitExcelRow } from "@/lib/excel-row";
-import { cellOf, cleanColumns, isPaidMark, numberOf, productItems, sentDateOf, type ExcelColumns } from "@/lib/excel-columns";
+import { alignRow, cellOf, cleanColumns, isPaidMark, numberOf, productItems, sentDateOf, type ExcelColumns } from "@/lib/excel-columns";
 import { foundInText, missedTracks, sameName } from "@/lib/excel-check";
 import { splitLegacyTaskNumber } from "@/lib/parcel-number";
 import { nextDocumentNumber } from "@/lib/document-numbers";
@@ -127,12 +127,12 @@ type RowBasics = {
 async function readBasics(text: string): Promise<RowBasics | { error: string }> {
   const columns = await loadColumns();
   if (!columns.taskNumber || !columns.info) return { error: "Сначала укажите колонки листа (кнопка «Колонки листа»)" };
-  const cells = splitExcelRow(String(text ?? ""));
-  if (cells.length < 2) return { error: "Вставьте строку целиком: выделите строку в Excel начиная с номера строки и нажмите Ctrl+C" };
+  const cells = alignRow(splitExcelRow(String(text ?? "")), columns);
+  if (cells.length < 2) return { error: "Вставьте строку целиком: в Excel щёлкните по номеру строки слева и нажмите Ctrl+C" };
 
   const rawNumber = cellOf(cells, columns, "taskNumber") ?? "";
   const split = splitLegacyTaskNumber(rawNumber);
-  if (!split.country) return { error: `«${rawNumber || "пусто"}» не похоже на номер строки (например OG4283AE). Строку нужно копировать с колонки номера.` };
+  if (!split.country) return { error: `«${rawNumber || "пусто"}» не похоже на номер строки (например OG4283AE). Скопируйте строку целиком: щёлкните по номеру строки слева и Ctrl+C.` };
   // Код клиента — буквы в начале номера: OG4283AE → OG, служебный ABC0001UA → ABC.
   const clientCode = split.number.match(/^[A-Z]{2,4}(?=\d)/)?.[0] ?? null;
   const [client, country] = await Promise.all([

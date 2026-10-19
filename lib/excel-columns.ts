@@ -55,6 +55,21 @@ export function cleanColumns(raw: unknown): ExcelColumns {
   return result;
 }
 
+/** Похоже на номер строки (задачи): OG4283AE, SM3532US Galina. */
+export function looksLikeTaskNumber(value: string | null | undefined): boolean {
+  return /^[A-Za-z]{2,4}\d+[A-Za-z]{2,4}(?=$|[^A-Za-z0-9])/.test(value?.trim() ?? "");
+}
+
+/**
+ * Строка скопирована целиком, с колонки A (щелчок по номеру строки в Excel), а не с колонки номера строки —
+ * отрезать колонки до номера строки, чтобы первой ячейкой стал номер.
+ */
+export function alignRow(cells: string[], columns: ExcelColumns): string[] {
+  const start = columns.taskNumber ? columnIndex(columns.taskNumber) : null;
+  if (!start || looksLikeTaskNumber(cells[0]) || !looksLikeTaskNumber(cells[start])) return cells;
+  return cells.slice(start);
+}
+
 /** Ячейка поля: строку копируют с колонки номера строки, она — первая ячейка. */
 export function cellOf(cells: string[], columns: ExcelColumns, field: ExcelField): string | null {
   const start = columns.taskNumber ? columnIndex(columns.taskNumber) : null;

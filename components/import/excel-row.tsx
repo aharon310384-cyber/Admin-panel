@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Columns3, Loader2, Save, UserPlus } from "lucide-react";
+import { ClipboardPaste, Columns3, Copy, Loader2, Save, UserPlus } from "lucide-react";
 import {
   createRecipientFromRow,
   previewExcelRow,
@@ -11,7 +11,8 @@ import {
   type ExcelRowPreview,
   type ExcelRowSaveResult,
 } from "@/actions/excel-row";
-import { EXCEL_FIELDS, type ExcelColumns } from "@/lib/excel-columns";
+import { EXCEL_FIELDS, alignRow, type ExcelColumns } from "@/lib/excel-columns";
+import { splitExcelRow } from "@/lib/excel-row";
 import { parcelStatusLabel } from "@/lib/statuses";
 import ExcelFile from "@/components/import/excel-file";
 
@@ -21,7 +22,14 @@ import ExcelFile from "@/components/import/excel-file";
 const money = (n: number | null, sign: string) => (n == null ? "—" : `${sign}${n.toFixed(2)}`);
 const dateLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("ru-RU", { timeZone: "UTC" }) : null);
 
-export default function ExcelRow({ initialColumns }: { initialColumns: ExcelColumns }) {
+/** Номер строки без приписки: «OG4283AE объем» → «OG4283AE». */
+const taskOf = (value: string | null | undefined) => value?.trim().match(/^[A-Za-z]{2,4}\d+[A-Za-z]{2,4}/)?.[0].toUpperCase() ?? null;
+
+/**
+ * fromExcel — номер строки из кнопки «Отправить» в Excel (?row=OG4283AE): строку админка берёт из скопированного (Ctrl+C),
+ * потому что в ссылку Excel вся строка не помещается (не больше 255 символов).
+ */
+export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns: ExcelColumns; fromExcel: string | null }) {
   const [columns, setColumns] = useState<Record<string, string>>({ ...initialColumns });
   const [columnsOpen, setColumnsOpen] = useState(!initialColumns.taskNumber || !initialColumns.info);
   const [columnsMessage, setColumnsMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -30,6 +38,11 @@ export default function ExcelRow({ initialColumns }: { initialColumns: ExcelColu
   const [error, setError] = useState<{ text: string; detail?: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saved, setSaved] = useState<Extract<ExcelRowSaveResult, { ok: true }> | null>(null);
+  const [clipboard, setClipboard] = useState<string | null>(null);
+  const [origin, setOrigin] = useState("");
+  const [formulaCopied, setFormulaCopied] = useState(false);
+  const tried = useRef(false);
+  const expected = taskOf(fromExcel);
   const [pending, startTransition] = useTransition();
 
   const run = (action: () => Promise<void>) =>
@@ -48,18 +61,58 @@ export default function ExcelRow({ initialColumns }: { initialColumns: ExcelColu
       if (result.ok) setColumnsOpen(false);
     });
 
-  const check = () =>
+  const check = (value = text) =>
     run(async () => {
       setError(null);
       setNotice(null);
       setSaved(null);
-      const result = await previewExcelRow(text);
+      const result = await previewExcelRow(value);
       if (result.ok) setPreview(result.preview);
       else {
         setPreview(null);
         setError({ text: result.error, detail: result.detail });
       }
     });
+
+  /** Номер строки во вставленном тексте (строка может быть скопирована и с колонки A). */
+  const pastedTask = (value: string) => taskOf(alignRow(splitExcelRow(value), columns as ExcelColumns)[0]);
+
+  /** Строка из буфера (Ctrl+C в Excel): та самая — сразу разобрать; другая или нет доступа — подсказать. */
+  const takeClipboard = async () => {
+    try {
+      const value = await navigator.clipboard.readText();
+      const task = pastedTask(value);
+      if (!value.trim() || !task) {
+        setClipboard(`В буфере нет строки Excel. В Excel щёлкните по номеру строки ${expected ?? ""} слева, нажмите Ctrl+C и потом «Вставить из буфера».`);
+      } else if (expected && task !== expected) {
+        setClipboard(`В буфере строка ${task}, а нажата кнопка у ${expected}. Скопируйте строку ${expected} (Ctrl+C) и нажмите «Вставить из буфера».`);
+      } else {
+        setClipboard(null);
+        setText(value);
+        check(value);
+      }
+    } catch {
+      setClipboard("Браузер не дал прочитать скопированное: нажмите «Вставить из буфера» и разрешите доступ, или вставьте строку в поле ниже (Ctrl+V).");
+    }
+  };
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    if (!fromExcel || tried.current) return;
+    tried.current = true;
+    void takeClipboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- один раз при открытии по кнопке из Excel
+  }, []);
+
+  const formula = `=HYPERLINK("${origin}/import/excel?row="&${(columns.taskNumber || "B")}2,"Отправить")`;
+  const copyFormula = async () => {
+    try {
+      await navigator.clipboard.writeText(formula);
+      setFormulaCopied(true);
+    } catch {
+      setFormulaCopied(false);
+    }
+  };
 
   const createRecipient = () =>
     run(async () => {
@@ -113,23 +166,57 @@ export default function ExcelRow({ initialColumns }: { initialColumns: ExcelColu
               <button type="button" className="xr-btn xr-btn--primary" onClick={saveColumns} disabled={pending}>Сохранить колонки</button>
               {columnsMessage && <span className={columnsMessage.ok ? "xr-ok" : "xr-bad"}>{columnsMessage.text}</span>}
             </div>
+            <div className="xr-formula">
+              <b>Кнопка «Отправить» в Excel.</b> Вставьте формулу в свободную колонку (например X) во второй строке листа и протяните вниз.
+              Нажатие: щёлкните по номеру строки слева, Ctrl+C, затем «Отправить» — откроется эта страница со строкой.
+              <div className="xr-actions" style={{ marginTop: 6 }}>
+                <code className="xr-mono xr-code">{formula}</code>
+                <button type="button" className="xr-btn" onClick={() => void copyFormula()}>
+                  <Copy size={13} /> {formulaCopied ? "Скопировано" : "Скопировать формулу"}
+                </button>
+              </div>
+            </div>
           </>
         ) : (
           columnsMessage && <p className={columnsMessage.ok ? "xr-ok" : "xr-bad"} style={{ margin: 0 }}>{columnsMessage.text}</p>
         )}
       </section>
 
-      <ExcelFile columns={columns as ExcelColumns} />
+      {!fromExcel && <ExcelFile columns={columns as ExcelColumns} />}
 
       <section className="card">
-        <h2 className="card-title">Строка Excel</h2>
+        <h2 className="card-title">Строка Excel{expected ? ` ${expected}` : ""}</h2>
+        {fromExcel && (
+          <div className="xr-from-excel">
+            {clipboard ?? (preview || pending ? null : "Беру строку из скопированного…")}
+            <button type="button" className="xr-btn" onClick={() => void takeClipboard()} disabled={pending}>
+              <ClipboardPaste size={13} /> Вставить из буфера
+            </button>
+          </div>
+        )}
         <p className="xr-hint">
           В Excel выделите строку начиная с колонки номера строки, нажмите Ctrl+C и вставьте сюда. Система покажет, что будет сохранено;
           в базу запись идёт только по кнопке «Сохранить в базу».
         </p>
-        <textarea className="xr-input xr-text" rows={5} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} />
+        <textarea
+          className="xr-input xr-text"
+          rows={5}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onPaste={(e) => {
+            // Открыто кнопкой из Excel и вставлена та самая строка — сразу разобрать.
+            const value = e.clipboardData.getData("text");
+            if (expected && pastedTask(value) === expected) {
+              e.preventDefault();
+              setText(value);
+              setClipboard(null);
+              check(value);
+            }
+          }}
+          spellCheck={false}
+        />
         <div className="xr-actions">
-          <button type="button" className="xr-btn xr-btn--primary" onClick={check} disabled={pending || !text.trim()}>
+          <button type="button" className="xr-btn xr-btn--primary" onClick={() => check()} disabled={pending || !text.trim()}>
             {pending && <Loader2 size={14} className="xr-spin" />} Разобрать
           </button>
           <span className="xr-muted">✓ — трек есть в тексте ячейки · ⚠ — нет, проверьте</span>
@@ -304,6 +391,9 @@ export default function ExcelRow({ initialColumns }: { initialColumns: ExcelColu
         .xr-internal { padding: 8px 10px; border: 1px dashed var(--color-border-strong); border-radius: 4px; }
         .xr-internal-title { font-weight: 700; color: var(--color-text) !important; }
         .xr-save { margin-top: 12px; }
+        .xr-formula { margin-top: 12px; padding: 8px 10px; background: var(--color-muted-bg); border-radius: 4px; line-height: 1.5; color: var(--color-text-secondary); }
+        .xr-code { padding: 4px 8px; background: #fff; border: 1px solid var(--color-border); border-radius: 4px; font-size: 12px; word-break: break-all; }
+        .xr-from-excel { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; padding: 8px 10px; background: var(--color-warning-bg); border-radius: 4px; line-height: 1.45; }
         .xr-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
         .xr-chip { height: 26px; padding: 0 10px; border: 1px solid var(--color-border-strong); border-radius: 999px; background: #fff; font: inherit; font-size: 12.5px; cursor: pointer; }
         .xr-chip.is-active { border-color: var(--color-accent); background: var(--color-muted-bg); font-weight: 600; }
