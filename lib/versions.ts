@@ -127,6 +127,7 @@ function parcelData(p: ParcelDoc): VersionData {
       field("exchangeRate", "Курс, ¥ за $", num(p.exchangeRateCnyPerUsd)),
       field("shippingCostUsd", "Отправка, $", usd(p.shippingCostUsd)),
       field("discountPercent", "Скидка, %", num(p.discountPercent)),
+      field("declaredValueUsd", "Стоимость товаров, $", usd(p.declaredValueUsd)),
       field("customsDutyEur", "Пошлина ЕС, €", num(p.customsDutyEur)),
       field("customsDutyUsd", "Пошлина ЕС, $", usd(p.customsDutyUsd)),
       field("customsDutyLineCount", "Позиций для пошлины", num(p.customsDutyLineCount)),

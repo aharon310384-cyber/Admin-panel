@@ -21,20 +21,6 @@ export function foundInText(value: string, source: string, kind: "text" | "digit
   return needle.length > 0 && normalizeText(source).includes(needle);
 }
 
-/** Адрес есть в тексте, если в тексте есть почти все его слова (порядок и знаки препинания у ИИ могут отличаться). */
-export function addressInText(address: string, source: string): boolean {
-  const words = address.split(/[\s,;]+/).map(normalizeText).filter((w) => w.length >= 3);
-  if (!words.length) return false;
-  const haystack = normalizeText(source);
-  return words.filter((w) => haystack.includes(w)).length / words.length >= 0.8;
-}
-
-/** Цена есть в тексте — за штуку или за всё количество. */
-export function priceInText(price: number, quantity: number, source: string): boolean {
-  const numbers = (source.match(/\d+(?:[.,]\d+)?/g) ?? []).map((n) => Number(n.replace(",", ".")));
-  return numbers.some((n) => Math.abs(n - price) < 0.01 || Math.abs(n - price * quantity) < 0.01);
-}
-
 /**
  * Похожие на трек-номер слова текста: 10–25 букв и цифр, цифр не меньше 8, букв не больше 6.
  * Телефоны (со знаком «+» перед номером) не считаются.
@@ -59,11 +45,6 @@ export function isParcelTrack(token: string): boolean {
   return /^[A-Z]{2}\d{9}[A-Z]{2}$/.test(t) || /^00340\d{15,17}$/.test(t) || /^MGRMY\d+[A-Z]{0,3}$/.test(t);
 }
 
-/** Треки посылки до получателя, найденные в тексте. */
-export function parcelTracks(source: string): string[] {
-  return trackCandidates(source).filter(isParcelTrack);
-}
-
 /** Входящие трек-номера из текста, которых нет среди найденных ИИ и которые не совпадают с телефоном и треком посылки. */
 export function missedTracks(source: string, tracks: (string | null)[], phones: (string | null)[]): string[] {
   const known = tracks.filter((t): t is string => Boolean(t)).map((t) => t.replace(/\s+/g, "").toUpperCase());
@@ -81,26 +62,4 @@ export function sameName(a: string, b: string): boolean {
   const words = (value: string) => value.split(/\s+/).map(normalizeText).filter(Boolean).sort().join(" ");
   const left = words(a);
   return left.length > 0 && left === words(b);
-}
-
-/**
- * Товары по входящему треку, в порядке появления: один трек — одна строка с его товарами
- * (в базе это несколько заказов с одним треком — «Заказ = товар»). Товар без трека — отдельной строкой.
- */
-export function groupByTrack<T>(items: T[], trackOf: (item: T) => string | null): { track: string | null; items: T[] }[] {
-  const groups: { track: string | null; items: T[] }[] = [];
-  const byTrack = new Map<string, { track: string | null; items: T[] }>();
-  for (const item of items) {
-    const track = trackOf(item);
-    const key = track ? track.replace(/\s+/g, "").toUpperCase() : null;
-    const group = key ? byTrack.get(key) : undefined;
-    if (group) {
-      group.items.push(item);
-      continue;
-    }
-    const created = { track, items: [item] };
-    groups.push(created);
-    if (key) byTrack.set(key, created);
-  }
-  return groups;
 }

@@ -5,7 +5,7 @@ import "server-only";
  * Один заказ = один товар (+ кол-во, цена, трек). В одном тексте может быть
  * несколько товаров — модель распределяет их позаказно.
  * parseOrdersFromText — сообщение клиента (массовый ввод заказов);
- * parseExcelInfo — «большая ячейка» строки Excel: ещё и получатель, адрес, телефон.
+ * findExcelTracks — «большая ячейка» строки Excel: только входящие треки и какой товар к какому треку.
  *
  * Провайдер: OpenRouter (OpenAI-совместимый API). Модель задаётся через env
  * OPENROUTER_ORDER_MODEL (по умолчанию свежая Kimi). Можно указать любой слаг
@@ -13,7 +13,7 @@ import "server-only";
  * OPENROUTER_API_URL подменяет адрес (проверка на заглушке).
  *
  * Юани в доллары переводит программа по переданному курсу (¥ за $), а не модель:
- * курс — из «Финансы → Курс» или из строки Excel.
+ * курс — из «Финансы → Курс».
  */
 
 const OPENROUTER_URL = process.env.OPENROUTER_API_URL || "https://openrouter.ai/api/v1/chat/completions";
@@ -33,15 +33,6 @@ export type ParsedOrderDraft = {
   recipientNameText: string | null;
   detailedCheckRequested: boolean;
   keepOriginalPackaging: boolean;
-};
-
-export type ParsedRecipient = {
-  name: string | null;
-  address: string | null;
-  city: string | null;
-  postalCode: string | null;
-  countryCode: string | null;
-  phone: string | null;
 };
 
 function catalogBlock(catalog: string[]): string {
@@ -78,33 +69,34 @@ ${PRICE_RULES}
 - Никакого текста вне JSON. Только JSON-объект.${catalogBlock(catalog)}`;
 }
 
-function buildExcelPrompt(): string {
-  return `Ты — помощник склада карго-доставки. Тебе дают содержимое «большой ячейки» из рабочего Excel-файла склада: одна строка файла — одна посылка клиента. В ячейке обычно: входящие трек-номера китайских служб доставки, товары (иногда с ценой), получатель, адрес, телефон, пожелания клиента. Разбери ячейку: товары — позаказно, получатель — отдельно.
+const TRACKS_PROMPT = `Ты — помощник склада карго-доставки. Тебе дают «большую ячейку» строки рабочего Excel-файла склада и пронумерованный список наименований товаров этой строки. Найди в ячейке входящие трек-номера китайских служб доставки и для каждого товара из списка — трек, к которому он относится.
 
 Верни СТРОГО JSON-объект вида:
-{"orders":[{"productNameText":"...","quantity":1,"unitPriceUsd":null,"unitPriceCny":null,"trackNumber":null,"customerComment":null,"deliveryType":null,"recipientNameText":null,"detailedCheckRequested":false,"keepOriginalPackaging":true}],"recipient":{"name":null,"address":null,"city":null,"postalCode":null,"countryCode":null,"phone":null},"parcelTrackNumber":null}
+{"tracks":["SF1577439745972"],"items":[{"index":0,"track":"SF1577439745972"}]}
 
-Правила по заказам (orders):
-- Один товар = один заказ. Несколько входящих трек-номеров — это несколько заказов: у каждого заказа свой trackNumber. Если у одного трека несколько разных товаров — несколько заказов с одинаковым trackNumber. Если трек один, а товаров несколько — у всех этот трек.
-- trackNumber — входящий трек-номер китайской службы (SF, JT, YT, ZTO, 京东 и т. п.) — точно как в тексте. НЕ путай с телефоном, артикулом, номером заказа клиента и с треком посылки до получателя (он — в parcelTrackNumber). Трек есть, а товар не назван — productNameText = "не указано".
-- productNameText — наименование товара ТОЧНО как в тексте ячейки (например «Сумка», «Платок»), обязательно. Не обобщай, не переименовывай и не заменяй названием категории. quantity — целое, минимум 1; не указано — 1.
-${PRICE_RULES}
-- customerComment — номер заказа клиента, пожелания по упаковке, прочие заметки к этому товару; нет — null.
-- deliveryType — "AIR", "SEA", "TRAIN" или "TRUCK", если указано явно; иначе null.
-- recipientNameText — ФИО получателя, если есть в тексте; иначе null.
-- detailedCheckRequested — true, если просят фотоотчёт, фото, детальную проверку; иначе false.
-- keepOriginalPackaging — по умолчанию true; false ТОЛЬКО если явно просят компактную упаковку, убрать коробку, переупаковать.
+- tracks — все входящие трек-номера китайских служб (SF, JT, YT, ZTO, 京东 и т. п.) из ячейки, точно как в тексте, в порядке появления. НЕ телефоны, НЕ номера и артикулы заказов клиента, НЕ трек посылки до получателя (почтовые вида CB772705834DE, EV071583494CN, LC000123456MG, DHL 00340…, Meest MGRMY…).
+- items — для каждого товара из списка: index — его номер в списке, track — трек, рядом с которым он записан в ячейке. Не понять — null.
+Ничего не выдумывай. Никакого текста вне JSON.`;
 
-Правила по получателю (recipient):
-- name, address, phone — копируй ТОЧНО как в тексте: не переводи, не переставляй слова, не исправляй.
-- address — адрес доставки целиком, как в тексте (город и индекс тоже остаются в address).
-- city, postalCode — город и почтовый индекс из адреса, если их можно выделить; иначе null.
-- countryCode — страна получателя: двухбуквенный код ISO 3166-1 (UA, PL, MD, RU, DE, KZ, UZ и т. д.) по адресу или телефону; не понять — null.
-- Получателя в тексте нет — все поля null.
+export type ExcelTracksResult =
+  | { ok: true; tracks: string[]; itemTracks: (string | null)[]; raw: unknown }
+  | { ok: false; error: string; detail?: string };
 
-parcelTrackNumber — трек-номер самой посылки до получателя, если он есть в тексте: почтовый международный (вида CB772705834DE, EV071583494CN, LC000123456MG), DHL (00340…, 20 цифр), Meest (MGRMY…). Это НЕ входящий трек и НЕ заказ. Нет — null.
-
-Ничего не выдумывай: если чего-то нет в тексте — null. Никакого текста вне JSON.`;
+/** «Большая ячейка» строки Excel → входящие треки и трек каждого товара из колонки наименований. Остальное ИИ не разбирает. */
+export async function findExcelTracks(info: string, itemNames: string[]): Promise<ExcelTracksResult> {
+  const list = itemNames.length ? itemNames.map((name, i) => `${i}. ${name}`).join("\n") : "(нет)";
+  const answer = await askModel(TRACKS_PROMPT, `Наименования:\n${list}\n\nЯчейка:\n${info}`, "Admin - Excel row tracks");
+  if (!answer.ok) return answer;
+  const tracks = Array.isArray(answer.json.tracks) ? answer.json.tracks.map(str).filter((t): t is string => Boolean(t)) : [];
+  const itemTracks: (string | null)[] = itemNames.map(() => null);
+  if (Array.isArray(answer.json.items)) {
+    for (const item of answer.json.items) {
+      if (!item || typeof item !== "object") continue;
+      const { index, track } = item as Record<string, unknown>;
+      if (Number.isInteger(index) && (index as number) >= 0 && (index as number) < itemNames.length) itemTracks[index as number] = str(track);
+    }
+  }
+  return { ok: true, tracks, itemTracks, raw: answer.json };
 }
 
 type ParseResult =
@@ -301,21 +293,6 @@ function str(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function coerceRecipient(raw: unknown): ParsedRecipient | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const country = str(r.countryCode)?.toUpperCase() ?? null;
-  const recipient: ParsedRecipient = {
-    name: str(r.name),
-    address: str(r.address),
-    city: str(r.city),
-    postalCode: str(r.postalCode),
-    countryCode: country && /^[A-Z]{2}$/.test(country) ? country : null,
-    phone: str(r.phone),
-  };
-  return Object.values(recipient).some(Boolean) ? recipient : null;
-}
-
 /** Сообщение клиента → черновики заказов. Курс — ¥ за $ из «Финансы → Курс». */
 export async function parseOrdersFromText(
   text: string,
@@ -325,26 +302,4 @@ export async function parseOrdersFromText(
   const answer = await askModel(buildSystemPrompt(catalog.slice(0, 400)), text, "PostmanFox Admin - order parser");
   if (!answer.ok) return answer;
   return coerceOrders(answer.json, answer.model, rateCnyPerUsd);
-}
-
-export type ExcelInfoResult =
-  | { ok: true; orders: ParsedOrderDraft[]; recipient: ParsedRecipient | null; parcelTrackNumber: string | null; raw: unknown }
-  | { ok: false; error: string; detail?: string };
-
-/**
- * «Большая ячейка» строки Excel → заказы и получатель. Курс — из строки Excel или из настроек.
- * Наименование товара — как в ячейке; справочник наименований не используется (решение владельца — отдельной веткой).
- */
-export async function parseExcelInfo(text: string, rateCnyPerUsd: number): Promise<ExcelInfoResult> {
-  const answer = await askModel(buildExcelPrompt(), text, "PostmanFox Admin - Excel row parser");
-  if (!answer.ok) return answer;
-  const orders = coerceOrders(answer.json, answer.model, rateCnyPerUsd);
-  if (!orders.ok) return orders;
-  return {
-    ok: true,
-    orders: orders.orders,
-    recipient: coerceRecipient(answer.json.recipient),
-    parcelTrackNumber: str(answer.json.parcelTrackNumber),
-    raw: answer.json,
-  };
 }

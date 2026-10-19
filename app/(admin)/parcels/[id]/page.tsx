@@ -46,6 +46,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
       services: { orderBy: { id: "asc" } },
       statusHistory: { orderBy: { createdAt: "asc" } },
       tracking: true,
+      finance: true,
     },
   });
   if (!parcel) notFound();
@@ -232,6 +233,21 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                 hasTask={Boolean(parcel.parcelTask)}
               />
             </section>
+
+            {/* Себестоимость и выручка — только сотрудники; в кабинет клиента не попадает (отдельная таблица ParcelFinance) */}
+            {(parcel.finance || parcel.declaredValueUsd != null) && (
+              <section className="card">
+                <h2 className="card-title">Стоимость и выручка</h2>
+                <table className="rcpt">
+                  <tbody>
+                    <tr><td>Стоимость товаров в посылке</td><td className="r">{parcel.declaredValueUsd != null ? formatUsd(Number(parcel.declaredValueUsd)) : "—"}</td></tr>
+                    <tr><td>Стоимость отправки для нас</td><td className="r">{parcel.finance?.carrierCostCny != null ? `¥${Number(parcel.finance.carrierCostCny).toFixed(2)}` : "—"}</td></tr>
+                    <tr><td>Выручка</td><td className="r">{parcel.finance?.revenueCny != null ? `¥${Number(parcel.finance.revenueCny).toFixed(2)}` : "—"}</td></tr>
+                  </tbody>
+                </table>
+                <p className="muted" style={{ margin: "6px 0 0", fontSize: 12 }}>Видят только сотрудники.</p>
+              </section>
+            )}
 
             {/* Квитанция */}
             <section className="card">
