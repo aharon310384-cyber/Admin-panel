@@ -15,6 +15,7 @@ export type CompanyFormValues = {
   tagline: string | null;
   siteUrl: string | null;
   trackingUrl: string | null;
+  tariffsUrl: string | null;
   phone: string | null;
   email: string | null;
   telegram: string | null;
@@ -138,6 +139,10 @@ export default function CompanyForm({ company, action, isAdmin }: Props) {
           {input("trackingUrl", "Страница отслеживания посылки", {
             placeholder: "https://…",
             hint: "Кнопка «Отследить» в кабинете копирует трек-номер и открывает эту страницу. Пусто — кнопки нет.",
+          })}
+          {input("tariffsUrl", "Страница тарифов", {
+            placeholder: "https://…",
+            hint: "Ссылка «Открыть на сайте» на страницах тарифов в админке и кабинете. Пусто — ссылки нет.",
           })}
         </div>
       </section>

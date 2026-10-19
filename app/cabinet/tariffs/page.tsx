@@ -1,75 +1,51 @@
 import type { Metadata } from "next";
 import { ExternalLink } from "lucide-react";
-import {
-  ADDITIONAL_SERVICE_TARIFFS,
-  ALL_SHIPPING_TARIFFS,
-  EMS_SHIPPING_TARIFFS,
-  MAIN_SHIPPING_TARIFFS,
-  POSTMANFOX_TARIFF_SOURCE,
-  formatAdditionalServicePrice,
-  formatTariffDays,
-  formatTariffPrice,
-  type ShippingTariff,
-  type TransportMode,
-} from "@/lib/postmanfox-tariffs";
+import type { Prisma } from "@prisma/client";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
+import { prisma } from "@/lib/prisma";
+import { clientCompanyId, companyTariffs, countryNames, groupBySection } from "@/lib/tariffs";
+import { countriesNote, formatServicePrice, formatShippingPrice, formatTariffDays } from "@/lib/tariff-format";
 
 export const metadata: Metadata = { title: "Тарифы" };
 
-const MODE_LABELS: Record<TransportMode, string> = {
-  auto: "Авто",
-  air: "Авиа",
-  sea: "Море",
-  ems: "EMS",
-  request: "Запрос",
+// Цвет метки вида доставки; «по запросу» — серым.
+const MODE_COLOR: Record<string, string> = {
+  TRUCK: "var(--cab-orange)",
+  AIR: "var(--cab-blue)",
+  SEA: "var(--cab-mint)",
+  TRAIN: "var(--cab-green)",
 };
 
-const MODE_COLOR: Record<TransportMode, string> = {
-  auto: "var(--cab-orange)",
-  air: "var(--cab-blue)",
-  sea: "var(--cab-mint)",
-  ems: "var(--cab-green)",
-  request: "var(--cab-muted)",
-};
+type Tariff = Prisma.ShippingTariffGetPayload<{ include: { deliveryMethod: { select: { nameRu: true } } } }>;
 
-const PRICES = ALL_SHIPPING_TARIFFS
-  .map((t) => t.pricePerKgUsd)
-  .filter((p): p is number => p !== null);
-const MIN_PRICE = Math.min(...PRICES);
-const MAX_PRICE = Math.max(...PRICES);
-const MIN_DAYS = Math.min(...ALL_SHIPPING_TARIFFS.map((t) => t.minDays ?? Infinity));
-const MAX_DAYS = Math.max(...ALL_SHIPPING_TARIFFS.map((t) => t.maxDays ?? 0));
-
-function TariffRows({
-  rows,
-  show = "title",
-}: {
-  rows: ShippingTariff[];
-  show?: "title" | "destination";
-}) {
+function TariffRows({ rows, names }: { rows: Tariff[]; names: Map<string, string> }) {
   return (
     <tbody>
-      {rows.map((t) => (
-        <tr key={t.title}>
-          <td>
-            <div className="tf-route">
-              <span
-                className="tf-mode"
-                style={{ ["--m" as string]: MODE_COLOR[t.mode] }}
-              >
-                {MODE_LABELS[t.mode]}
-              </span>
-              <div className="tf-route-id">
-                <span className="tf-route-title">{show === "destination" ? t.destination : t.title}</span>
-                {t.cargoType && <span className="tf-route-note">{t.cargoType}</span>}
+      {rows.map((t) => {
+        const note = countriesNote(t.countryCodes, t.direction, names);
+        return (
+          <tr key={t.id}>
+            <td>
+              <div className="tf-route">
+                <span
+                  className="tf-mode"
+                  style={{ ["--m" as string]: t.onRequest ? "var(--cab-muted)" : (MODE_COLOR[t.deliveryType] ?? "var(--cab-blue)") }}
+                >
+                  {t.onRequest ? "Запрос" : t.deliveryMethod.nameRu}
+                </span>
+                <div className="tf-route-id">
+                  <span className="tf-route-title">{t.direction}</span>
+                  {t.cargoType && <span className="tf-route-note">{t.cargoType}</span>}
+                  {note && <span className="tf-route-note">{note}</span>}
+                </div>
               </div>
-            </div>
-          </td>
-          <td className="tf-tabular">{formatTariffPrice(t)}</td>
-          <td className="tf-tabular tf-nowrap">{formatTariffDays(t)}</td>
-          <td className="tf-target">{t.deliveryTarget}</td>
-        </tr>
-      ))}
+            </td>
+            <td className="tf-tabular">{formatShippingPrice(t)}</td>
+            <td className="tf-tabular tf-nowrap">{formatTariffDays(t)}</td>
+            <td className="tf-target">{t.deliveryTarget}</td>
+          </tr>
+        );
+      })}
     </tbody>
   );
 }
@@ -77,120 +53,124 @@ function TariffRows({
 export default async function ClientCabinetTariffsPage() {
   await getClientCabinetContext();
 
+  // Тарифы компании кабинета — из «Логистика → Тарифы» в админке
+  const companyId = await clientCompanyId();
+  const [company, tariffs, names] = await Promise.all([
+    companyId ? prisma.company.findUnique({ where: { id: companyId }, select: { tagline: true, tariffsUrl: true } }) : null,
+    companyId ? companyTariffs(companyId, { activeOnly: true }) : { shipping: [], services: [] },
+    countryNames(),
+  ]);
+  const sections = groupBySection(tariffs.shipping);
+  const priced = tariffs.shipping.filter((t) => !t.onRequest);
+  const prices = priced.map((t) => Number(t.pricePerKgUsd));
+  const minDays = tariffs.shipping.map((t) => t.minDays).filter((d): d is number => d != null);
+  const maxDays = tariffs.shipping.map((t) => t.maxDays).filter((d): d is number => d != null);
+  const tagline = company?.tagline ? company.tagline.charAt(0).toUpperCase() + company.tagline.slice(1) : null;
+
   return (
     <div className="tf">
       <header className="tf-hero">
-        <span className="tf-hero-eyebrow">Доставка из Китая · USD</span>
+        <span className="tf-hero-eyebrow">{tagline ? `${tagline} · USD` : "Цены в USD"}</span>
         <h1 className="tf-hero-title">Тарифы</h1>
 
-        <div className="tf-spread">
-          <div className="tf-spread-ends">
-            <div className="tf-spread-end">
-              <span className="tf-spread-cap">от</span>
-              <strong className="tf-spread-val">${MIN_PRICE}</strong>
-              <span className="tf-spread-unit">/кг</span>
+        {prices.length > 0 && (
+          <div className="tf-spread">
+            <div className="tf-spread-ends">
+              <div className="tf-spread-end">
+                <span className="tf-spread-cap">от</span>
+                <strong className="tf-spread-val">${Math.min(...prices)}</strong>
+                <span className="tf-spread-unit">/кг</span>
+              </div>
+              <div className="tf-spread-end tf-spread-end--max">
+                <span className="tf-spread-cap">до</span>
+                <strong className="tf-spread-val">${Math.max(...prices)}</strong>
+                <span className="tf-spread-unit">/кг</span>
+              </div>
             </div>
-            <div className="tf-spread-end tf-spread-end--max">
-              <span className="tf-spread-cap">до</span>
-              <strong className="tf-spread-val">${MAX_PRICE}</strong>
-              <span className="tf-spread-unit">/кг</span>
-            </div>
+            <div className="tf-spread-rail" aria-hidden="true" />
+            <p className="tf-spread-hint">Разброс ставок зависит от направления и способа доставки</p>
           </div>
-          <div className="tf-spread-rail" aria-hidden="true" />
-          <p className="tf-spread-hint">Разброс ставок зависит от направления и способа доставки</p>
-        </div>
+        )}
 
         <div className="tf-stats">
           <div className="tf-stat">
-            <strong>{MAIN_SHIPPING_TARIFFS.length + EMS_SHIPPING_TARIFFS.length}</strong>
+            <strong>{tariffs.shipping.length}</strong>
             <span>направлений</span>
           </div>
+          {minDays.length > 0 && maxDays.length > 0 && (
+            <div className="tf-stat">
+              <strong>{Math.min(...minDays)}–{Math.max(...maxDays)}</strong>
+              <span>дней в пути</span>
+            </div>
+          )}
           <div className="tf-stat">
-            <strong>{MIN_DAYS}–{MAX_DAYS}</strong>
-            <span>дней в пути</span>
-          </div>
-          <div className="tf-stat">
-            <strong>{ADDITIONAL_SERVICE_TARIFFS.length}</strong>
+            <strong>{tariffs.services.length}</strong>
             <span>доп. услуг</span>
           </div>
         </div>
       </header>
 
-      <section className="tf-card">
-        <div className="tf-section-head">
-          <h2 className="tf-section-title">Основные направления</h2>
-          <span className="tf-section-note">ставка за кг + оформление</span>
-        </div>
-        <div className="tf-table-wrap">
-          <table className="tf-table">
-            <thead>
-              <tr>
-                <th>Направление</th>
-                <th>Стоимость</th>
-                <th>Срок</th>
-                <th>Доставка</th>
-              </tr>
-            </thead>
-            <TariffRows rows={MAIN_SHIPPING_TARIFFS} />
-          </table>
-        </div>
-      </section>
-
-      <section className="tf-card">
-        <div className="tf-section-head">
-          <h2 className="tf-section-title">EMS</h2>
-          <span className="tf-section-note">международная доставка</span>
-        </div>
-        <div className="tf-table-wrap">
-          <table className="tf-table">
-            <thead>
-              <tr>
-                <th>Страны</th>
-                <th>Стоимость</th>
-                <th>Срок</th>
-                <th>Доставка</th>
-              </tr>
-            </thead>
-            <TariffRows rows={EMS_SHIPPING_TARIFFS} show="destination" />
-          </table>
-        </div>
-      </section>
-
-      <section className="tf-card">
-        <div className="tf-section-head">
-          <h2 className="tf-section-title">Дополнительные услуги</h2>
-        </div>
-        <div className="tf-table-wrap">
-          <table className="tf-table">
-            <thead>
-              <tr>
-                <th>Услуга</th>
-                <th>Описание</th>
-                <th>Цена</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ADDITIONAL_SERVICE_TARIFFS.map((s) => (
-                <tr key={s.title}>
-                  <td className="tf-route-title">{s.title}</td>
-                  <td className="tf-dest">{s.description}</td>
-                  <td className="tf-tabular tf-svc-price">{formatAdditionalServicePrice(s)}</td>
+      {sections.map((group) => (
+        <section key={group.section} className="tf-card">
+          <div className="tf-section-head">
+            <h2 className="tf-section-title">{group.section}</h2>
+            <span className="tf-section-note">ставка за кг + оформление</span>
+          </div>
+          <div className="tf-table-wrap">
+            <table className="tf-table">
+              <thead>
+                <tr>
+                  <th>Направление</th>
+                  <th>Стоимость</th>
+                  <th>Срок</th>
+                  <th>Доставка</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <TariffRows rows={group.rows} names={names} />
+            </table>
+          </div>
+        </section>
+      ))}
 
-      <a
-        href={POSTMANFOX_TARIFF_SOURCE.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="tf-source"
-      >
-        <ExternalLink size={15} />
-        Открыть тарифы на сайте
-      </a>
+      {tariffs.services.length > 0 && (
+        <section className="tf-card">
+          <div className="tf-section-head">
+            <h2 className="tf-section-title">Дополнительные услуги</h2>
+          </div>
+          <div className="tf-table-wrap">
+            <table className="tf-table">
+              <thead>
+                <tr>
+                  <th>Услуга</th>
+                  <th>Описание</th>
+                  <th>Цена</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tariffs.services.map((s) => (
+                  <tr key={s.code}>
+                    <td className="tf-route-title">{s.name}</td>
+                    <td className="tf-dest">{s.description}</td>
+                    <td className="tf-tabular tf-svc-price">{formatServicePrice(s)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {company?.tariffsUrl && (
+        <a
+          href={company.tariffsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="tf-source"
+        >
+          <ExternalLink size={15} />
+          Открыть тарифы на сайте
+        </a>
+      )}
 
       <style>{`
         .tf { display: flex; flex-direction: column; gap: 18px; padding-bottom: 8px; }

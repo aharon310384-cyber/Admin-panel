@@ -37,6 +37,7 @@ const companySchema = z.object({
   tagline: text(120),
   siteUrl: link,
   trackingUrl: link,
+  tariffsUrl: link,
   phone: text(60),
   email: z
     .string()
@@ -65,6 +66,7 @@ function readForm(formData: FormData) {
     tagline: value("tagline"),
     siteUrl: value("siteUrl"),
     trackingUrl: value("trackingUrl"),
+    tariffsUrl: value("tariffsUrl"),
     phone: value("phone"),
     email: value("email"),
     telegram: value("telegram"),

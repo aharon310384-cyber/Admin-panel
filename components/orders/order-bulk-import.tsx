@@ -5,10 +5,9 @@ import { useRouter } from "next/navigation";
 import { Sparkles, Loader2, Trash2, Plus, AlertTriangle, Copy, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { parseOrderText, createOrdersBulk, createRecipientQuick } from "@/actions/order-import";
-import { soleDeliveryTypeForCountry } from "@/lib/postmanfox-tariffs";
 
 type CustomerOpt = { id: string; code: string | null; name: string };
-type RecipientOpt = { id: string; customerId: string; name: string; country: string | null };
+type RecipientOpt = { id: string; customerId: string; name: string; country: string | null; countryCode?: string | null };
 type ProductNameOpt = { id: string; code: string; nameRu: string; category: string | null; hsCode: string | null };
 type CountryOpt = { code: string; nameRu: string };
 
@@ -53,11 +52,13 @@ export default function OrderBulkImport({
   recipients,
   productNames = [],
   countries = [],
+  deliveryTypesByCountry = {},
 }: {
   customers: CustomerOpt[];
   recipients: RecipientOpt[];
   productNames?: ProductNameOpt[];
   countries?: CountryOpt[];
+  deliveryTypesByCountry?: Record<string, string[]>; // по тарифам из базы: «US» → ["AIR"]
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -83,6 +84,13 @@ export default function OrderBulkImport({
     [recipientList, recipientId],
   );
 
+  // Единственный вид доставки для страны по тарифам (если вариант ровно один); страна — по коду или названию.
+  const soleDeliveryType = (country: string | null, countryCode?: string | null): DeliveryValue | null => {
+    const code = countryCode ?? countries.find((c) => c.code === country?.trim().toUpperCase() || norm(c.nameRu) === norm(country ?? ""))?.code;
+    const types = code ? deliveryTypesByCountry[code] ?? [] : [];
+    return types.length === 1 ? (types[0] as DeliveryValue) : null;
+  };
+
   const onParse = () => {
     setError(null);
     if (!text.trim()) {
@@ -104,6 +112,7 @@ export default function OrderBulkImport({
       let nextCustomerId = customerId;
       let nextRecipientId = recipientId;
       let country = recipientCountry;
+      let countryCode = recipientList.find((r) => r.id === recipientId)?.countryCode ?? null;
       let pending: { name: string; country: string } | null = null;
       const recName = res.orders.map((o) => o.recipientNameText).find(Boolean) ?? null;
 
@@ -130,12 +139,13 @@ export default function OrderBulkImport({
         nextCustomerId = match.customerId;
         nextRecipientId = match.id;
         country = match.country;
+        countryCode = match.countryCode ?? null;
       } else if (recName) {
         pending = { name: recName, country: "" };
       }
 
       // Вид доставки (общий): приоритет — из текста, иначе единственный по стране.
-      const sole = soleDeliveryTypeForCountry(country);
+      const sole = soleDeliveryType(country, countryCode);
       const aiDelivery = res.orders.map((o) => o.deliveryType).find(Boolean) ?? null;
       const nextDelivery = (aiDelivery ?? sole ?? deliveryType) as DeliveryValue;
 
@@ -178,8 +188,8 @@ export default function OrderBulkImport({
 
   const onRecipientChange = (id: string) => {
     setRecipientId(id);
-    const country = recipientList.find((r) => r.id === id)?.country ?? null;
-    const sole = soleDeliveryTypeForCountry(country);
+    const recipient = recipientList.find((r) => r.id === id);
+    const sole = soleDeliveryType(recipient?.country ?? null, recipient?.countryCode);
     if (sole) setDeliveryType((prev) => prev || sole);
   };
 
@@ -203,7 +213,7 @@ export default function OrderBulkImport({
       setRecipientList((prev) => [...prev, created]);
       setRecipientId(created.id);
       setPendingRecipient(null);
-      const sole = soleDeliveryTypeForCountry(created.country);
+      const sole = soleDeliveryType(created.country);
       if (sole) setDeliveryType((prev) => prev || sole);
       toast.success(`Получатель создан: ${created.name}`);
     });
