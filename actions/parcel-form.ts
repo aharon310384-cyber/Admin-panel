@@ -333,8 +333,11 @@ export async function setParcelTracking(parcelId: string, trackingNumber: string
 
 const PARCEL_STATUSES = Object.keys(PARCEL_STATUS_LABELS) as ParcelStatus[];
 
-/** Сменить статус одной посылки от имени сотрудника. Для оплаты «до отправки» не даёт SHIPPED без оплаты. */
-async function changeParcelStatus(parcelId: string, status: ParcelStatus, userId: string): Promise<string | null> {
+/**
+ * Сменить статус одной посылки от имени сотрудника. Для оплаты «до отправки» не даёт SHIPPED без оплаты.
+ * notify = false — без сообщения клиенту (например, когда закрывают давно дошедшие посылки).
+ */
+async function changeParcelStatus(parcelId: string, status: ParcelStatus, userId: string, notify = true): Promise<string | null> {
   const parcel = await prisma.parcel.findFirst({ where: { id: parcelId, deletedAt: null } });
   if (!parcel) return "Посылка не найдена";
   if (parcel.status === status) return null;
@@ -346,7 +349,7 @@ async function changeParcelStatus(parcelId: string, status: ParcelStatus, userId
   await prisma.parcel.update({ where: { id: parcelId }, data: { status } });
   await prisma.parcelStatusHistory.create({ data: { parcelId, status, changedBy: userId } });
   await recordVersion("parcel", parcelId, { authorId: userId, comment: `Статус «${parcelStatusLabel(status)}»` });
-  await notifyParcelStatusChange(parcelId, status);
+  if (notify) await notifyParcelStatusChange(parcelId, status);
   return null;
 }
 
@@ -365,10 +368,12 @@ export async function setParcelStatus(parcelId: string, status: ParcelStatus): P
 /**
  * Статус сразу нескольким посылкам — ручной инструмент на крайний случай, когда отслеживание не помогло
  * (номер не отслеживается, перевозчик молчит). Каждая посылка — как при смене статуса в карточке.
+ * notify = false — клиентам не писать: закрывают давно дошедшие посылки.
  */
 export async function setParcelsStatus(
   parcelIds: string[],
   status: ParcelStatus,
+  notify = true,
 ): Promise<{ ok: boolean; changed: number; errors: string[] }> {
   const session = await auth();
   if (!session) return { ok: false, changed: 0, errors: ["Не авторизован"] };
@@ -380,7 +385,7 @@ export async function setParcelsStatus(
   const errors: string[] = [];
   for (const parcel of parcels) {
     if (parcel.status === status) continue;
-    const error = await changeParcelStatus(parcel.id, status, session.user.id);
+    const error = await changeParcelStatus(parcel.id, status, session.user.id, notify !== false);
     if (error) errors.push(`${parcel.number}: ${error}`);
     else changedIds.push(parcel.id);
   }
