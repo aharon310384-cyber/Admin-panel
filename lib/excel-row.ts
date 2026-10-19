@@ -49,3 +49,8 @@ export function cellNumber(value: string | null | undefined): number | null {
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
+
+/** Ячейки → строка как при копировании из Excel (обратное splitExcelRow): ячейка с табуляцией, переводом строки или кавычкой — в кавычках. */
+export function joinExcelRow(cells: string[]): string {
+  return cells.map((cell) => (/[\t\n"]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell)).join("\t");
+}

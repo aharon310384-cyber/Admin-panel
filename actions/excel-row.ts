@@ -358,6 +358,10 @@ export async function previewExcelRow(text: string): Promise<ExcelRowPreviewResu
 /** Создать получателя клиента из строки: ФИО, адрес, телефон, страна — из конца номера строки. */
 export async function createRecipientFromRow(text: string): Promise<{ ok: boolean; message: string }> {
   const session = await requireAdmin();
+  return createRecipient(text, session.user.id);
+}
+
+async function createRecipient(text: string, authorId: string): Promise<{ ok: boolean; message: string }> {
   const basics = await readBasics(text);
   if ("error" in basics) return { ok: false, message: basics.error };
   if (!basics.client) return { ok: false, message: `Клиента ${basics.clientCode ?? ""} нет в базе` };
@@ -378,7 +382,7 @@ export async function createRecipientFromRow(text: string): Promise<{ ok: boolea
       phoneDialCode: withDial ? dial : null,
       countryCode: basics.country?.code ?? null,
       country: basics.country?.nameRu ?? null,
-      authorId: session.user.id,
+      authorId,
     },
   });
   return { ok: true, message: `Получатель ${r.name} создан у клиента ${basics.client.code}` };
@@ -387,13 +391,30 @@ export async function createRecipientFromRow(text: string): Promise<{ ok: boolea
 /** Сохранить строку: заказы → задача → посылка. Время: заказы — T, задача — T + 10 с, посылка — T + 20 с (T — дата отправки или сейчас). */
 export async function saveExcelRow(text: string, found: ExcelRowTracks): Promise<ExcelRowSaveResult> {
   const session = await requireAdmin();
+  return saveRow(text, session.user.id, found);
+}
+
+/**
+ * Загрузка файлом: одна строка целиком — разбор (ИИ ищет треки) и сразу сохранение.
+ * createRecipient — нет получателя у клиента → создать его из строки.
+ */
+export async function importExcelRow(text: string, opts: { createRecipient: boolean }): Promise<ExcelRowSaveResult> {
+  const session = await requireAdmin();
+  if (opts.createRecipient) {
+    const recipient = await createRecipient(text, session.user.id);
+    if (!recipient.ok && !/нет в базе|нет ФИО/.test(recipient.message)) return { ok: false, error: recipient.message };
+  }
+  return saveRow(text, session.user.id);
+}
+
+async function saveRow(text: string, userId: string, found?: ExcelRowTracks): Promise<ExcelRowSaveResult> {
   const built = await buildPreview(text, found);
   if (!built.ok) return built;
   const p = built.preview;
   if (p.blockers.length) return { ok: false, error: p.blockers.join(" ") };
   const client = p.client!;
   const recipientId = p.recipientMatch!.id;
-  const author = await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true } });
+  const author = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!author) return { ok: false, error: "Пользователь не найден — войдите заново" };
 
   const now = new Date();

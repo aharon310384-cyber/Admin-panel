@@ -13,6 +13,7 @@ import {
 } from "@/actions/excel-row";
 import { EXCEL_FIELDS, type ExcelColumns } from "@/lib/excel-columns";
 import { parcelStatusLabel } from "@/lib/statuses";
+import ExcelFile from "@/components/import/excel-file";
 
 // «Загрузка из Excel», шаг 2: строка листа целиком → что будет сохранено → «Сохранить в базу» (заказы → задача → посылка).
 // Колонки листа (буквы Excel) — настройка сверху. ИИ находит только треки; остальное — из колонок.
@@ -117,6 +118,8 @@ export default function ExcelRow({ initialColumns }: { initialColumns: ExcelColu
           columnsMessage && <p className={columnsMessage.ok ? "xr-ok" : "xr-bad"} style={{ margin: 0 }}>{columnsMessage.text}</p>
         )}
       </section>
+
+      <ExcelFile columns={columns as ExcelColumns} />
 
       <section className="card">
         <h2 className="card-title">Строка Excel</h2>
@@ -301,6 +304,13 @@ export default function ExcelRow({ initialColumns }: { initialColumns: ExcelColu
         .xr-internal { padding: 8px 10px; border: 1px dashed var(--color-border-strong); border-radius: 4px; }
         .xr-internal-title { font-weight: 700; color: var(--color-text) !important; }
         .xr-save { margin-top: 12px; }
+        .xr-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+        .xr-chip { height: 26px; padding: 0 10px; border: 1px solid var(--color-border-strong); border-radius: 999px; background: #fff; font: inherit; font-size: 12.5px; cursor: pointer; }
+        .xr-chip.is-active { border-color: var(--color-accent); background: var(--color-muted-bg); font-weight: 600; }
+        .xr-file-list { max-height: 55dvh; overflow: auto; border: 1px solid var(--color-border); border-radius: 4px; }
+        .xr-file-list th { position: sticky; top: 0; background: var(--color-surface); }
+        .xr-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+        .xr-check input, .xr-table input[type="checkbox"] { margin: 0; accent-color: var(--color-accent); }
         .xr-spin { animation: xr-spin 0.8s linear infinite; }
         @keyframes xr-spin { to { transform: rotate(360deg); } }
       `}</style>
