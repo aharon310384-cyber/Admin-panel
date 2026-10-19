@@ -438,3 +438,27 @@ export async function setParcelPaid(parcelId: string, paid: boolean): Promise<vo
   if (paid) await notifyParcelPaid(parcelId);
   revalidatePath(`/parcels/${parcelId}`);
 }
+
+/** Внутренние комментарии посылки и её задачи — видят только сотрудники. */
+export async function setParcelInternalComments(
+  parcelId: string,
+  comments: { parcel: string; task: string },
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (!session) return { ok: false, error: "Не авторизован" };
+  const parcel = await prisma.parcel.findFirst({ where: { id: parcelId, deletedAt: null }, select: { internalComment: true, parcelTaskId: true } });
+  if (!parcel) return { ok: false, error: "Посылка не найдена" };
+  const parcelComment = String(comments.parcel ?? "").trim().slice(0, 4000) || null;
+  const taskComment = String(comments.task ?? "").trim().slice(0, 4000) || null;
+
+  if (parcelComment !== parcel.internalComment) {
+    await ensureBaseline("parcel", parcelId);
+    await prisma.parcel.update({ where: { id: parcelId }, data: { internalComment: parcelComment } });
+    await recordVersion("parcel", parcelId, { authorId: session.user.id, comment: "Изменён внутренний комментарий" });
+  }
+  if (parcel.parcelTaskId) {
+    await prisma.parcelTask.update({ where: { id: parcel.parcelTaskId }, data: { internalComment: taskComment } });
+  }
+  revalidatePath(`/parcels/${parcelId}`);
+  return { ok: true };
+}

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
 import { getFinanceSettings } from "@/lib/finance";
 import { parseExcelInfo } from "@/lib/ai-order-parser";
-import { addressInText, foundInText, missedTracks, normalizeText, priceInText } from "@/lib/excel-check";
+import { addressInText, foundInText, missedTracks, normalizeText, parcelTracks, priceInText, sameName } from "@/lib/excel-check";
 
 // Загрузка из Excel, шаг 1 — проверка ИИ-разборщика (docs/product/задание-excel.md).
 // «Большая ячейка» строки → что нашёл ИИ, и есть ли это на самом деле в тексте ячейки. Ничего не сохраняется.
@@ -44,6 +44,7 @@ export type ExcelCheckResult =
       orders: ExcelCheckOrder[];
       recipient: ExcelCheckRecipient | null;
       recipientMatch: { id: string; name: string } | null;
+      parcelTrack: Checked;
       warnings: string[];
       raw: string;
     }
@@ -55,6 +56,7 @@ function digits(value: string | null | undefined): string {
   return (value ?? "").replace(/\D/g, "");
 }
 
+/** rate — курс строки Excel (¥ за $); не передан — курс из «Финансы → Курс». */
 export async function checkExcelRow(input: { orderNumber?: string; rate?: string; info: string }): Promise<ExcelCheckResult> {
   await requireAdmin();
   const info = String(input.info ?? "");
@@ -129,16 +131,23 @@ export async function checkExcelRow(input: { orderNumber?: string; rate?: string
       select: { id: true, name: true, phone: true, phoneDialCode: true },
     });
     const phone = digits(r.phone).slice(-9);
-    const name = r.name ? normalizeText(r.name) : "";
     recipientMatch =
       candidates.find((c) => phone.length >= 7 && digits(`${c.phoneDialCode ?? ""}${c.phone ?? ""}`).endsWith(phone)) ??
-      candidates.find((c) => name && normalizeText(c.name) === name) ??
+      candidates.find((c) => r.name && sameName(c.name, r.name)) ??
       null;
     if (!recipientMatch) warnings.push(`Получателя нет в списке получателей клиента ${client.code} — при загрузке его нужно будет создать.`);
   }
   if (!r) warnings.push("Получатель в ячейке не найден.");
   else if (!r.countryCode) warnings.push("Страна получателя не определена — тариф по стране не подобрать.");
   else if (!country) warnings.push(`Страны ${r.countryCode} нет в справочнике стран.`);
+
+  // Трек посылки до получателя: от ИИ или найденный в тексте по виду номера
+  const foundParcelTrack = parcelTracks(info)[0] ?? null;
+  const parcelTrack: Checked = parsed.parcelTrackNumber
+    ? { value: parsed.parcelTrackNumber, ok: foundInText(parsed.parcelTrackNumber, info) }
+    : foundParcelTrack
+      ? { value: foundParcelTrack, ok: true, note: "найден по виду номера" }
+      : { value: null, ok: null };
 
   const missed = missedTracks(info, parsed.orders.map((o) => o.trackNumber), [r?.phone ?? null]);
   if (missed.length) warnings.push(`В тексте есть похожие на трек номера, которых нет в разборе: ${missed.join(", ")}.`);
@@ -157,6 +166,7 @@ export async function checkExcelRow(input: { orderNumber?: string; rate?: string
     orders,
     recipient,
     recipientMatch,
+    parcelTrack,
     warnings,
     raw: JSON.stringify(parsed.raw, null, 2).slice(0, 8000),
   };

@@ -95,6 +95,7 @@ function orderData(o: OrderDoc): VersionData {
       field("productUrl", "Ссылка на товар", text(o.productUrl)),
       field("imageUrl", "Изображение", text(o.imageUrl)),
       field("customerComment", "Комментарий клиента", text(o.customerComment)),
+      field("internalComment", "Внутренний комментарий", text(o.internalComment)),
       field("sorting", "Сортировка", text(o.sorting?.number)),
       field("receiving", "Приём заказа", text(o.receiving?.number)),
       field("parcelTask", "Задача", text(o.parcelTask?.number)),
@@ -138,6 +139,7 @@ function parcelData(p: ParcelDoc): VersionData {
       field("paidAt", "Дата оплаты", date(p.paidAt)),
       field("box", "Короб", text(p.box?.number)),
       field("notes", "Примечание", text(p.notes)),
+      field("internalComment", "Внутренний комментарий", text(p.internalComment)),
       field("deleted", "Помечена на удаление", yesNo(Boolean(p.deletedAt))),
     ],
     tables: [

@@ -8,6 +8,7 @@ import { parcelStatusLabel, orderStatusLabel, deliveryTypeLabel, PARCEL_STATUS_C
 import { computeEuCustomsDuty, hasIncompleteHsCodes } from "@/lib/eu-customs";
 import ParcelControls from "@/components/parcels/parcel-controls";
 import TrackingBlock, { type TrackingView } from "@/components/parcels/tracking-block";
+import InternalComments from "@/components/parcels/internal-comments";
 import { getTrackingKey, type TrackingEvent } from "@/lib/tracking";
 import { trackingStatusLabel, trackingUrl } from "@/lib/tracking-labels";
 import Form from "@/components/form/form";
@@ -40,7 +41,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
     include: {
       customer: true,
       recipient: true,
-      parcelTask: { select: { number: true, note: true } },
+      parcelTask: { select: { number: true, note: true, internalComment: true } },
       orders: { orderBy: { createdAt: "asc" } },
       services: { orderBy: { id: "asc" } },
       statusHistory: { orderBy: { createdAt: "asc" } },
@@ -219,6 +220,17 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                   </li>
                 ))}
               </ul>
+            </section>
+
+            {/* Внутренние комментарии */}
+            <section className="card">
+              <h2 className="card-title">Внутренние комментарии</h2>
+              <InternalComments
+                parcelId={parcel.id}
+                parcel={parcel.internalComment ?? ""}
+                task={parcel.parcelTask?.internalComment ?? ""}
+                hasTask={Boolean(parcel.parcelTask)}
+              />
             </section>
 
             {/* Квитанция */}

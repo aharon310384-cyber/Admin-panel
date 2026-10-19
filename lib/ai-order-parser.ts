@@ -82,11 +82,11 @@ function buildExcelPrompt(catalog: string[]): string {
   return `Ты — помощник склада карго-доставки. Тебе дают содержимое «большой ячейки» из рабочего Excel-файла склада: одна строка файла — одна посылка клиента. В ячейке обычно: входящие трек-номера китайских служб доставки, товары (иногда с ценой), получатель, адрес, телефон, пожелания клиента. Разбери ячейку: товары — позаказно, получатель — отдельно.
 
 Верни СТРОГО JSON-объект вида:
-{"orders":[{"productNameText":"...","quantity":1,"unitPriceUsd":null,"unitPriceCny":null,"trackNumber":null,"customerComment":null,"deliveryType":null,"recipientNameText":null,"detailedCheckRequested":false,"keepOriginalPackaging":true}],"recipient":{"name":null,"address":null,"city":null,"postalCode":null,"countryCode":null,"phone":null}}
+{"orders":[{"productNameText":"...","quantity":1,"unitPriceUsd":null,"unitPriceCny":null,"trackNumber":null,"customerComment":null,"deliveryType":null,"recipientNameText":null,"detailedCheckRequested":false,"keepOriginalPackaging":true}],"recipient":{"name":null,"address":null,"city":null,"postalCode":null,"countryCode":null,"phone":null},"parcelTrackNumber":null}
 
 Правила по заказам (orders):
 - Один товар = один заказ. Несколько входящих трек-номеров — это несколько заказов: у каждого заказа свой trackNumber. Если у одного трека несколько разных товаров — несколько заказов с одинаковым trackNumber. Если трек один, а товаров несколько — у всех этот трек.
-- trackNumber — входящий трек-номер китайской службы (SF, JT, YT, ZTO, 京东 и т. п.) — точно как в тексте. НЕ путай с телефоном, артикулом, номером заказа клиента. Трек есть, а товар не назван — productNameText = "не указано".
+- trackNumber — входящий трек-номер китайской службы (SF, JT, YT, ZTO, 京东 и т. п.) — точно как в тексте. НЕ путай с телефоном, артикулом, номером заказа клиента и с треком посылки до получателя (он — в parcelTrackNumber). Трек есть, а товар не назван — productNameText = "не указано".
 - productNameText — наименование товара, обязательно. quantity — целое, минимум 1; не указано — 1.
 ${PRICE_RULES}
 - customerComment — номер заказа клиента, пожелания по упаковке, прочие заметки к этому товару; нет — null.
@@ -101,6 +101,8 @@ ${PRICE_RULES}
 - city, postalCode — город и почтовый индекс из адреса, если их можно выделить; иначе null.
 - countryCode — страна получателя: двухбуквенный код ISO 3166-1 (UA, PL, MD, RU, DE, KZ, UZ и т. д.) по адресу или телефону; не понять — null.
 - Получателя в тексте нет — все поля null.
+
+parcelTrackNumber — трек-номер самой посылки до получателя, если он есть в тексте: почтовый международный (вида CB772705834DE, EV071583494CN, LC000123456MG), DHL (00340…, 20 цифр), Meest (MGRMY…). Это НЕ входящий трек и НЕ заказ. Нет — null.
 
 Ничего не выдумывай: если чего-то нет в тексте — null. Никакого текста вне JSON.${catalogBlock(catalog)}`;
 }
@@ -326,7 +328,7 @@ export async function parseOrdersFromText(
 }
 
 export type ExcelInfoResult =
-  | { ok: true; orders: ParsedOrderDraft[]; recipient: ParsedRecipient | null; raw: unknown }
+  | { ok: true; orders: ParsedOrderDraft[]; recipient: ParsedRecipient | null; parcelTrackNumber: string | null; raw: unknown }
   | { ok: false; error: string; detail?: string };
 
 /** «Большая ячейка» строки Excel → заказы и получатель. Курс — из строки Excel или из настроек. */
@@ -335,5 +337,11 @@ export async function parseExcelInfo(text: string, catalog: string[], rateCnyPer
   if (!answer.ok) return answer;
   const orders = coerceOrders(answer.json, answer.model, rateCnyPerUsd);
   if (!orders.ok) return orders;
-  return { ok: true, orders: orders.orders, recipient: coerceRecipient(answer.json.recipient), raw: answer.json };
+  return {
+    ok: true,
+    orders: orders.orders,
+    recipient: coerceRecipient(answer.json.recipient),
+    parcelTrackNumber: str(answer.json.parcelTrackNumber),
+    raw: answer.json,
+  };
 }
