@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ParcelStatus } from "@prisma/client";
 import { applyParcelServices, setParcelStatus, setParcelPaid, setParcelTracking } from "@/actions/parcel-form";
 import { parcelStatusLabel } from "@/lib/statuses";
+import type { ServiceHints } from "@/lib/tariff-format";
 
 const NEXT: Partial<Record<ParcelStatus, ParcelStatus>> = {
   FORMED: "ASSEMBLED",
@@ -15,6 +16,7 @@ const NEXT: Partial<Record<ParcelStatus, ParcelStatus>> = {
 };
 
 type Props = {
+  hints?: ServiceHints; // цены услуг из «Логистика → Тарифы»: код → «0.3$/кг»
   parcelId: string;
   status: ParcelStatus;
   isPaid: boolean;
@@ -40,7 +42,7 @@ type Props = {
   };
 };
 
-export default function ParcelControls({ parcelId, status, isPaid, initial }: Props) {
+export default function ParcelControls({ hints = {}, parcelId, status, isPaid, initial }: Props) {
   const router = useRouter();
   const [f, setF] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -124,12 +126,12 @@ export default function ParcelControls({ parcelId, status, isPaid, initial }: Pr
 
       <div className="pc-block">
         <h3 className="pc-h">Услуги</h3>
-        <label className="pc-check">{chk("consolidation")} <span>Консолидация <i>0.3 $/кг</i></span></label>
-        <label className="pc-check">{chk("compactPack")} <span>Компактная упаковка <i>0.5 $/кг</i></span></label>
-        <label className="pc-check">{chk("standardCheck")} <span>Стандартная проверка <i>1.0 $/кг</i></span></label>
+        <label className="pc-check">{chk("consolidation")} <span>Консолидация {hints.CONSOLIDATION && <i>{hints.CONSOLIDATION}</i>}</span></label>
+        <label className="pc-check">{chk("compactPack")} <span>Компактная упаковка {hints.COMPACT_PACK && <i>{hints.COMPACT_PACK}</i>}</span></label>
+        <label className="pc-check">{chk("standardCheck")} <span>Стандартная проверка {hints.STANDARD_CHECK && <i>{hints.STANDARD_CHECK}</i>}</span></label>
         <label className="pc-field"><span>Усиленная упаковка, $</span>{num("reinforcedPackUsd", "факт")}</label>
         <label className="pc-field"><span>Доставка до склада, $</span>{num("localDeliveryUsd", "факт")}</label>
-        <label className="pc-field"><span>Страховка, %</span>{num("insurancePercent", "2–10")}</label>
+        <label className="pc-field"><span>Страховка, %</span>{num("insurancePercent", hints.INSURANCE ?? "%")}</label>
         <label className="pc-field"><span>Скидка, %</span>{num("discountPercent", "0")}</label>
         <button className="pc-btn pc-btn--accent" disabled={busy} onClick={recalc}>Пересчитать квитанцию</button>
         {msg && <p className="pc-err">{msg}</p>}

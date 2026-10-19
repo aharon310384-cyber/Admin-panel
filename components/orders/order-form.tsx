@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { createOrder } from "@/actions/order-create";
+import type { ServiceHints } from "@/lib/tariff-format";
 
 type CustomerOpt = { id: string; code: string | null; name: string };
 type RecipientOpt = { id: string; customerId: string; name: string };
@@ -31,6 +32,7 @@ export default function OrderForm({
   recipients,
   productNames = [],
   deliveryMethods = [],
+  serviceHints = {},
   action = createOrder,
   initial,
   submitLabel = "Создать заказ",
@@ -39,6 +41,7 @@ export default function OrderForm({
   recipients: RecipientOpt[];
   productNames?: ProductNameOpt[];
   deliveryMethods?: DeliveryMethodOpt[];
+  serviceHints?: ServiceHints; // цены услуг из «Логистика → Тарифы»: код → «0.3$/кг»
   action?: (formData: FormData) => Promise<void>;
   initial?: OrderInitial;
   submitLabel?: string;
@@ -193,15 +196,15 @@ export default function OrderForm({
           </label>
           <label className="of-check">
             <input name="consolidationRequested" type="checkbox" defaultChecked={initial?.consolidationRequested ?? false} />
-            <span>Консолидация <em className="of-check-hint">0.3 $/кг</em></span>
+            <span>Консолидация {serviceHints.CONSOLIDATION && <em className="of-check-hint">{serviceHints.CONSOLIDATION}</em>}</span>
           </label>
           <label className="of-check">
             <input name="compactPackRequested" type="checkbox" defaultChecked={initial?.compactPackRequested ?? false} />
-            <span>Компактная упаковка <em className="of-check-hint">0.5 $/кг</em></span>
+            <span>Компактная упаковка {serviceHints.COMPACT_PACK && <em className="of-check-hint">{serviceHints.COMPACT_PACK}</em>}</span>
           </label>
           <label className="of-check">
             <input name="standardCheckRequested" type="checkbox" defaultChecked={initial?.standardCheckRequested ?? false} />
-            <span>Стандартная проверка на соответствие <em className="of-check-hint">1 $/кг</em></span>
+            <span>Стандартная проверка на соответствие {serviceHints.STANDARD_CHECK && <em className="of-check-hint">{serviceHints.STANDARD_CHECK}</em>}</span>
           </label>
           <label className="of-check">
             <input name="reinforcedPackRequested" type="checkbox" defaultChecked={initial?.reinforcedPackRequested ?? false} />

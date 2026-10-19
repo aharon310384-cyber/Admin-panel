@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import OrderForm from "@/components/orders/order-form";
+import { serviceHints } from "@/lib/tariffs";
 import { updateOrder, deleteOrder } from "@/actions/orders";
 import DeleteOrderButton from "./[id]/edit/delete-order-button";
 import Form from "@/components/form/form";
@@ -31,7 +32,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
   }).format(order.createdAt);
   const authorLabel = order.author?.name ?? "—";
 
-  const [customers, recipients, productNames, deliveryMethods] = await Promise.all([
+  const [customers, recipients, productNames, deliveryMethods, hints] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       select: { id: true, code: true, name: true },
@@ -52,6 +53,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
       select: { code: true, nameRu: true },
       orderBy: { sortOrder: "asc" },
     }),
+    serviceHints(),
   ]);
 
   const update = updateOrder.bind(null, id);
@@ -87,6 +89,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
             recipients={recipients}
             productNames={productNames}
             deliveryMethods={deliveryMethods}
+            serviceHints={hints}
             action={update}
             submitLabel="Сохранить изменения"
             initial={{
