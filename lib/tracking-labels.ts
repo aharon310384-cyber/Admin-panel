@@ -36,10 +36,10 @@ const SUB_STATUS: Record<string, string> = {
   Exception_Cancel: "Отменена",
 };
 
-/** Статус отслеживания одной строкой: уточнение, если оно есть, иначе основной статус. */
+/** Статус отслеживания одной строкой: уточнение, если оно есть, иначе основной статус. Нет статуса — номер на слежении, ответа ещё нет. */
 export function trackingStatusLabel(status: string | null | undefined, subStatus?: string | null): string {
   if (subStatus && SUB_STATUS[subStatus]) return SUB_STATUS[subStatus];
-  if (!status) return "Не отслеживается";
+  if (!status) return "Ждём данных";
   return STATUS[status] ?? status;
 }
 
