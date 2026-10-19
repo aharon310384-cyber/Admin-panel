@@ -20,7 +20,10 @@ export default auth((req) => {
   );
 
   if (!isLoggedIn && !isPublicRoute && !hasClientSession) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    // После входа — обратно на открытую страницу (например, по кнопке «Отправить» из Excel).
+    const login = new URL("/login", req.url);
+    if (nextUrl.pathname !== "/") login.searchParams.set("next", nextUrl.pathname + nextUrl.search);
+    return NextResponse.redirect(login);
   }
 
   if (isLoggedIn && isAdminOnlyRoute && session.user?.role !== "ADMIN") {

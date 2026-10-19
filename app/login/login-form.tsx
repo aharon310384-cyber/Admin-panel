@@ -44,7 +44,9 @@ export default function LoginForm() {
       return;
     }
 
-    router.push("/dashboard");
+    // Вернуться туда, откуда пришли на вход (только своя страница, не чужой сайт).
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.push(next && /^\/(?![\\/])/.test(next) && !next.startsWith("/login") ? next : "/dashboard");
     router.refresh();
   };
 
