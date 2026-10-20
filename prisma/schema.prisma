@@ -150,6 +150,7 @@ model Company {
 
   shippingTariffs ShippingTariff[]
   serviceTariffs  ServiceTariff[]
+  rateChanges     ExchangeRateChange[]
 }
 
 // ─────────────────────────── СОТРУДНИКИ ───────────────────────────
@@ -191,6 +192,7 @@ model User {
 
   interfaceSettings UserInterfaceSettings?
   objectVersions    ObjectVersion[]
+  rateChanges       ExchangeRateChange[]
 }
 
 /// Настройки интерфейса сотрудника — как «Настройка панелей» в 1С. Свои у каждого.
@@ -315,6 +317,28 @@ model FinanceSettings {
   euDutyPassToClient    Boolean  @default(true)  // включать ли пошлину в счёт клиента
   updatedAt             DateTime @updatedAt
   updatedBy             String?
+}
+
+enum RateCurrency {
+  USD // курс ¥ за $
+  EUR // курс ¥ за €
+}
+
+/// Регистр курсов — история изменения курсов в «Финансы → Курс»: когда, кто, с какого значения на какое.
+/// Запись появляется при каждом сохранении, где курс поменялся; записи не правятся и не удаляются.
+model ExchangeRateChange {
+  id          String       @id @default(cuid())
+  companyId   String?      // чей курс; пусто — общий курс системы («Финансы → Курс» пока один на все компании)
+  company     Company?     @relation(fields: [companyId], references: [id])
+  currency    RateCurrency
+  oldRate     Decimal?     // было; пусто — курс не был задан
+  newRate     Decimal?     // стало
+  note        String?      // пояснение: «курс на момент запуска журнала»
+  changedAt   DateTime     @default(now())
+  changedById String?      // кто поменял; пусто — неизвестно (до журнала)
+  changedBy   User?        @relation(fields: [changedById], references: [id])
+
+  @@index([changedAt])
 }
 
 // ─────────────────────────── КЛИЕНТЫ / ПОЛУЧАТЕЛИ ───────────────────────────

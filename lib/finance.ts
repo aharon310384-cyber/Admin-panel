@@ -33,6 +33,34 @@ export async function getFinanceSettings(): Promise<FinanceSettingsView> {
   };
 }
 
+export type RateChangeRow = {
+  id: string;
+  changedAt: Date;
+  currency: "USD" | "EUR";
+  oldRate: number | null;
+  newRate: number | null;
+  author: string | null;
+  note: string | null;
+};
+
+/** Регистр курсов: изменения курсов, новые первыми. */
+export async function getRateHistory(limit = 100): Promise<RateChangeRow[]> {
+  const rows = await prisma.exchangeRateChange.findMany({
+    orderBy: [{ changedAt: "desc" }, { id: "desc" }],
+    take: limit,
+    include: { changedBy: { select: { name: true } } },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    changedAt: row.changedAt,
+    currency: row.currency,
+    oldRate: row.oldRate != null ? Number(row.oldRate) : null,
+    newRate: row.newRate != null ? Number(row.newRate) : null,
+    author: row.changedBy?.name ?? null,
+    note: row.note,
+  }));
+}
+
 export type RatesStats = {
   parcelsTotal: number;
   parcelsOnCurrentRate: number;

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
-import { getFinanceSettings, getRatesStats } from "@/lib/finance";
+import { getFinanceSettings, getRateHistory, getRatesStats } from "@/lib/finance";
 import RatesTab from "./rates-tab";
 import Form from "@/components/form/form";
 
@@ -11,11 +11,11 @@ export default async function FinancePage() {
   const isAdmin = session?.user.role === "ADMIN";
 
   const settings = await getFinanceSettings();
-  const ratesData = await getRatesStats(settings.exchangeRateCnyPerUsd);
+  const [ratesData, history] = await Promise.all([getRatesStats(settings.exchangeRateCnyPerUsd), getRateHistory()]);
 
   return (
     <Form formKey="finance" title="Курс" footer="Курс CNY / USD по умолчанию для новых посылок">
-      <RatesTab settings={settings} stats={ratesData} isAdmin={isAdmin} />
+      <RatesTab settings={settings} stats={ratesData} history={history} isAdmin={isAdmin} />
     </Form>
   );
 }
