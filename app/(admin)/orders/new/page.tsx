@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { deliveryTypesByCountry } from "@/lib/tariffs";
 import OrderBulkImport from "@/components/orders/order-bulk-import";
 import Form from "@/components/form/form";
 
 export const metadata: Metadata = { title: "Новый заказ" };
 
 export default async function NewOrderPage() {
-  const [customers, recipients, productNames, countries] = await Promise.all([
+  const [customers, recipients, productNames, countries, deliveryTypes] = await Promise.all([
     prisma.customer.findMany({
       where: { deletedAt: null },
       select: { id: true, code: true, name: true },
@@ -14,7 +15,7 @@ export default async function NewOrderPage() {
     }),
     prisma.recipient.findMany({
       where: { deletedAt: null },
-      select: { id: true, customerId: true, name: true, country: true },
+      select: { id: true, customerId: true, name: true, country: true, countryCode: true },
       orderBy: { name: "asc" },
     }),
     prisma.productName.findMany({
@@ -26,6 +27,7 @@ export default async function NewOrderPage() {
       select: { code: true, nameRu: true },
       orderBy: { nameRu: "asc" },
     }),
+    deliveryTypesByCountry(),
   ]);
 
   return (
@@ -34,7 +36,7 @@ export default async function NewOrderPage() {
       title="Новый заказ"
       footer={<>Один заказ = один товар + один входящий трек-номер. Несколько входящих трек-номеров — несколько заказов.</>}
     >
-      <OrderBulkImport customers={customers} recipients={recipients} productNames={productNames} countries={countries} />
+      <OrderBulkImport customers={customers} recipients={recipients} productNames={productNames} countries={countries} deliveryTypesByCountry={deliveryTypes} />
     </Form>
   );
 }

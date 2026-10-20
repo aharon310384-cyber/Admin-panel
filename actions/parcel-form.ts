@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ParcelStatus, Prisma } from "@prisma/client";
+import type { ParcelStatus, Prisma, ServiceTariff } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { nextParcelTaskNumber } from "@/lib/parcel-number";
@@ -12,6 +12,7 @@ import { computeEuCustomsDuty, type DutyOrderLine, type DutyResult } from "@/lib
 import { parcelStatusLabel, PARCEL_STATUS_LABELS } from "@/lib/statuses";
 import { ensureBaseline, ensureBaselines, recordVersion, recordVersions } from "@/lib/versions";
 import { trackAfterResponse } from "@/lib/tracking";
+import { activeServices, findShippingTariff } from "@/lib/tariffs";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -28,17 +29,42 @@ type OrderServiceFlags = {
 
 type ServiceLine = { code: string; name: string; priceUsd: number };
 
-/** Услуги посылки по флагам строк-заказов (OR по строкам). Вес — расчётный вес посылки. */
-function servicesFromOrders(orders: OrderServiceFlags[], billableWeightKg: number): ServiceLine[] {
+/**
+ * Строки услуг по справочнику «Логистика → Тарифы»: название и цена — оттуда, не из кода.
+ * Цена «за кг» — от расчётного веса, «за заказ» — по числу заказов, «%» и «по факту» — сумма от вызывающего.
+ * Услуги, которой нет в справочнике или которая не действует, в посылке нет: её код попадает в missing.
+ */
+function serviceLines(services: Map<string, ServiceTariff>) {
   const lines: ServiceLine[] = [];
-  if (orders.some((o) => o.consolidationRequested)) lines.push({ code: "CONSOLIDATION", name: "Консолидация", priceUsd: round2(billableWeightKg * 0.3) });
-  if (orders.some((o) => o.compactPackRequested)) lines.push({ code: "COMPACT_PACK", name: "Компактная упаковка", priceUsd: round2(billableWeightKg * 0.5) });
-  if (orders.some((o) => o.standardCheckRequested)) lines.push({ code: "STANDARD_CHECK", name: "Стандартная проверка на соответствие", priceUsd: round2(billableWeightKg * 1.0) });
+  const missing: string[] = [];
+  const add = (code: string, base: { weightKg?: number; count?: number; amountUsd?: number }) => {
+    const service = services.get(code);
+    if (!service) {
+      missing.push(code);
+      return;
+    }
+    const value = Number(service.value ?? 0);
+    const priceUsd =
+      service.pricingType === "PER_KG" ? (base.weightKg ?? 0) * value
+      : service.pricingType === "PER_ORDER" ? (base.count ?? 1) * value
+      : (base.amountUsd ?? 0);
+    lines.push({ code, name: service.name, priceUsd: round2(priceUsd) });
+  };
+  return { lines, missing, add };
+}
+
+/** Услуги посылки по флагам строк-заказов (OR по строкам). Вес — расчётный вес посылки. */
+function servicesFromOrders(orders: OrderServiceFlags[], billableWeightKg: number, services: Map<string, ServiceTariff>): ServiceLine[] {
+  const { lines, add } = serviceLines(services);
+  if (orders.some((o) => o.consolidationRequested)) add("CONSOLIDATION", { weightKg: billableWeightKg });
+  if (orders.some((o) => o.compactPackRequested)) add("COMPACT_PACK", { weightKg: billableWeightKg });
+  if (orders.some((o) => o.standardCheckRequested)) add("STANDARD_CHECK", { weightKg: billableWeightKg });
   const detailedCount = orders.filter((o) => o.detailedCheckRequested).length;
-  if (detailedCount > 0) lines.push({ code: "DETAILED_CHECK", name: "Детальная проверка и фотоотчёт", priceUsd: round2(detailedCount * 2.0) });
+  if (detailedCount > 0) add("DETAILED_CHECK", { count: detailedCount });
   // сумму усиленной упаковки задаёт админ на посылке — при оформлении фиксируем пожелание строкой 0 $
-  if (orders.some((o) => o.reinforcedPackRequested)) lines.push({ code: "REINFORCED_PACK", name: "Усиленная упаковка", priceUsd: 0 });
-  if (orders.some((o) => o.keepOriginalPackaging)) lines.push({ code: "KEEP_ORIGINAL_PACK", name: "Оставить оригинальную упаковку", priceUsd: 0 });
+  if (orders.some((o) => o.reinforcedPackRequested)) add("REINFORCED_PACK", { amountUsd: 0 });
+  const keepCount = orders.filter((o) => o.keepOriginalPackaging).length;
+  if (keepCount > 0) add("KEEP_ORIGINAL_PACK", { count: keepCount });
   return lines;
 }
 
@@ -133,16 +159,15 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
   const billable = round2(orders.reduce((s, o) => s + Number(o.actualWeightKg ?? 0), 0));
   const settings = await prisma.financeSettings.findFirst();
   const rate = Number(settings?.exchangeRateCnyPerUsd ?? 7.1);
-  const tariff = first.deliveryType
-    ? await prisma.shippingTariff.findFirst({ where: { deliveryType: first.deliveryType, active: true } })
-    : null;
+  // Тариф — по стране получателя и виду доставки («Логистика → Тарифы»)
+  const tariff = await findShippingTariff(recipient.countryCode, first.deliveryType);
   const shippingCostUsd = tariff ? round2(billable * Number(tariff.pricePerKgUsd) + Number(tariff.handlingFeeUsd)) : 0;
 
   const { duty, passToClient } = await calcDutyFor(first.recipientId, orders);
   const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
   // услуги, выбранные клиентом на строках заказов, переходят в посылку (OR по строкам)
-  const serviceLines = servicesFromOrders(orders, billable);
-  const servicesTotal = round2(serviceLines.reduce((s, l) => s + l.priceUsd, 0));
+  const orderServices = servicesFromOrders(orders, billable, await activeServices());
+  const servicesTotal = round2(orderServices.reduce((s, l) => s + l.priceUsd, 0));
   const totalUsd = round2(shippingCostUsd + servicesTotal + dutyInTotal);
 
   const parcel = await prisma.$transaction(async (tx) => {
@@ -183,7 +208,7 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
     await tx.parcelStatusHistory.create({
       data: { parcelId: created.id, status: "FORMED", changedBy: session.user.id },
     });
-    await saveParcelServices(created.id, serviceLines, rate, tx);
+    await saveParcelServices(created.id, orderServices, rate, tx);
     // История изменений: посылка создана, заказы оформлены в неё
     await recordVersion("parcel", created.id, { authorId: session.user.id, comment: "Создана" }, tx);
     await recordVersions("order", formedIds, { authorId: session.user.id, comment: `Оформлен в посылку ${created.number}` }, tx);
@@ -220,7 +245,7 @@ export async function applyParcelServices(
 
   const parcel = await prisma.parcel.findUnique({
     where: { id: parcelId },
-    include: { orders: true },
+    include: { orders: true, recipient: { select: { countryCode: true } }, parcelTask: { select: { destinationCountry: true } } },
   });
   if (!parcel) return { ok: false };
 
@@ -232,10 +257,9 @@ export async function applyParcelServices(
 
   const rate = Number(parcel.exchangeRateCnyPerUsd);
 
-  // Тариф (пока по типу доставки — направление отложено); нужен для ставки и делителя объёмного веса
-  const tariff = parcel.deliveryType
-    ? await prisma.shippingTariff.findFirst({ where: { deliveryType: parcel.deliveryType, active: true } })
-    : null;
+  // Тариф — по стране получателя и виду доставки; нужен для ставки и делителя объёмного веса
+  const country = parcel.recipient?.countryCode ?? parcel.parcelTask?.destinationCountry ?? null;
+  const tariff = await findShippingTariff(country, parcel.deliveryType);
 
   // Вес фактический вводится вручную
   const actualWeightKg =
@@ -256,32 +280,34 @@ export async function applyParcelServices(
     opts.billableWeightKg && opts.billableWeightKg > 0
       ? round2(opts.billableWeightKg)
       : Math.max(actualWeightKg, volumetricWeightKg);
-  let warning: string | undefined;
+  const warnings: string[] = [];
   let shipping: number;
   if (tariff) {
     shipping = round2(billable * Number(tariff.pricePerKgUsd) + Number(tariff.handlingFeeUsd));
   } else {
     shipping = Number(parcel.shippingCostUsd ?? 0);
-    warning = "Тариф по типу доставки не найден — «Отправка» не пересчитана.";
+    warnings.push("Нет действующего тарифа для страны получателя и вида доставки — «Отправка» не пересчитана (тарифы — «Логистика → Тарифы»).");
   }
 
   const declaredTotal = parcel.orders.reduce((s, o) => s + Number(o.declaredValueUsd ?? 0), 0);
   const detailedCount = parcel.orders.filter((o) => o.detailedCheckRequested).length;
 
-  const services: ServiceLine[] = [];
-  if (opts.consolidation) services.push({ code: "CONSOLIDATION", name: "Консолидация", priceUsd: round2(billable * 0.3) });
-  if (opts.compactPack) services.push({ code: "COMPACT_PACK", name: "Компактная упаковка", priceUsd: round2(billable * 0.5) });
-  if (opts.standardCheck) services.push({ code: "STANDARD_CHECK", name: "Стандартная проверка на соответствие", priceUsd: round2(billable * 1.0) });
-  if (detailedCount > 0) services.push({ code: "DETAILED_CHECK", name: "Детальная проверка и фотоотчёт", priceUsd: round2(detailedCount * 2.0) });
+  const { lines: services, missing, add } = serviceLines(await activeServices());
+  if (opts.consolidation) add("CONSOLIDATION", { weightKg: billable });
+  if (opts.compactPack) add("COMPACT_PACK", { weightKg: billable });
+  if (opts.standardCheck) add("STANDARD_CHECK", { weightKg: billable });
+  if (detailedCount > 0) add("DETAILED_CHECK", { count: detailedCount });
   if (opts.reinforcedPackUsd && opts.reinforcedPackUsd > 0) {
-    services.push({ code: "REINFORCED_PACK", name: "Усиленная упаковка", priceUsd: round2(opts.reinforcedPackUsd) });
+    add("REINFORCED_PACK", { amountUsd: opts.reinforcedPackUsd });
   } else if (parcel.orders.some((o) => o.reinforcedPackRequested)) {
     // клиент просил усиленную упаковку, сумма ещё не задана — не теряем строку при пересчёте
-    services.push({ code: "REINFORCED_PACK", name: "Усиленная упаковка", priceUsd: 0 });
+    add("REINFORCED_PACK", { amountUsd: 0 });
   }
-  if (opts.localDeliveryUsd && opts.localDeliveryUsd > 0) services.push({ code: "LOCAL_DELIVERY", name: "Доставка до склада", priceUsd: round2(opts.localDeliveryUsd) });
-  if (opts.insurancePercent && opts.insurancePercent > 0) services.push({ code: "INSURANCE", name: "Дополнительная страховка", priceUsd: round2(declaredTotal * (opts.insurancePercent / 100)) });
-  if (parcel.orders.some((o) => o.keepOriginalPackaging)) services.push({ code: "KEEP_ORIGINAL_PACK", name: "Оставить оригинальную упаковку", priceUsd: 0 });
+  if (opts.localDeliveryUsd && opts.localDeliveryUsd > 0) add("LOCAL_DELIVERY", { amountUsd: opts.localDeliveryUsd });
+  if (opts.insurancePercent && opts.insurancePercent > 0) add("INSURANCE", { amountUsd: declaredTotal * (opts.insurancePercent / 100) });
+  const keepCount = parcel.orders.filter((o) => o.keepOriginalPackaging).length;
+  if (keepCount > 0) add("KEEP_ORIGINAL_PACK", { count: keepCount });
+  if (missing.length) warnings.push(`Не начислены услуги, которых нет в «Логистика → Тарифы» или они не действуют: ${missing.join(", ")}.`);
 
   await ensureBaseline("parcel", parcelId);
   const servicesTotal = await saveParcelServices(parcelId, services, rate);
@@ -313,7 +339,7 @@ export async function applyParcelServices(
   });
   await recordVersion("parcel", parcelId, { authorId: session.user.id, comment: "Пересчитана квитанция" });
   revalidatePath(`/parcels/${parcelId}`);
-  return { ok: true, warning };
+  return { ok: true, warning: warnings.join(" ") || undefined };
 }
 
 /** Сохранить трек-номер отслеживания посылки (исходящий трек до получателя). */

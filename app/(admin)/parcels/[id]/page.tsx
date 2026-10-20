@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getFinanceSettings } from "@/lib/finance";
+import { findShippingTariff, serviceHints } from "@/lib/tariffs";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, orderStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
 import { computeEuCustomsDuty, hasIncompleteHsCodes } from "@/lib/eu-customs";
@@ -41,7 +42,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
     include: {
       customer: true,
       recipient: true,
-      parcelTask: { select: { number: true, note: true, internalComment: true } },
+      parcelTask: { select: { number: true, note: true, internalComment: true, destinationCountry: true } },
       orders: { orderBy: { createdAt: "asc" } },
       services: { orderBy: { id: "asc" } },
       statusHistory: { orderBy: { createdAt: "asc" } },
@@ -54,10 +55,11 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
   const rate = Number(parcel.exchangeRateCnyPerUsd);
   const shipping = Number(parcel.shippingCostUsd ?? 0);
 
-  // Тариф (по типу доставки) — для делителя объёмного веса
-  const tariff = parcel.deliveryType
-    ? await prisma.shippingTariff.findFirst({ where: { deliveryType: parcel.deliveryType, active: true } })
-    : null;
+  // Тариф (по стране получателя и виду доставки) — для делителя объёмного веса
+  const [tariff, hints] = await Promise.all([
+    findShippingTariff(parcel.recipient?.countryCode ?? parcel.parcelTask?.destinationCountry, parcel.deliveryType),
+    serviceHints(),
+  ]);
   const volumetricDivisor = tariff?.volumetricDivisor ?? 6000;
   const actual = Number(parcel.actualWeightKg ?? 0);
   const volumetric = Number(parcel.volumetricWeightKg ?? 0);
@@ -329,6 +331,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
           <aside className="col col--side">
             <section className="card">
               <ParcelControls
+                hints={hints}
                 parcelId={parcel.id}
                 status={parcel.status}
                 isPaid={parcel.isPaid}

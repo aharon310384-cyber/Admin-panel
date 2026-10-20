@@ -80,4 +80,4 @@ PostgreSQL, адрес — `DATABASE_URL` в `.env`. До 2026-10 база бы�
 
 ## Тарифы
 
-Справочник тарифов добавлен в `lib/postmanfox-tariffs.ts` и отображается в разделе `/tariffs`. Источник: https://postmanfox.com/ru/tarify/
+Тарифы доставки и цены услуг хранятся в базе (`ShippingTariff`, `ServiceTariff`) и правятся в «Логистика → Тарифы» (`/tariffs`), инструкция — `docs/product/инструкция-тарифы.md`. Тариф посылки выбирается по стране получателя и виду доставки. Начальные данные создаёт `npm run db:upgrade:tariffs` (при деплое — сам, в составе `db:upgrade`).

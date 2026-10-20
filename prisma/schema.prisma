@@ -130,6 +130,7 @@ model Company {
   tagline           String?  // коротко о компании — в описании страниц кабинета («посылки из Китая»)
   siteUrl           String?  // сайт: ссылка с логотипа
   trackingUrl       String?  // страница отслеживания посылки на сайте — кнопка «Отследить» в кабинете
+  tariffsUrl        String?  // страница тарифов на сайте — ссылка со страниц тарифов
   phone             String?
   email             String?
   telegram          String?  // контакт в Telegram для связи (@username)
@@ -145,6 +146,9 @@ model Company {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   updatedBy         String?
+
+  shippingTariffs ShippingTariff[]
+  serviceTariffs  ServiceTariff[]
 }
 
 // ─────────────────────────── СОТРУДНИКИ ───────────────────────────
@@ -248,35 +252,52 @@ model ProductName {
   @@index([parentId])
 }
 
+// Тарифы доставки — только здесь, не в коде. Правятся в «Логистика → Тарифы».
+// Тариф посылки выбирается по стране получателя и виду доставки: countryCodes + deliveryType.
 model ShippingTariff {
   id             String        @id @default(cuid())
-  direction      String        // страна/направление (Россия, Украина, EMS-группа…)
+  companyId      String?       // чей тариф; пусто — только до переноса тарифов (db:upgrade)
+  company        Company?      @relation(fields: [companyId], references: [id])
+  section        String?       // раздел на странице тарифов: «Основные направления», «EMS»
+  direction      String        // название направления: «Россия (авто)», «Европа и Грузия»
+  countryCodes   String[]      @default([]) // страны направления (ISO), по ним выбирается тариф посылки
   deliveryType   String
   deliveryMethod DeliveryMethod @relation(fields: [deliveryType], references: [code])
+  cargoType      String?       // уточнение: «до 2 кг», «порошки, жидкости, батарейки»
+  deliveryTarget String?       // «до двери/отделения»
   pricePerKgUsd  Decimal       // ставка $/кг
   handlingFeeUsd Decimal       @default(0) // оформление $
+  onRequest      Boolean       @default(false) // цена по запросу: показывается, но в расчёт посылки не берётся
   minDays        Int?
   maxDays        Int?
   paymentTiming  PaymentTiming @default(BEFORE)
   volumetricDivisor Int?       // Фаза 2 (делитель объёмного веса)
   minWeightKg    Decimal?      // Фаза 2 (минимальный вес)
+  sortOrder      Int           @default(0)
   active         Boolean       @default(true)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  @@index([companyId])
   @@index([direction])
   @@index([deliveryType])
   @@index([active])
 }
 
+// Цены услуг — только здесь, не в коде. Код услуги связан с отметками в заказе и посылке, поэтому он
+// постоянный и пока общий для всех компаний; правятся название, описание и цена.
 model ServiceTariff {
   code               String             @id // напр. CONSOLIDATION
+  companyId          String?            // чья услуга; пусто — только до переноса тарифов (db:upgrade)
+  company            Company?           @relation(fields: [companyId], references: [id])
   name               String
+  description        String?            // пояснение на странице тарифов
   pricingType        ServicePricingType
   value              Decimal?           // 0.3 / 0.5 / 1.0 / 2.0 (для MANUAL — null)
   percentMin         Decimal?           // для PERCENT (страховка 2)
   percentMax         Decimal?           // для PERCENT (страховка 10)
   selectableByClient Boolean            @default(false) // true только у «Детальная проверка»
+  inPriceList        Boolean            @default(true)  // показывать на странице тарифов
   active             Boolean            @default(true)
   sortOrder          Int                @default(0)
 

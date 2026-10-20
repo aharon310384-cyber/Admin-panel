@@ -19,6 +19,7 @@ export const COMPANY_FIELDS = {
   tagline: true,
   siteUrl: true,
   trackingUrl: true,
+  tariffsUrl: true,
   phone: true,
   email: true,
   telegram: true,
