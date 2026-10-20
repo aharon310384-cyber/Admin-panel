@@ -36,7 +36,7 @@ export default function ExcelFile({ columns }: { columns: ExcelColumns }) {
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [filter, setFilter] = useState<Filter>("new");
   const [shown, setShown] = useState(PAGE);
-  const [createRecipients, setCreateRecipients] = useState(false);
+  const [createRecipients, setCreateRecipients] = useState(true);
   const [results, setResults] = useState<Map<number, Result>>(new Map());
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ total: number; processed: number } | null>(null);
@@ -133,7 +133,9 @@ export default function ExcelFile({ columns }: { columns: ExcelColumns }) {
         let result: Result;
         try {
           const r = await importExcelRow(row.text, { createRecipient: createRecipients });
-          result = r.ok ? { ok: true, text: `${r.created ? "загружена" : "обновлена"} · ${r.parcelNumber}` } : { ok: false, text: r.error };
+          result = r.ok
+            ? { ok: true, text: `${r.created ? "загружена" : "обновлена"} · ${r.parcelNumber}${r.recipientCreated ? ` · новый получатель ${r.recipientCreated}` : ""}` }
+            : { ok: false, text: r.error };
         } catch {
           result = { ok: false, text: "не получилось — попробуйте ещё раз" };
         }

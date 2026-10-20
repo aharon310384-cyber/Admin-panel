@@ -95,6 +95,8 @@ export default async function RecipientDetailPage({
           <dl className="info-list">
             <div className="info-row"><dt>Серия паспорта</dt><dd>{dash(recipient.passportSeries)}</dd></div>
             <div className="info-row"><dt>Номер паспорта</dt><dd>{dash(recipient.passportNumber)}</dd></div>
+            <div className="info-row"><dt>Дата выдачи</dt><dd>{recipient.passportIssuedAt ? formatDate(recipient.passportIssuedAt) : "—"}</dd></div>
+            <div className="info-row"><dt>Кем выдан</dt><dd>{dash(recipient.passportIssuedBy)}</dd></div>
             <div className="info-row"><dt>Дата окончания</dt><dd>{recipient.passportExpiry ? formatDate(recipient.passportExpiry) : "—"}</dd></div>
             <div className="info-row"><dt>PINFL</dt><dd className="mono">{dash(recipient.pinfl)}</dd></div>
           </dl>

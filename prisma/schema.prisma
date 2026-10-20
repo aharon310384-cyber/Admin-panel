@@ -401,9 +401,11 @@ model Recipient {
   address     String?
   postalCode  String?
   // документы
-  passportSeries String?
-  passportNumber String?
-  passportExpiry DateTime?
+  passportSeries   String?
+  passportNumber   String?
+  passportIssuedAt DateTime? // дата выдачи
+  passportIssuedBy String?   // кем выдан
+  passportExpiry   DateTime? // дата окончания
   pinfl          String?   // ПИНФЛ (14 цифр, Узбекистан)
   // кто внёс получателя
   authorId    String?

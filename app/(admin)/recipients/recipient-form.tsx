@@ -40,6 +40,8 @@ type RecipientValues = {
   postalCode: string | null;
   passportSeries: string | null;
   passportNumber: string | null;
+  passportIssuedAt: Date | null;
+  passportIssuedBy: string | null;
   passportExpiry: Date | null;
   pinfl: string | null;
 };
@@ -323,6 +325,17 @@ export default function RecipientForm({
           </div>
 
           <div className="field">
+            <label className="field-label">Дата выдачи</label>
+            <input
+              type="date"
+              name="passportIssuedAt"
+              defaultValue={toDateInput(recipient?.passportIssuedAt)}
+              className={`field-input ${errors?.passportIssuedAt ? "field-input--error" : ""}`}
+            />
+            {errors?.passportIssuedAt && <p className="field-error">{errors.passportIssuedAt[0]}</p>}
+          </div>
+
+          <div className="field">
             <label className="field-label">Дата окончания</label>
             <input
               type="date"
@@ -331,6 +344,18 @@ export default function RecipientForm({
               className={`field-input ${errors?.passportExpiry ? "field-input--error" : ""}`}
             />
             {errors?.passportExpiry && <p className="field-error">{errors.passportExpiry[0]}</p>}
+          </div>
+
+          <div className="field field--full">
+            <label className="field-label">Кем выдан</label>
+            <input
+              type="text"
+              name="passportIssuedBy"
+              defaultValue={recipient?.passportIssuedBy ?? ""}
+              className={`field-input ${errors?.passportIssuedBy ? "field-input--error" : ""}`}
+              placeholder="Орган, выдавший паспорт"
+            />
+            {errors?.passportIssuedBy && <p className="field-error">{errors.passportIssuedBy[0]}</p>}
           </div>
 
           <div className="field">
