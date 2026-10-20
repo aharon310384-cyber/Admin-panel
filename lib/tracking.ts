@@ -8,12 +8,17 @@ import { notifyParcelStatusChange } from "@/lib/notify";
 import {
   ALREADY_REGISTERED,
   BATCH,
+  CARRIER_NOT_DETECTED,
+  CHANGE_TOO_EARLY,
+  NEEDS_EXTRA_INFO,
   QUOTA_RAN_OUT,
   Track17RequestError,
+  changeCarrier,
   getTrackInfo,
   register,
   type Track17Event,
   type Track17Item,
+  type Track17RegisterItem,
 } from "@/lib/track17";
 
 // Отслеживание посылок через 17TRACK.
@@ -21,6 +26,9 @@ import {
 // «Доставлена» в 17TRACK — посылка становится «Доставлена» сама: история статусов, версия, сообщение клиенту в Telegram.
 // Возврат, «не удалось вручить», запрос таможни, долго нет данных — отметка «проблема», статус меняет человек.
 // Запуск: по расписанию (cron → /api/tracking/sync), «Проверить сейчас» в настройках, «Обновить» в карточке посылки.
+// Язык событий и запасной перевозчик — в настройках (TrackingSettings). Запасной перевозчик: номер с его приставкой
+// 17TRACK сам не определил или за N часов ничего не нашёл — переставляем на него (один раз).
+// Данные получателя (страна, индекс, 4 цифры телефона, дата отправки) отдаём, только если перевозчик их просит.
 
 /** Сами ставим на слежение посылки, отправленные за последние столько дней; более старые — кнопкой в карточке. */
 const RECENT_DAYS = 60;
@@ -36,8 +44,14 @@ const PROBLEM_SUB_STATUSES = new Set(["InTransit_CustomsRequiringInformation"]);
 export type TrackingEvent = { at: string | null; text: string; location: string | null };
 export type SyncResult = { ok: boolean; message: string };
 
-type Counters = { registered: number; updated: number; delivered: number; errors: string[] };
-type Target = { parcelId: string; number: string; carrier?: number | null };
+type Counters = { registered: number; updated: number; delivered: number; switched: number; errors: string[] };
+/** extra — данные получателя на случай, если перевозчик их попросит. */
+type Extra = { country: string | null; postalCode: string | null; phone: string | null; shippedAt: Date };
+type Target = { parcelId: string; number: string; carrier?: number | null; extra?: Extra };
+type Fallback = { carrier: number; name: string; prefixes: string[]; afterHours: number };
+type Options = { lang: string; fallback: Fallback | null };
+/** Номер, который пора переставить на запасного перевозчика. */
+type Switch = { target: Target; carrierOld: number | null };
 
 /** Номер для слежения: без пробелов, заглавными. */
 export function normalizeTrackNumber(value: string): string {
@@ -47,6 +61,38 @@ export function normalizeTrackNumber(value: string): string {
 export async function getTrackingKey(): Promise<string | null> {
   const settings = await prisma.trackingSettings.findFirst({ select: { apiKey: true } });
   return settings?.apiKey?.trim() || null;
+}
+
+async function loadOptions(): Promise<Options> {
+  const s = await prisma.trackingSettings.findFirst({
+    select: { lang: true, fallbackPrefixes: true, fallbackCarrier: true, fallbackCarrierName: true, fallbackAfterHours: true },
+  });
+  const prefixes = (s?.fallbackPrefixes ?? "").split(/[\s,;]+/).map((p) => p.trim().toUpperCase()).filter(Boolean);
+  return {
+    lang: s?.lang || "ru",
+    fallback:
+      s?.fallbackCarrier && prefixes.length
+        ? { carrier: s.fallbackCarrier, name: s.fallbackCarrierName || `перевозчик ${s.fallbackCarrier}`, prefixes, afterHours: s.fallbackAfterHours }
+        : null,
+  };
+}
+
+const fallbackFits = (fallback: Fallback | null, number: string): fallback is Fallback =>
+  Boolean(fallback?.prefixes.some((prefix) => number.startsWith(prefix)));
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Данные получателя для перевозчиков, которые без них не показывают трек. */
+function extraFields(extra: Extra | undefined): Partial<Track17RegisterItem> {
+  if (!extra) return {};
+  const digits = (extra.phone ?? "").replace(/\D/g, "");
+  const d = extra.shippedAt;
+  return {
+    ...(extra.country ? { destination_country: extra.country } : {}),
+    ...(extra.postalCode ? { destination_postal_code: extra.postalCode } : {}),
+    ...(digits.length >= 4 ? { phone_number_last_4: digits.slice(-4) } : {}),
+    ship_date: `${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}`,
+  };
 }
 
 function chunks<T>(items: T[], size: number): T[][] {
@@ -71,14 +117,15 @@ function eventText(event: Track17Event | null | undefined): string | null {
   return (event?.description_translation?.description || event?.description || "").trim() || null;
 }
 
-type Registration = { registeredAt: Date | null; carrier?: number | null; error?: string; problem?: boolean };
+type Registration = { registeredAt: Date | null; carrier?: number | null; carrierName?: string | null; fallbackAt?: Date | null; error?: string; problem?: boolean };
 
 /** Номер на слежение заново: прежнее состояние стирается. */
 async function saveRegistration(target: Target, registration: Registration) {
   const data = {
     number: target.number,
     carrier: registration.carrier ?? null,
-    carrierName: null,
+    carrierName: registration.carrierName ?? null,
+    fallbackAt: registration.fallbackAt ?? null,
     registeredAt: registration.registeredAt,
     status: null,
     subStatus: null,
@@ -109,7 +156,7 @@ async function markDelivered(parcelId: string, note: string | null): Promise<boo
   return true;
 }
 
-async function applyInfo(target: Target, item: Track17Item, counters: Counters) {
+async function applyInfo(target: Target, item: Track17Item, counters: Counters, opts: Options, switches: Switch[]) {
   const info = item.track_info ?? {};
   const status = info.latest_status?.status ?? null;
   const subStatus = info.latest_status?.sub_status ?? null;
@@ -122,7 +169,10 @@ async function applyInfo(target: Target, item: Track17Item, counters: Counters) 
     .sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""))
     .slice(0, MAX_EVENTS);
 
-  const current = await prisma.parcelTracking.findUnique({ where: { parcelId: target.parcelId }, select: { registeredAt: true } });
+  const current = await prisma.parcelTracking.findUnique({
+    where: { parcelId: target.parcelId },
+    select: { registeredAt: true, fallbackAt: true },
+  });
   const noData = (!status || status === "NotFound") && !!current?.registeredAt && Date.now() - current.registeredAt.getTime() > NO_DATA_DAYS * DAY;
   const problem = PROBLEM_STATUSES.has(status ?? "") || PROBLEM_SUB_STATUSES.has(subStatus ?? "") || noData;
 
@@ -144,43 +194,117 @@ async function applyInfo(target: Target, item: Track17Item, counters: Counters) 
   });
   counters.updated++;
   if (status === "Delivered" && (await markDelivered(target.parcelId, eventText(latest)))) counters.delivered++;
+
+  // Ничего не найдено за N часов, номер с приставкой запасного перевозчика — переставить на него (один раз).
+  const fallback = opts.fallback;
+  if (
+    fallbackFits(fallback, target.number) &&
+    (!status || status === "NotFound") &&
+    !current?.fallbackAt &&
+    item.carrier !== fallback.carrier &&
+    current?.registeredAt &&
+    Date.now() - current.registeredAt.getTime() >= fallback.afterHours * 60 * 60 * 1000
+  ) {
+    switches.push({ target, carrierOld: item.carrier ?? null });
+  }
 }
 
-async function registerTargets(key: string, targets: Target[], counters: Counters): Promise<Target[]> {
-  const registered: Target[] = [];
-  for (const chunk of chunks(targets, BATCH)) {
-    const groups = byNumber(chunk);
-    const result = await register(key, [...groups.keys()]);
+/** Переставить номера на запасного перевозчика: 17TRACK будет искать их у него (тратит 1 номер квоты на каждый). */
+async function switchCarriers(key: string, switches: Switch[], fallback: Fallback, counters: Counters) {
+  for (const chunk of chunks(switches, BATCH)) {
+    const groups = byNumber(chunk.map((s) => s.target));
+    const old = new Map(chunk.map((s) => [s.target.number, s.carrierOld]));
+    const result = await changeCarrier(
+      key,
+      [...groups.keys()].map((number) => ({ number, ...(old.get(number) ? { carrier_old: old.get(number)! } : {}), carrier_new: fallback.carrier })),
+    );
     for (const item of result.accepted) {
       for (const target of groups.get(item.number) ?? []) {
-        await saveRegistration(target, { registeredAt: new Date(), carrier: item.carrier });
-        registered.push({ ...target, carrier: item.carrier ?? null });
-        counters.registered++;
+        await prisma.parcelTracking.update({
+          where: { parcelId: target.parcelId },
+          data: {
+            carrier: fallback.carrier, carrierName: fallback.name, fallbackAt: new Date(),
+            status: null, subStatus: null, event: null, location: null, eventAt: null, events: [], problem: false, error: null,
+          },
+        });
+        counters.switched++;
       }
     }
     for (const item of result.rejected) {
+      if (item.error?.code === CHANGE_TOO_EARLY) continue; // 17TRACK ещё ищет — попробуем при следующей проверке
+      const message = `не удалось переставить на ${fallback.name}: ${item.error?.message || "ошибка 17TRACK"}`;
       for (const target of groups.get(item.number) ?? []) {
-        if (item.error?.code === ALREADY_REGISTERED) {
-          await saveRegistration(target, { registeredAt: new Date() });
-          registered.push(target);
-          continue;
-        }
-        const message = item.error?.message || "не удалось поставить на слежение";
-        // нет квоты — общая беда, а не этого номера: проблемой посылку не помечаем
-        await saveRegistration(target, { registeredAt: null, error: message, problem: item.error?.code !== QUOTA_RAN_OUT });
-        counters.errors.push(`${item.number}: ${message}`);
+        await prisma.parcelTracking.update({ where: { parcelId: target.parcelId }, data: { fallbackAt: new Date(), error: message } });
       }
+      counters.errors.push(`${item.number}: ${message}`);
+    }
+  }
+}
+
+async function registerTargets(key: string, targets: Target[], counters: Counters, opts: Options): Promise<Target[]> {
+  const registered: Target[] = [];
+  const accept = async (target: Target, carrier: number | null | undefined, fallback: boolean) => {
+    await saveRegistration(target, {
+      registeredAt: new Date(),
+      carrier,
+      ...(fallback && opts.fallback ? { carrierName: opts.fallback.name, fallbackAt: new Date() } : {}),
+    });
+    registered.push({ ...target, carrier: carrier ?? null });
+    counters.registered++;
+    if (fallback) counters.switched++;
+  };
+  const reject = async (target: Target, item: Track17Item) => {
+    if (item.error?.code === ALREADY_REGISTERED) {
+      await saveRegistration(target, { registeredAt: new Date() });
+      registered.push(target);
+      return;
+    }
+    const message = item.error?.message || "не удалось поставить на слежение";
+    // нет квоты — общая беда, а не этого номера: проблемой посылку не помечаем
+    await saveRegistration(target, { registeredAt: null, error: message, problem: item.error?.code !== QUOTA_RAN_OUT });
+    counters.errors.push(`${item.number}: ${message}`);
+  };
+
+  // Второй заход: перевозчик просит данные получателя или 17TRACK не определил перевозчика, а у номера есть запасной.
+  const retry: { item: Track17RegisterItem; targets: Target[]; fallback: boolean }[] = [];
+  for (const chunk of chunks(targets, BATCH)) {
+    const groups = byNumber(chunk);
+    const result = await register(key, [...groups.keys()].map((number) => ({ number, lang: opts.lang })));
+    for (const item of result.accepted) {
+      for (const target of groups.get(item.number) ?? []) await accept(target, item.carrier, false);
+    }
+    for (const item of result.rejected) {
+      const group = groups.get(item.number) ?? [];
+      const code = item.error?.code ?? 0;
+      if (NEEDS_EXTRA_INFO.has(code) && group[0]?.extra) {
+        retry.push({ item: { number: item.number, lang: opts.lang, ...extraFields(group[0].extra) }, targets: group, fallback: false });
+      } else if (code === CARRIER_NOT_DETECTED && fallbackFits(opts.fallback, item.number)) {
+        retry.push({ item: { number: item.number, lang: opts.lang, carrier: opts.fallback.carrier }, targets: group, fallback: true });
+      } else {
+        for (const target of group) await reject(target, item);
+      }
+    }
+  }
+  for (const chunk of chunks(retry, BATCH)) {
+    const byNum = new Map(chunk.map((r) => [r.item.number, r]));
+    const result = await register(key, chunk.map((r) => r.item));
+    for (const item of result.accepted) {
+      const entry = byNum.get(item.number);
+      for (const target of entry?.targets ?? []) await accept(target, item.carrier, Boolean(entry?.fallback));
+    }
+    for (const item of result.rejected) {
+      for (const target of byNum.get(item.number)?.targets ?? []) await reject(target, item);
     }
   }
   return registered;
 }
 
-async function fetchTargets(key: string, targets: Target[], counters: Counters) {
+async function fetchTargets(key: string, targets: Target[], counters: Counters, opts: Options, switches: Switch[]) {
   for (const chunk of chunks(targets, BATCH)) {
     const groups = byNumber(chunk);
     const result = await getTrackInfo(key, [...groups.values()].map((group) => group[0]));
     for (const item of result.accepted) {
-      for (const target of groups.get(item.number) ?? []) await applyInfo(target, item, counters);
+      for (const target of groups.get(item.number) ?? []) await applyInfo(target, item, counters, opts, switches);
     }
     for (const item of result.rejected) {
       const message = item.error?.message || "нет ответа по номеру";
@@ -214,6 +338,7 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
       trackingNumber: true,
       updatedAt: true,
       tracking: { select: { number: true, registeredAt: true, carrier: true } },
+      recipient: { select: { countryCode: true, postalCode: true, phone: true } },
       statusHistory: { where: { status: "SHIPPED" }, orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
     },
   });
@@ -235,14 +360,22 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
       tooOld++;
       continue;
     }
-    toRegister.push({ parcelId: parcel.id, number });
+    const r = parcel.recipient;
+    toRegister.push({
+      parcelId: parcel.id,
+      number,
+      extra: { country: r?.countryCode ?? null, postalCode: r?.postalCode ?? null, phone: r?.phone ?? null, shippedAt },
+    });
   }
 
-  const counters: Counters = { registered: 0, updated: 0, delivered: 0, errors: [] };
+  const opts = await loadOptions();
+  const counters: Counters = { registered: 0, updated: 0, delivered: 0, switched: 0, errors: [] };
+  const switches: Switch[] = [];
   let failure: string | null = null;
   try {
-    toFetch.push(...(await registerTargets(key, toRegister, counters)));
-    await fetchTargets(key, toFetch, counters);
+    toFetch.push(...(await registerTargets(key, toRegister, counters, opts)));
+    await fetchTargets(key, toFetch, counters, opts, switches);
+    if (switches.length && opts.fallback) await switchCarriers(key, switches, opts.fallback, counters);
   } catch (error) {
     if (!(error instanceof Track17RequestError)) throw error;
     failure = error.message;
@@ -255,6 +388,7 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
     `доставлено ${counters.delivered}`,
     `требуют внимания ${problems}`,
   ];
+  if (counters.switched) parts.push(`переставлено на ${opts.fallback?.name ?? "запасного перевозчика"} ${counters.switched}`);
   if (counters.errors.length) parts.push(`ошибок по номерам ${counters.errors.length} (${counters.errors.slice(0, 3).join("; ")})`);
   if (all) {
     // Почему посылка «Отправлена», а на слежение не встала
