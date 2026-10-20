@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { cleanColumns } from "@/lib/excel-columns";
 import { readExcelFile } from "@/lib/excel-file";
+import { latinCode } from "@/lib/excel-check";
 
 // Загрузка из Excel файлом: файл .xlsx → листы и строки задач с отметкой «уже в базе» / «нет клиента».
 // В базу ничего не пишет: строки загружаются потом по одной (actions/excel-row.ts → importExcelRow).
@@ -37,10 +38,11 @@ export async function POST(request: Request) {
   const codes = [...new Set(numbers.map((n) => n.match(/^[A-Z]{2,4}(?=\d)/)?.[0]).filter((c): c is string => Boolean(c)))];
   const [tasks, customers] = await Promise.all([
     prisma.parcelTask.findMany({ where: { number: { in: numbers } }, select: { number: true } }),
-    prisma.customer.findMany({ where: { code: { in: codes }, deletedAt: null }, select: { code: true } }),
+    // коды клиентов — без учёта регистра и с кириллицей, похожей на латиницу (как при разборе строки)
+    prisma.customer.findMany({ where: { code: { not: null }, deletedAt: null }, select: { code: true } }),
   ]);
   const inBase = new Set(tasks.map((t) => t.number));
-  const known = new Set(customers.map((c) => c.code));
+  const known = new Set(customers.map((c) => latinCode(c.code)).filter((c) => codes.includes(c)));
 
   return NextResponse.json({
     sheets: sheets.map((s) => ({

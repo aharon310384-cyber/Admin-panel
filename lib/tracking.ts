@@ -34,6 +34,8 @@ import {
 const RECENT_DAYS = 60;
 /** Столько дней на слежении без данных — «проблема». */
 const NO_DATA_DAYS = 14;
+/** Доставка была раньше — «Доставлена» ставится без сообщения клиенту (старые строки из Excel, правило 9 задания). */
+const NOTIFY_DELIVERED_DAYS = 3;
 const MAX_EVENTS = 50;
 const DAY = 24 * 60 * 60 * 1000;
 const NOT_REGISTERED = -18019902;
@@ -140,8 +142,11 @@ async function saveRegistration(target: Target, registration: Registration) {
   await prisma.parcelTracking.upsert({ where: { parcelId: target.parcelId }, create: { parcelId: target.parcelId, ...data }, update: data });
 }
 
-/** Посылка «Отправлена» → «Доставлена» по данным 17TRACK. Повторный вызов ничего не делает. */
-async function markDelivered(parcelId: string, note: string | null): Promise<boolean> {
+/**
+ * Посылка «Отправлена» → «Доставлена» по данным 17TRACK. Повторный вызов ничего не делает.
+ * Клиенту сообщаем, только если доставка свежая (не раньше NOTIFY_DELIVERED_DAYS дней назад).
+ */
+async function markDelivered(parcelId: string, note: string | null, deliveredAt: Date | null): Promise<boolean> {
   await ensureBaseline("parcel", parcelId);
   const { count } = await prisma.parcel.updateMany({
     where: { id: parcelId, status: "SHIPPED", deletedAt: null },
@@ -152,7 +157,8 @@ async function markDelivered(parcelId: string, note: string | null): Promise<boo
     data: { parcelId, status: "DELIVERED", changedBy: null, note: `17TRACK${note ? `: ${note}` : ""}`.slice(0, 500) },
   });
   await recordVersion("parcel", parcelId, { comment: "Статус «Доставлена» — по данным 17TRACK" });
-  await notifyParcelStatusChange(parcelId, "DELIVERED");
+  const fresh = !deliveredAt || Date.now() - deliveredAt.getTime() <= NOTIFY_DELIVERED_DAYS * DAY;
+  if (fresh) await notifyParcelStatusChange(parcelId, "DELIVERED");
   return true;
 }
 
@@ -193,7 +199,7 @@ async function applyInfo(target: Target, item: Track17Item, counters: Counters, 
     },
   });
   counters.updated++;
-  if (status === "Delivered" && (await markDelivered(target.parcelId, eventText(latest)))) counters.delivered++;
+  if (status === "Delivered" && (await markDelivered(target.parcelId, eventText(latest), latest ? eventTime(latest) : null))) counters.delivered++;
 
   // Ничего не найдено за N часов, номер с приставкой запасного перевозчика — переставить на него (один раз).
   const fallback = opts.fallback;
