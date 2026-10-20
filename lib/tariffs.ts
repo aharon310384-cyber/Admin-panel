@@ -49,10 +49,10 @@ export async function activeServices(db: Db = prisma): Promise<Map<string, Servi
   return new Map(services.map((service) => [service.code, service]));
 }
 
-/** Подсказки цен к отметкам услуг в формах заказа и посылки: код → «0.3$/кг». */
+/** Названия и цены услуг для отметок в формах заказа и посылки: код → { название, «0.3$/кг» }. */
 export async function serviceHints(): Promise<ServiceHints> {
   const services = await prisma.serviceTariff.findMany({ where: { active: true } });
-  return Object.fromEntries(services.map((service) => [service.code, formatServicePrice(service)]));
+  return Object.fromEntries(services.map((service) => [service.code, { name: service.name, price: formatServicePrice(service) }]));
 }
 
 /** Тарифы компании для страниц тарифов, по порядку. */

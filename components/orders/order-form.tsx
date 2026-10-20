@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { createOrder } from "@/actions/order-create";
-import type { ServiceHints } from "@/lib/tariff-format";
+import { serviceName, type ServiceHints } from "@/lib/tariff-format";
 
 type CustomerOpt = { id: string; code: string | null; name: string };
 type RecipientOpt = { id: string; customerId: string; name: string };
@@ -42,7 +42,7 @@ export default function OrderForm({
   recipients: RecipientOpt[];
   productNames?: ProductNameOpt[];
   deliveryMethods?: DeliveryMethodOpt[];
-  serviceHints?: ServiceHints; // цены услуг из «Логистика → Тарифы»: код → «0.3$/кг»
+  serviceHints?: ServiceHints; // названия и цены услуг из «Логистика → Тарифы»
   action?: (formData: FormData) => Promise<void>;
   initial?: OrderInitial;
   submitLabel?: string;
@@ -200,27 +200,27 @@ export default function OrderForm({
         <div className="of-checks">
           <label className="of-check">
             <input name="keepOriginalPackaging" type="checkbox" defaultChecked={initial?.keepOriginalPackaging ?? true} />
-            <span>Оставить оригинальную упаковку</span>
+            <span>{serviceName(serviceHints, "KEEP_ORIGINAL_PACK", "Оставить оригинальную упаковку")}</span>
           </label>
           <label className="of-check">
             <input name="detailedCheckRequested" type="checkbox" defaultChecked={initial?.detailedCheckRequested ?? false} />
-            <span>Детальная проверка и фотоотчёт</span>
+            <span>{serviceName(serviceHints, "DETAILED_CHECK", "Детальная проверка и фотоотчёт")} {serviceHints.DETAILED_CHECK && <em className="of-check-hint">{serviceHints.DETAILED_CHECK.price}</em>}</span>
           </label>
           <label className="of-check">
             <input name="consolidationRequested" type="checkbox" defaultChecked={initial?.consolidationRequested ?? false} />
-            <span>Консолидация {serviceHints.CONSOLIDATION && <em className="of-check-hint">{serviceHints.CONSOLIDATION}</em>}</span>
+            <span>{serviceName(serviceHints, "CONSOLIDATION", "Консолидация")} {serviceHints.CONSOLIDATION && <em className="of-check-hint">{serviceHints.CONSOLIDATION.price}</em>}</span>
           </label>
           <label className="of-check">
             <input name="compactPackRequested" type="checkbox" defaultChecked={initial?.compactPackRequested ?? false} />
-            <span>Компактная упаковка {serviceHints.COMPACT_PACK && <em className="of-check-hint">{serviceHints.COMPACT_PACK}</em>}</span>
+            <span>{serviceName(serviceHints, "COMPACT_PACK", "Компактная упаковка")} {serviceHints.COMPACT_PACK && <em className="of-check-hint">{serviceHints.COMPACT_PACK.price}</em>}</span>
           </label>
           <label className="of-check">
             <input name="standardCheckRequested" type="checkbox" defaultChecked={initial?.standardCheckRequested ?? false} />
-            <span>Стандартная проверка на соответствие {serviceHints.STANDARD_CHECK && <em className="of-check-hint">{serviceHints.STANDARD_CHECK}</em>}</span>
+            <span>{serviceName(serviceHints, "STANDARD_CHECK", "Стандартная проверка на соответствие")} {serviceHints.STANDARD_CHECK && <em className="of-check-hint">{serviceHints.STANDARD_CHECK.price}</em>}</span>
           </label>
           <label className="of-check">
             <input name="reinforcedPackRequested" type="checkbox" defaultChecked={initial?.reinforcedPackRequested ?? false} />
-            <span>Усиленная упаковка <em className="of-check-hint">сумма по факту</em></span>
+            <span>{serviceName(serviceHints, "REINFORCED_PACK", "Усиленная упаковка")} <em className="of-check-hint">сумма по факту</em></span>
           </label>
         </div>
         <p className="of-svc-note">Услуги действуют на всю посылку — при оформлении объединяются по всем заказам в ней.</p>

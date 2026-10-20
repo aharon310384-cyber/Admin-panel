@@ -1,14 +1,18 @@
 import FinanceForm from "./finance-form";
-import { formatCny, formatNumber, formatUsd } from "@/lib/utils";
-import type { FinanceSettingsView, RatesStats } from "@/lib/finance";
+import { formatCny, formatDateTime, formatNumber, formatUsd } from "@/lib/utils";
+import type { FinanceSettingsView, RateChangeRow, RatesStats } from "@/lib/finance";
 
 type Props = {
   settings: FinanceSettingsView;
   stats: RatesStats;
+  history: RateChangeRow[];
   isAdmin: boolean;
 };
 
-export default function RatesTab({ settings, stats, isAdmin }: Props) {
+const CURRENCY_LABEL: Record<RateChangeRow["currency"], string> = { USD: "¥ за $", EUR: "¥ за €" };
+const rateText = (rate: number | null) => (rate != null ? rate.toFixed(4) : "не задан");
+
+export default function RatesTab({ settings, stats, history, isAdmin }: Props) {
   const onCurrentRatePercent = stats.parcelsTotal
     ? Math.round((stats.parcelsOnCurrentRate / stats.parcelsTotal) * 100)
     : 0;
@@ -23,7 +27,9 @@ export default function RatesTab({ settings, stats, isAdmin }: Props) {
           <div className="stat">
             <span className="stat-label">Текущий курс</span>
             <span className="stat-value mono">
-              1 USD = {settings.exchangeRateCnyPerUsd.toFixed(4)} CNY
+              {settings.exchangeRateCnyPerUsd != null
+                ? <>1 USD = {settings.exchangeRateCnyPerUsd.toFixed(4)} CNY</>
+                : "не задан"}
             </span>
           </div>
           <div className="stat">
@@ -52,6 +58,42 @@ export default function RatesTab({ settings, stats, isAdmin }: Props) {
           Курс хранится индивидуально в каждой посылке. Изменение здесь повлияет
           только на новые посылки и не пересчитает уже созданные.
         </p>
+      </section>
+
+      {/* Регистр курсов: кто, когда и с какого значения поменял курс */}
+      <section className="stats">
+        <h2 className="stats-title">История изменений курса</h2>
+        {history.length ? (
+          <div className="history-wrap">
+            <table className="history">
+              <thead>
+                <tr>
+                  <th>Когда</th>
+                  <th>Курс</th>
+                  <th className="num">Было</th>
+                  <th className="num">Стало</th>
+                  <th>Кто</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((row) => (
+                  <tr key={row.id}>
+                    <td className="nowrap">{formatDateTime(row.changedAt)}</td>
+                    <td className="nowrap">{CURRENCY_LABEL[row.currency]}</td>
+                    <td className="num mono">{row.note ? "—" : rateText(row.oldRate)}</td>
+                    <td className="num mono strong">{rateText(row.newRate)}</td>
+                    <td>
+                      {row.author ?? "—"}
+                      {row.note && <span className="history-note"> · {row.note}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="stats-hint">Курс ещё не меняли — запись появится при первом сохранении.</p>
+        )}
       </section>
 
       <style>{`
@@ -87,6 +129,15 @@ export default function RatesTab({ settings, stats, isAdmin }: Props) {
         .stat-meta { font-size: 12px; font-weight: 400; color: var(--color-muted); }
         .mono { font-family: var(--font-mono); }
         .stats-hint { font-size: 12px; color: var(--color-muted); margin: 0; line-height: 1.45; }
+        .history-wrap { overflow-x: auto; }
+        .history { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .history th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+        .history td { padding: 9px 12px; border-bottom: 1px solid var(--color-border); color: var(--color-text); }
+        .history tbody tr:last-child td { border-bottom: none; }
+        .history .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .history .nowrap { white-space: nowrap; }
+        .history .strong { font-weight: 600; }
+        .history-note { color: var(--color-muted); }
       `}</style>
     </div>
   );

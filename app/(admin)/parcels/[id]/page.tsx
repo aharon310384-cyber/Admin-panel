@@ -20,6 +20,7 @@ const DUTY_REASON_LABEL: Record<string, string> = {
   "no-orders": "в посылке нет товаров",
   "out-of-window": "вне срока действия меры (01.07.2026–01.07.2028)",
   "over-cap": "стоимость выше €150 — применяются обычные пошлины",
+  "no-rate": "не задан курс ¥ за € или ¥ за $ — задайте его в «Финансы → Курс»",
 };
 
 export const metadata: Metadata = { title: "Посылка" };
@@ -281,7 +282,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                   </tr>
                 </tbody>
               </table>
-              <p className="hint">Курс: {rate} ¥/$ · пошлина ЕС по курсу {finance.exchangeRateCnyPerEur} ¥/€</p>
+              <p className="hint">Курс: {rate} ¥/$ · пошлина ЕС по курсу {finance.exchangeRateCnyPerEur != null ? `${finance.exchangeRateCnyPerEur} ¥/€` : "— курс ¥ за € не задан"}</p>
               {dutyPaidBySender ? (
                 <p className="hint">Таможенная пошлина ЕС €{billedDutyEur.toFixed(2)} ({billedDutyLines} поз.) оплачивается отправителем — не включена в счёт.</p>
               ) : null}

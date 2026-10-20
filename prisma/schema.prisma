@@ -64,6 +64,7 @@ enum ServicePricingType {
   PER_ORDER // за заказ-строку (детальная проверка 2$)
   PERCENT   // % от стоимости товаров (страховка 2–10)
   MANUAL    // по факту (усиленная упаковка, доставка до склада)
+  REQUEST   // по запросу: цена не называется (закупка под ключ); в расчёт посылки не входит
 }
 
 enum PaymentTiming {
@@ -149,6 +150,7 @@ model Company {
 
   shippingTariffs ShippingTariff[]
   serviceTariffs  ServiceTariff[]
+  rateChanges     ExchangeRateChange[]
 }
 
 // ─────────────────────────── СОТРУДНИКИ ───────────────────────────
@@ -190,6 +192,7 @@ model User {
 
   interfaceSettings UserInterfaceSettings?
   objectVersions    ObjectVersion[]
+  rateChanges       ExchangeRateChange[]
 }
 
 /// Настройки интерфейса сотрудника — как «Настройка панелей» в 1С. Свои у каждого.
@@ -304,15 +307,38 @@ model ServiceTariff {
   parcelServices ParcelService[]
 }
 
+// Курсы — только здесь («Финансы → Курс»), без запасного числа в коде: пусто — курс не задан, и расчёты просят его задать.
 model FinanceSettings {
   id                    String   @id @default(cuid())
-  exchangeRateCnyPerUsd Decimal  @default(7.1)
+  exchangeRateCnyPerUsd Decimal? // курс ¥ за $
   // Таможенная пошлина ЕС (Council Reg. (EU) 2026/382, €3/позиция до 01.07.2028)
-  exchangeRateCnyPerEur Decimal  @default(7.8)   // курс EUR в юанях (¥ за €) — для пересчёта пошлины ЕС
+  exchangeRateCnyPerEur Decimal? // курс EUR в юанях (¥ за €) — для пересчёта пошлины ЕС
   euDutyEnabled         Boolean  @default(true)  // мастер-выключатель меры
   euDutyPassToClient    Boolean  @default(true)  // включать ли пошлину в счёт клиента
   updatedAt             DateTime @updatedAt
   updatedBy             String?
+}
+
+enum RateCurrency {
+  USD // курс ¥ за $
+  EUR // курс ¥ за €
+}
+
+/// Регистр курсов — история изменения курсов в «Финансы → Курс»: когда, кто, с какого значения на какое.
+/// Запись появляется при каждом сохранении, где курс поменялся; записи не правятся и не удаляются.
+model ExchangeRateChange {
+  id          String       @id @default(cuid())
+  companyId   String?      // чей курс; пусто — общий курс системы («Финансы → Курс» пока один на все компании)
+  company     Company?     @relation(fields: [companyId], references: [id])
+  currency    RateCurrency
+  oldRate     Decimal?     // было; пусто — курс не был задан
+  newRate     Decimal?     // стало
+  note        String?      // пояснение: «курс на момент запуска журнала»
+  changedAt   DateTime     @default(now())
+  changedById String?      // кто поменял; пусто — неизвестно (до журнала)
+  changedBy   User?        @relation(fields: [changedById], references: [id])
+
+  @@index([changedAt])
 }
 
 // ─────────────────────────── КЛИЕНТЫ / ПОЛУЧАТЕЛИ ───────────────────────────
@@ -484,11 +510,11 @@ model Parcel {
   widthCm            Decimal? // габарит Ш
   heightCm           Decimal? // габарит В
   // расчёт
-  exchangeRateCnyPerUsd Decimal  @default(7.1) // зафиксирован при оплате
+  exchangeRateCnyPerUsd Decimal  // курс ¥ за $, фиксируется при расчёте посылки и потом не меняется
   shippingCostUsd       Decimal? // Отправка = billableWeightKg × ставка
   discountPercent       Decimal? // скидка % от итога
   declaredValueUsd      Decimal? // стоимость товаров внутри посылки, $ (из Excel — колонка «стоимость товаров»)
-  // Таможенная пошлина ЕС — НЕ услуга Postmanfox, не попадает под скидку
+  // Таможенная пошлина ЕС — не наша услуга, не попадает под скидку
   customsDutyEur        Decimal? // €3 × число тарифных позиций (если применимо)
   customsDutyUsd        Decimal? // конвертация пошлины в $ по курсу EUR
   customsDutyLineCount  Int?     // сколько тарифных позиций (типов товара) учтено

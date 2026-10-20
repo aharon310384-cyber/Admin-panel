@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sparkles, Loader2, Trash2, Plus, AlertTriangle, Copy, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { parseOrderText, createOrdersBulk, createRecipientQuick } from "@/actions/order-import";
+import { serviceName, type ServiceHints } from "@/lib/tariff-format";
 
 type CustomerOpt = { id: string; code: string | null; name: string };
 type RecipientOpt = { id: string; customerId: string; name: string; country: string | null; countryCode?: string | null };
@@ -53,12 +54,14 @@ export default function OrderBulkImport({
   productNames = [],
   countries = [],
   deliveryTypesByCountry = {},
+  serviceHints = {},
 }: {
   customers: CustomerOpt[];
   recipients: RecipientOpt[];
   productNames?: ProductNameOpt[];
   countries?: CountryOpt[];
   deliveryTypesByCountry?: Record<string, string[]>; // по тарифам из базы: «US» → ["AIR"]
+  serviceHints?: ServiceHints; // названия услуг из «Логистика → Тарифы»
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -435,11 +438,11 @@ export default function OrderBulkImport({
                   <div className="bi-checks">
                     <label className="bi-check">
                       <input type="checkbox" checked={r.detailedCheckRequested} onChange={(e) => updateRow(i, { detailedCheckRequested: e.target.checked })} />
-                      <span>Детальная проверка и фотоотчёт</span>
+                      <span>{serviceName(serviceHints, "DETAILED_CHECK", "Детальная проверка и фотоотчёт")}</span>
                     </label>
                     <label className="bi-check">
                       <input type="checkbox" checked={r.keepOriginalPackaging} onChange={(e) => updateRow(i, { keepOriginalPackaging: e.target.checked })} />
-                      <span>Оставить оригинальную упаковку</span>
+                      <span>{serviceName(serviceHints, "KEEP_ORIGINAL_PACK", "Оставить оригинальную упаковку")}</span>
                     </label>
                   </div>
                 </div>

@@ -173,7 +173,7 @@ export async function updateServiceTariff(code: string, _state: TariffFormState,
   const prices =
     service.pricingType === "PERCENT"
       ? { value: null, percentMin, percentMax }
-      : service.pricingType === "MANUAL"
+      : service.pricingType === "MANUAL" || service.pricingType === "REQUEST"
         ? { value: null, percentMin: null, percentMax: null }
         : { value: price, percentMin: null, percentMax: null };
   await prisma.serviceTariff.update({ where: { code }, data: { ...rest, ...prices } });

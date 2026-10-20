@@ -49,7 +49,7 @@ const PRICE_RULES = `- ВАЛЮТА ЦЕНЫ. Внимательно опред�
   Цена — за ЕДИНИЦУ товара. Если дана общая сумма за партию — раздели на quantity.`;
 
 function buildSystemPrompt(catalog: string[]): string {
-  return `Ты — помощник склада карго-доставки PostmanFox. Тебе дают свободный текст (сообщение клиента, выгрузку из Excel, список ссылок и т.п.), в котором может быть НЕСКОЛЬКО товаров-заказов. Твоя задача — разобрать текст и разложить его ПОЗАКАЗНО: один товар = один заказ.
+  return `Ты — помощник склада карго-доставки. Тебе дают свободный текст (сообщение клиента, выгрузку из Excel, список ссылок и т.п.), в котором может быть НЕСКОЛЬКО товаров-заказов. Твоя задача — разобрать текст и разложить его ПОЗАКАЗНО: один товар = один заказ.
 
 Верни СТРОГО JSON-объект вида:
 {"orders":[{"productNameText":"...","quantity":1,"unitPriceUsd":null,"unitPriceCny":null,"trackNumber":null,"customerComment":null,"deliveryType":null,"recipientNameText":null,"detailedCheckRequested":false,"keepOriginalPackaging":true}]}
@@ -175,7 +175,8 @@ async function askModel(systemPrompt: string, text: string, title: string): Prom
   }
 
   const model = process.env.OPENROUTER_ORDER_MODEL?.trim() || DEFAULT_MODEL;
-  const referer = process.env.NEXT_PUBLIC_APP_URL || "https://cabinet.postmanfox.com";
+  // Адрес приложения — для статистики OpenRouter; не задан — заголовок не отправляется
+  const referer = process.env.NEXT_PUBLIC_APP_URL;
 
   let res: Response;
   try {
@@ -184,7 +185,7 @@ async function askModel(systemPrompt: string, text: string, title: string): Prom
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": referer,
+        ...(referer ? { "HTTP-Referer": referer } : {}),
         "X-Title": title,
       },
       body: JSON.stringify({
@@ -299,7 +300,7 @@ export async function parseOrdersFromText(
   catalog: string[],
   rateCnyPerUsd: number,
 ): Promise<ParseResult> {
-  const answer = await askModel(buildSystemPrompt(catalog.slice(0, 400)), text, "PostmanFox Admin - order parser");
+  const answer = await askModel(buildSystemPrompt(catalog.slice(0, 400)), text, "Admin - order parser");
   if (!answer.ok) return answer;
   return coerceOrders(answer.json, answer.model, rateCnyPerUsd);
 }

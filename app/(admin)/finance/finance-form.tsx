@@ -14,8 +14,9 @@ export default function FinanceForm({
   settings: FinanceSettingsView;
   isAdmin: boolean;
 }) {
-  const [exchangeRate, setExchangeRate] = useState(settings.exchangeRateCnyPerUsd);
-  const [eurRate, setEurRate] = useState(settings.exchangeRateCnyPerEur);
+  // Пусто — курс не задан: расчёты посылок попросят его задать
+  const [exchangeRate, setExchangeRate] = useState(settings.exchangeRateCnyPerUsd?.toString() ?? "");
+  const [eurRate, setEurRate] = useState(settings.exchangeRateCnyPerEur?.toString() ?? "");
   const [euDutyEnabled, setEuDutyEnabled] = useState(settings.euDutyEnabled);
   const [euDutyPassToClient, setEuDutyPassToClient] = useState(settings.euDutyPassToClient);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -51,7 +52,7 @@ export default function FinanceForm({
             min={0}
             step={0.0001}
             value={exchangeRate}
-            onChange={(e) => setExchangeRate(Number(e.target.value))}
+            onChange={(e) => setExchangeRate(e.target.value)}
             disabled={!isAdmin}
             className={`field-input ${errors.exchangeRateCnyPerUsd ? "field-input--error" : ""}`}
           />
@@ -75,7 +76,7 @@ export default function FinanceForm({
             min={0}
             step={0.0001}
             value={eurRate}
-            onChange={(e) => setEurRate(Number(e.target.value))}
+            onChange={(e) => setEurRate(e.target.value)}
             disabled={!isAdmin}
             className={`field-input ${errors.exchangeRateCnyPerEur ? "field-input--error" : ""}`}
           />
@@ -113,7 +114,7 @@ export default function FinanceForm({
             onChange={(e) => setEuDutyPassToClient(e.target.checked)}
             disabled={!isAdmin}
           />
-          Включать пошлину в счёт клиента (декларант — Postmanfox)
+          Включать пошлину в счёт клиента (декларант — наша компания)
         </label>
       </div>
 

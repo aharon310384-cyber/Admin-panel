@@ -104,6 +104,9 @@ export default function ServiceForm({ values, action, isAdmin }: Props) {
           {values.pricingType === "MANUAL" && (
             <p className="field-hint field--full">Сумму вводят в карточке посылки.</p>
           )}
+          {values.pricingType === "REQUEST" && (
+            <p className="field-hint field--full">Цену называют клиенту по запросу.</p>
+          )}
           {input("sortOrder", "Порядок", "Меньше — выше в списке.")}
         </div>
         <label className="check-row">

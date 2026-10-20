@@ -22,9 +22,10 @@ export const PRICING_TYPE_LABELS: Record<ServicePricingType, string> = {
   PER_ORDER: "за заказ (лот)",
   PERCENT: "% от стоимости товара",
   MANUAL: "по факту",
+  REQUEST: "по запросу",
 };
 
-/** Цена услуги: «0.5$/кг», «2$/лот», «2-10%», «по факту». */
+/** Цена услуги: «0.5$/кг», «2$/лот», «2-10%», «по факту», «по запросу». */
 export function formatServicePrice(service: ServicePriceFields): string {
   const value = num(service.value) ?? 0;
   switch (service.pricingType) {
@@ -36,11 +37,18 @@ export function formatServicePrice(service: ServicePriceFields): string {
       return `${num(service.percentMin) ?? 0}-${num(service.percentMax) ?? 0}%`;
     case "MANUAL":
       return "по факту";
+    case "REQUEST":
+      return "по запросу";
   }
 }
 
-/** Подсказки к отметкам услуг в формах: код услуги → «0.3$/кг». */
-export type ServiceHints = Record<string, string>;
+/** Услуги для отметок в формах: код услуги → название и цена из справочника («0.3$/кг»). */
+export type ServiceHints = Record<string, { name: string; price: string }>;
+
+/** Название услуги из справочника; запасное — если услуги в справочнике нет. */
+export function serviceName(hints: ServiceHints, code: string, fallback: string): string {
+  return hints[code]?.name ?? fallback;
+}
 
 /** Список стран под направлением; не нужен, если название направления уже называет все страны. */
 export function countriesNote(codes: string[], direction: string, names: Map<string, string>): string | null {

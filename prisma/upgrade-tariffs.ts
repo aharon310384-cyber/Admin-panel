@@ -1,13 +1,16 @@
 // Начальные данные тарифов PostmanFox: доставка и услуги. Запускается при деплое (npm run db:upgrade) и вручную:
 //   npm run db:upgrade:tariffs
 //
-// Перенос «из кода в настройки», шаг 2 (docs/product/задание-настройки-вместо-кода.md). Цены — как были
-// на сайте и в программе (lib/postmanfox-tariffs.ts до переноса), без изменений; дальше они правятся
-// в «Логистика → Тарифы».
-// Только один раз для компании: если у неё уже есть тарифы, скрипт их не трогает. Тарифы без компании,
-// которые уже есть в базе, получают компанию и данные направления (совпадение — вид доставки, ставка и
-// оформление); лишние становятся «не действует». Услуги без компании получают компанию и описание,
-// недостающие создаются. Повторный запуск ничего не меняет.
+// Перенос «из кода в настройки», шаг 2 (docs/product/задание-настройки-вместо-кода.md). Цены — по прайс-листу
+// владельца «Тарифы и сроки доставки посылок» (прислан 2026-10-20); раздел «Карго доставка» — позже.
+// Дальше тарифы правятся в «Логистика → Тарифы».
+//
+// Первый запуск для компании (тарифов у неё ещё нет): тарифы без компании, которые уже есть в базе, получают
+// компанию и данные направления (совпадение — вид доставки, ставка и оформление), лишние становятся
+// «не действует»; недостающие создаются. Услуги без компании получают компанию и описание, недостающие создаются.
+// Если тарифы уже перенесены по первому, устаревшему списку (2026-10-19, из lib/postmanfox-tariffs.ts),
+// их строки исправляются по прайс-листу; строку, которую уже поменяли в админке, скрипт не трогает.
+// Повторный запуск ничего не меняет.
 import { PrismaClient, type PaymentTiming, type ServicePricingType } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -15,10 +18,11 @@ const prisma = new PrismaClient();
 const COMPANY_CODE = "POSTMANFOX";
 const TARIFFS_URL = "https://postmanfox.com/ru/tarify/";
 const DOOR = "до двери/отделения";
-const MAIN = "Основные направления";
-const EMS = "EMS";
+const MAIN = "Основные страны";
+const POST = "Почтовая авиа доставка (DHL/UPS/EMS/ARAMEX)";
 
 type ShippingSeed = {
+  key: string;
   section: string;
   direction: string;
   countryCodes: string[];
@@ -29,62 +33,92 @@ type ShippingSeed = {
   maxDays: number;
   paymentTiming: PaymentTiming;
   cargoType?: string;
-  onRequest?: boolean;
 };
 
 const SHIPPING: ShippingSeed[] = [
-  { section: MAIN, direction: "Россия (авто)", countryCodes: ["RU"], deliveryType: "TRUCK", pricePerKgUsd: 15, handlingFeeUsd: 5, minDays: 15, maxDays: 25, paymentTiming: "BEFORE" },
-  { section: MAIN, direction: "Украина (авиа)", countryCodes: ["UA"], deliveryType: "AIR", pricePerKgUsd: 18, handlingFeeUsd: 2, minDays: 15, maxDays: 25, paymentTiming: "FLEXIBLE" },
-  { section: MAIN, direction: "Украина (море)", countryCodes: ["UA"], deliveryType: "SEA", pricePerKgUsd: 7.5, handlingFeeUsd: 2, minDays: 50, maxDays: 65, paymentTiming: "FLEXIBLE" },
-  { section: MAIN, direction: "Узбекистан (авиа)", cargoType: "простые товары", countryCodes: ["UZ"], deliveryType: "AIR", pricePerKgUsd: 13, handlingFeeUsd: 2, minDays: 10, maxDays: 15, paymentTiming: "FLEXIBLE" },
-  { section: MAIN, direction: "Узбекистан (авиа)", cargoType: "порошки, жидкости, батарейки", countryCodes: ["UZ"], deliveryType: "AIR", pricePerKgUsd: 15, handlingFeeUsd: 2, minDays: 10, maxDays: 15, paymentTiming: "FLEXIBLE" },
-  { section: MAIN, direction: "Казахстан (авто)", countryCodes: ["KZ"], deliveryType: "TRUCK", pricePerKgUsd: 7.5, handlingFeeUsd: 2, minDays: 15, maxDays: 18, paymentTiming: "BEFORE" },
-  { section: MAIN, direction: "Беларусь (авто)", countryCodes: ["BY"], deliveryType: "TRUCK", pricePerKgUsd: 15, handlingFeeUsd: 3, minDays: 15, maxDays: 25, paymentTiming: "BEFORE" },
-  { section: MAIN, direction: "Молдова (авто)", cargoType: "до 2 кг", countryCodes: ["MD"], deliveryType: "TRUCK", pricePerKgUsd: 20, handlingFeeUsd: 5, minDays: 15, maxDays: 25, paymentTiming: "FLEXIBLE" },
-  { section: EMS, direction: "Южная Корея, Япония", countryCodes: ["KR", "JP"], deliveryType: "AIR", pricePerKgUsd: 11, handlingFeeUsd: 12, minDays: 10, maxDays: 18, paymentTiming: "BEFORE" },
-  { section: EMS, direction: "Юго-Восточная Азия", countryCodes: ["TH", "PH", "ID", "VN", "KH", "MY", "SG"], deliveryType: "AIR", pricePerKgUsd: 12, handlingFeeUsd: 15, minDays: 10, maxDays: 18, paymentTiming: "BEFORE" },
-  { section: EMS, direction: "Австралия, Новая Зеландия", countryCodes: ["AU", "NZ"], deliveryType: "AIR", pricePerKgUsd: 13, handlingFeeUsd: 20, minDays: 12, maxDays: 20, paymentTiming: "BEFORE" },
+  { key: "RU", section: MAIN, direction: "Россия (авто)", countryCodes: ["RU"], deliveryType: "TRUCK", pricePerKgUsd: 15, handlingFeeUsd: 5, minDays: 15, maxDays: 25, paymentTiming: "BEFORE" },
+  { key: "UA_AIR", section: MAIN, direction: "Украина (авиа)", countryCodes: ["UA"], deliveryType: "AIR", pricePerKgUsd: 18, handlingFeeUsd: 2, minDays: 15, maxDays: 18, paymentTiming: "FLEXIBLE" },
+  { key: "UA_SEA", section: MAIN, direction: "Украина (море)", countryCodes: ["UA"], deliveryType: "SEA", pricePerKgUsd: 7.5, handlingFeeUsd: 2, minDays: 50, maxDays: 65, paymentTiming: "FLEXIBLE" },
+  { key: "BY", section: MAIN, direction: "Беларусь (авто)", countryCodes: ["BY"], deliveryType: "TRUCK", pricePerKgUsd: 15, handlingFeeUsd: 3, minDays: 15, maxDays: 25, paymentTiming: "BEFORE" },
+  { key: "MD", section: MAIN, direction: "Молдова (авиа)", cargoType: "до 5 кг", countryCodes: ["MD"], deliveryType: "AIR", pricePerKgUsd: 18, handlingFeeUsd: 10, minDays: 15, maxDays: 20, paymentTiming: "FLEXIBLE" },
+  { key: "KR_JP", section: POST, direction: "Южная Корея, Япония", countryCodes: ["KR", "JP"], deliveryType: "AIR", pricePerKgUsd: 11, handlingFeeUsd: 12, minDays: 10, maxDays: 15, paymentTiming: "BEFORE" },
   {
-    section: EMS,
+    key: "ASIA_OCEANIA",
+    section: POST,
+    direction: "Юго-Восточная Азия, Австралия, Новая Зеландия",
+    countryCodes: ["TH", "PH", "ID", "VN", "KH", "MY", "SG", "AU", "NZ"],
+    deliveryType: "AIR",
+    pricePerKgUsd: 13,
+    handlingFeeUsd: 20,
+    minDays: 12,
+    maxDays: 18,
+    paymentTiming: "BEFORE",
+  },
+  {
+    key: "EU",
+    section: POST,
     direction: "Европа и Грузия",
     countryCodes: ["DE", "FR", "IT", "ES", "AT", "BE", "GB", "DK", "FI", "GR", "IE", "LU", "PT", "SE", "PL", "CZ", "HU", "RO", "HR", "LV", "LT", "EE", "GE"],
     deliveryType: "AIR",
     pricePerKgUsd: 15,
     handlingFeeUsd: 25,
     minDays: 12,
-    maxDays: 20,
+    maxDays: 18,
     paymentTiming: "BEFORE",
   },
   {
-    section: EMS,
+    key: "AMERICAS",
+    section: POST,
     direction: "ОАЭ, Америка, Канада, Россия и др.",
     countryCodes: ["AE", "JO", "MA", "ZA", "AR", "BR", "CO", "PA", "PE", "CU", "MX", "CA", "CY", "MT", "NO", "CH", "RU"],
     deliveryType: "AIR",
     pricePerKgUsd: 20,
     handlingFeeUsd: 25,
-    minDays: 15,
-    maxDays: 25,
+    minDays: 12,
+    maxDays: 18,
     paymentTiming: "BEFORE",
   },
   {
-    section: EMS,
-    direction: "Индия, Турция, Пакистан, Катар, Оман, Кения и др.",
-    countryCodes: ["IN", "TR", "PK", "BD", "LK", "NP", "LA", "QA", "BH", "KW", "TN", "OM", "KE", "SN", "UG"],
+    key: "INDIA",
+    section: POST,
+    direction: "Индия, Пакистан, Катар, Оман, Кения и др.",
+    countryCodes: ["IN", "PK", "BD", "LK", "NP", "LA", "QA", "BH", "KW", "TN", "OM", "KE", "SN", "UG"],
     deliveryType: "AIR",
     pricePerKgUsd: 23,
     handlingFeeUsd: 28,
     minDays: 15,
-    maxDays: 25,
+    maxDays: 20,
     paymentTiming: "BEFORE",
   },
-  { section: EMS, direction: "США, Израиль", countryCodes: ["US", "IL"], deliveryType: "AIR", pricePerKgUsd: 30, handlingFeeUsd: 35, minDays: 15, maxDays: 25, paymentTiming: "BEFORE" },
-  { section: EMS, direction: "Остальные страны мира", cargoType: "DHL/UPS/EMS/ARAMEX", countryCodes: [], deliveryType: "AIR", pricePerKgUsd: 0, handlingFeeUsd: 0, minDays: 10, maxDays: 25, paymentTiming: "BEFORE", onRequest: true },
+  { key: "US_IL", section: POST, direction: "США, Израиль", countryCodes: ["US", "IL"], deliveryType: "AIR", pricePerKgUsd: 30, handlingFeeUsd: 35, minDays: 12, maxDays: 18, paymentTiming: "BEFORE" },
+];
+
+// Строки первого переноса (2026-10-19, устаревший список) и чем они становятся по прайс-листу; to — ключ тарифа,
+// null — направления в прайс-листе нет, строка становится «не действует».
+const FIRST_LIST: { section: string; direction: string; cargoType: string | null; deliveryType: string; price: number; fee: number; to: string | null }[] = [
+  { section: "Основные направления", direction: "Россия (авто)", cargoType: null, deliveryType: "TRUCK", price: 15, fee: 5, to: "RU" },
+  { section: "Основные направления", direction: "Украина (авиа)", cargoType: null, deliveryType: "AIR", price: 18, fee: 2, to: "UA_AIR" },
+  { section: "Основные направления", direction: "Украина (море)", cargoType: null, deliveryType: "SEA", price: 7.5, fee: 2, to: "UA_SEA" },
+  { section: "Основные направления", direction: "Узбекистан (авиа)", cargoType: "простые товары", deliveryType: "AIR", price: 13, fee: 2, to: null },
+  { section: "Основные направления", direction: "Узбекистан (авиа)", cargoType: "порошки, жидкости, батарейки", deliveryType: "AIR", price: 15, fee: 2, to: null },
+  { section: "Основные направления", direction: "Казахстан (авто)", cargoType: null, deliveryType: "TRUCK", price: 7.5, fee: 2, to: null },
+  { section: "Основные направления", direction: "Беларусь (авто)", cargoType: null, deliveryType: "TRUCK", price: 15, fee: 3, to: "BY" },
+  { section: "Основные направления", direction: "Молдова (авто)", cargoType: "до 2 кг", deliveryType: "TRUCK", price: 20, fee: 5, to: "MD" },
+  { section: "EMS", direction: "Южная Корея, Япония", cargoType: null, deliveryType: "AIR", price: 11, fee: 12, to: "KR_JP" },
+  { section: "EMS", direction: "Юго-Восточная Азия", cargoType: null, deliveryType: "AIR", price: 12, fee: 15, to: null },
+  { section: "EMS", direction: "Австралия, Новая Зеландия", cargoType: null, deliveryType: "AIR", price: 13, fee: 20, to: "ASIA_OCEANIA" },
+  { section: "EMS", direction: "Европа и Грузия", cargoType: null, deliveryType: "AIR", price: 15, fee: 25, to: "EU" },
+  { section: "EMS", direction: "ОАЭ, Америка, Канада, Россия и др.", cargoType: null, deliveryType: "AIR", price: 20, fee: 25, to: "AMERICAS" },
+  { section: "EMS", direction: "Индия, Турция, Пакистан, Катар, Оман, Кения и др.", cargoType: null, deliveryType: "AIR", price: 23, fee: 28, to: "INDIA" },
+  { section: "EMS", direction: "США, Израиль", cargoType: null, deliveryType: "AIR", price: 30, fee: 35, to: "US_IL" },
+  { section: "EMS", direction: "Остальные страны мира", cargoType: "DHL/UPS/EMS/ARAMEX", deliveryType: "AIR", price: 0, fee: 0, to: null },
 ];
 
 type ServiceSeed = {
   code: string;
   name: string;
   description: string | null;
+  was?: { name?: string; description?: string }; // как было в первом переносе — по этому видно, что услугу в админке ещё не меняли
   pricingType: ServicePricingType;
   value: number | null;
   percentMin?: number;
@@ -94,20 +128,58 @@ type ServiceSeed = {
   sortOrder: number;
 };
 
+const AS_NEEDED = "При необходимости (без уведомления клиента) или по желанию клиента.";
+const AS_NEEDED_V1 = "При необходимости или по желанию клиента.";
+
 const SERVICES: ServiceSeed[] = [
-  { code: "COMPACT_PACK", name: "Компактная упаковка", description: "При необходимости или по желанию клиента.", pricingType: "PER_KG", value: 0.5, inPriceList: true, sortOrder: 10 },
-  { code: "CONSOLIDATION", name: "Консолидация", description: "Объединение нескольких посылок в одну общую посылку. Переупаковка обязательна.", pricingType: "PER_KG", value: 0.3, inPriceList: true, sortOrder: 20 },
-  { code: "STANDARD_CHECK", name: "Стандартная проверка на соответствие", description: "Проверка цвета, размера и видимых дефектов. Фото отправляются при обнаружении брака.", pricingType: "PER_KG", value: 1, inPriceList: true, sortOrder: 30 },
-  { code: "DETAILED_CHECK", name: "Детальная проверка и фотоотчёт", description: "Тщательная проверка на соответствие и наличие брака с фотоотчетом.", pricingType: "PER_ORDER", value: 2, selectableByClient: true, inPriceList: true, sortOrder: 40 },
-  { code: "KEEP_ORIGINAL_PACK", name: "Оставить оригинальную упаковку", description: null, pricingType: "PER_ORDER", value: 0, selectableByClient: true, inPriceList: false, sortOrder: 45 },
-  { code: "INSURANCE", name: "Дополнительная страховка", description: "При необходимости или по желанию клиента.", pricingType: "PERCENT", value: null, percentMin: 2, percentMax: 10, inPriceList: true, sortOrder: 50 },
-  { code: "REINFORCED_PACK", name: "Усиленная упаковка", description: "При необходимости или по желанию клиента.", pricingType: "MANUAL", value: null, inPriceList: true, sortOrder: 60 },
-  { code: "LOCAL_DELIVERY", name: "Доставка до склада", description: null, pricingType: "MANUAL", value: null, inPriceList: false, sortOrder: 70 },
+  { code: "COMPACT_PACK", name: "Компактная упаковка", description: AS_NEEDED, was: { description: AS_NEEDED_V1 }, pricingType: "PER_KG", value: 0.5, inPriceList: true, sortOrder: 10 },
+  {
+    code: "CONSOLIDATION",
+    name: "Объединение (консолидация)",
+    description: "Объединение (консолидация) нескольких посылок в одну общую посылку (переупаковка обязательна).",
+    was: { name: "Консолидация", description: "Объединение нескольких посылок в одну общую посылку. Переупаковка обязательна." },
+    pricingType: "PER_KG",
+    value: 0.3,
+    inPriceList: true,
+    sortOrder: 20,
+  },
+  {
+    code: "DETAILED_CHECK",
+    name: "Детальная проверка и фотоотчет",
+    description: "Товар тщательно проверяется на соответствие и на наличие брака и фотографируется. После фотографии отправляются клиенту.",
+    was: { name: "Детальная проверка и фотоотчёт", description: "Тщательная проверка на соответствие и наличие брака с фотоотчетом." },
+    pricingType: "PER_ORDER",
+    value: 2,
+    selectableByClient: true,
+    inPriceList: true,
+    sortOrder: 30,
+  },
+  { code: "KEEP_ORIGINAL_PACK", name: "Оставить оригинальную упаковку", description: null, pricingType: "PER_ORDER", value: 0, selectableByClient: true, inPriceList: false, sortOrder: 35 },
+  { code: "INSURANCE", name: "Дополнительная страховка", description: AS_NEEDED, was: { description: AS_NEEDED_V1 }, pricingType: "PERCENT", value: null, percentMin: 2, percentMax: 10, inPriceList: true, sortOrder: 40 },
+  { code: "REINFORCED_PACK", name: "Усиление упаковки", description: AS_NEEDED, was: { name: "Усиленная упаковка", description: AS_NEEDED_V1 }, pricingType: "MANUAL", value: null, inPriceList: true, sortOrder: 50 },
+  { code: "MARKETPLACE_PURCHASE", name: "Выкуп из маркетплейсов", description: "TaoBao, 1688, Poizon, WeChat и т.д. (проекты по запросу).", pricingType: "PERCENT", value: null, percentMin: 5, percentMax: 10, inPriceList: true, sortOrder: 60 },
+  {
+    code: "STANDARD_CHECK",
+    name: "Стандартная проверка на соответствие (при выкупе товара)",
+    description: "Проверка товара на соответствие цвета, размера и видимых дефектов. Фотографии товара отправляются только в случае обнаружения брака.",
+    was: { name: "Стандартная проверка на соответствие", description: "Проверка цвета, размера и видимых дефектов. Фото отправляются при обнаружении брака." },
+    pricingType: "PER_KG",
+    value: 1,
+    inPriceList: true,
+    sortOrder: 70,
+  },
+  { code: "FULFILLMENT", name: "Фулфилмент", description: "Хранение на складе с целью дальнейшей отправки в иную транспортную службу. Максимальный срок хранения — два месяца.", pricingType: "PER_KG", value: 3, inPriceList: true, sortOrder: 80 },
+  { code: "FOX2DOOR", name: "Fox2Door (закупка под ключ)", description: "Клиент выбирает товар, оплачивает указанную сумму, далее получает у двери.", pricingType: "REQUEST", value: null, inPriceList: true, sortOrder: 90 },
+  { code: "LOCAL_DELIVERY", name: "Доставка до склада", description: null, pricingType: "MANUAL", value: null, inPriceList: false, sortOrder: 100 },
 ];
 
-async function migrateShipping(companyId: string) {
-  if (await prisma.shippingTariff.count({ where: { companyId } })) return;
+const shippingData = ({ key, cargoType, ...rest }: ShippingSeed, companyId: string, index: number) => {
+  void key;
+  return { ...rest, companyId, cargoType: cargoType ?? null, onRequest: false, deliveryTarget: DOOR, sortOrder: (index + 1) * 10 };
+};
 
+/** Первый перенос: тарифов у компании ещё нет. */
+async function migrateShipping(companyId: string) {
   const methods = await prisma.deliveryMethod.findMany({ select: { code: true } });
   const missing = [...new Set(SHIPPING.map((seed) => seed.deliveryType))].filter((code) => !methods.some((m) => m.code === code));
   if (missing.length) {
@@ -121,8 +193,7 @@ async function migrateShipping(companyId: string) {
   let created = 0;
 
   for (const [index, seed] of SHIPPING.entries()) {
-    const { onRequest = false, cargoType = null, ...rest } = seed;
-    const data = { ...rest, companyId, cargoType, onRequest, deliveryTarget: DOOR, sortOrder: (index + 1) * 10, active: true };
+    const data = { ...shippingData(seed, companyId, index), active: true };
     const match = unowned.find(
       (row) =>
         !used.has(row.id) &&
@@ -147,24 +218,62 @@ async function migrateShipping(companyId: string) {
   console.log(`Тарифы доставки: обновлено ${updated}, создано ${created}, не действует ${leftover.length}`);
 }
 
+/** Тарифы, перенесённые по первому, устаревшему списку, — по прайс-листу. Изменённые в админке строки не трогаются. */
+async function correctFirstList(companyId: string) {
+  const rows = await prisma.shippingTariff.findMany({ where: { companyId } });
+  let corrected = 0;
+  let deactivated = 0;
+  for (const old of FIRST_LIST) {
+    const row = rows.find(
+      (item) =>
+        item.section === old.section &&
+        item.direction === old.direction &&
+        item.cargoType === old.cargoType &&
+        item.deliveryType === old.deliveryType &&
+        Number(item.pricePerKgUsd) === old.price &&
+        Number(item.handlingFeeUsd) === old.fee,
+    );
+    if (!row) continue;
+    const index = SHIPPING.findIndex((seed) => seed.key === old.to);
+    if (index < 0) {
+      if (row.active) {
+        await prisma.shippingTariff.update({ where: { id: row.id }, data: { active: false } });
+        deactivated += 1;
+      }
+      continue;
+    }
+    // «Действует» остаётся как есть: отметку могли поменять в админке.
+    await prisma.shippingTariff.update({ where: { id: row.id }, data: shippingData(SHIPPING[index], companyId, index) });
+    corrected += 1;
+  }
+  if (corrected || deactivated) console.log(`Тарифы по прайс-листу: исправлено ${corrected}, не действует ${deactivated}`);
+}
+
 async function migrateServices(companyId: string) {
   let migrated = 0;
+  let corrected = 0;
   let created = 0;
-  for (const { percentMin = null, percentMax = null, selectableByClient = false, ...seed } of SERVICES) {
+  for (const { percentMin = null, percentMax = null, selectableByClient = false, was, ...seed } of SERVICES) {
     const existing = await prisma.serviceTariff.findUnique({ where: { code: seed.code } });
-    if (existing?.companyId) continue;
-    if (existing) {
-      await prisma.serviceTariff.update({
-        where: { code: seed.code },
-        data: { companyId, description: existing.description ?? seed.description, inPriceList: seed.inPriceList, sortOrder: seed.sortOrder },
-      });
-      migrated += 1;
-    } else {
+    if (!existing) {
       await prisma.serviceTariff.create({ data: { ...seed, companyId, percentMin, percentMax, selectableByClient } });
       created += 1;
+      continue;
     }
+    // Название и описание — по прайс-листу, если они ещё такие, как в первом переносе (в админке не меняли).
+    const data: { name?: string; description?: string | null; companyId?: string; inPriceList?: boolean; sortOrder?: number } = {};
+    if (was?.name && existing.name === was.name) data.name = seed.name;
+    if (!existing.companyId) {
+      Object.assign(data, { companyId, description: existing.description ?? seed.description, inPriceList: seed.inPriceList, sortOrder: seed.sortOrder });
+    } else if (was?.description && existing.description === was.description) {
+      Object.assign(data, { description: seed.description, sortOrder: seed.sortOrder });
+    }
+    if (!Object.keys(data).length) continue;
+    await prisma.serviceTariff.update({ where: { code: seed.code }, data });
+    if (existing.companyId) corrected += 1;
+    else migrated += 1;
   }
-  if (migrated || created) console.log(`Услуги: перенесено ${migrated}, создано ${created}`);
+  if (migrated || corrected || created) console.log(`Услуги: перенесено ${migrated}, исправлено по прайс-листу ${corrected}, создано ${created}`);
 }
 
 async function main() {
@@ -174,10 +283,12 @@ async function main() {
     return;
   }
   const firstRun = (await prisma.shippingTariff.count({ where: { companyId: company.id } })) === 0;
-  if (firstRun && !company.tariffsUrl) {
-    await prisma.company.update({ where: { id: company.id }, data: { tariffsUrl: TARIFFS_URL } });
+  if (firstRun) {
+    if (!company.tariffsUrl) await prisma.company.update({ where: { id: company.id }, data: { tariffsUrl: TARIFFS_URL } });
+    await migrateShipping(company.id);
+  } else {
+    await correctFirstList(company.id);
   }
-  await migrateShipping(company.id);
   await migrateServices(company.id);
 }
 
