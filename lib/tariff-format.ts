@@ -22,9 +22,10 @@ export const PRICING_TYPE_LABELS: Record<ServicePricingType, string> = {
   PER_ORDER: "за заказ (лот)",
   PERCENT: "% от стоимости товара",
   MANUAL: "по факту",
+  REQUEST: "по запросу",
 };
 
-/** Цена услуги: «0.5$/кг», «2$/лот», «2-10%», «по факту». */
+/** Цена услуги: «0.5$/кг», «2$/лот», «2-10%», «по факту», «по запросу». */
 export function formatServicePrice(service: ServicePriceFields): string {
   const value = num(service.value) ?? 0;
   switch (service.pricingType) {
@@ -36,6 +37,8 @@ export function formatServicePrice(service: ServicePriceFields): string {
       return `${num(service.percentMin) ?? 0}-${num(service.percentMax) ?? 0}%`;
     case "MANUAL":
       return "по факту";
+    case "REQUEST":
+      return "по запросу";
   }
 }
 
