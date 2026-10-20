@@ -29,6 +29,12 @@ const recipientSchema = z.object({
   postalCode: z.string().optional(),
   passportSeries: z.string().optional(),
   passportNumber: z.string().optional(),
+  passportIssuedAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Дата в формате ГГГГ-ММ-ДД")
+    .optional()
+    .or(z.literal("")),
+  passportIssuedBy: z.string().max(300, "Не больше 300 знаков").optional(),
   passportExpiry: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Дата в формате ГГГГ-ММ-ДД")
@@ -62,6 +68,8 @@ function readForm(formData: FormData) {
     postalCode: str(formData.get("postalCode")),
     passportSeries: str(formData.get("passportSeries")),
     passportNumber: str(formData.get("passportNumber")),
+    passportIssuedAt: str(formData.get("passportIssuedAt")),
+    passportIssuedBy: str(formData.get("passportIssuedBy")),
     passportExpiry: str(formData.get("passportExpiry")),
     pinfl: str(formData.get("pinfl")),
   };
@@ -90,6 +98,8 @@ function toData(parsed: z.infer<typeof recipientSchema>) {
     postalCode: parsed.postalCode ?? null,
     passportSeries: parsed.passportSeries ?? null,
     passportNumber: parsed.passportNumber ?? null,
+    passportIssuedAt: parsed.passportIssuedAt ? new Date(parsed.passportIssuedAt) : null,
+    passportIssuedBy: parsed.passportIssuedBy ?? null,
     passportExpiry: parsed.passportExpiry ? new Date(parsed.passportExpiry) : null,
     pinfl: parsed.pinfl || null,
   };

@@ -34,6 +34,8 @@ export type ExcelRowPreview = {
   countryName: string | null;
   recipient: { name: string | null; address: string | null; phone: string | null };
   recipientMatch: { id: string; name: string } | null;
+  /** получателя у клиента нет — при сохранении будет создан из строки */
+  recipientNew: boolean;
   tracks: ExcelRowTrack[];
   found: ExcelRowTracks;
   weightKg: number | null;
@@ -65,7 +67,7 @@ export type ExcelRowPreview = {
 
 export type ExcelRowPreviewResult = { ok: true; preview: ExcelRowPreview } | { ok: false; error: string; detail?: string };
 export type ExcelRowSaveResult =
-  | { ok: true; created: boolean; taskNumber: string; parcelId: string; parcelNumber: string }
+  | { ok: true; created: boolean; taskNumber: string; parcelId: string; parcelNumber: string; recipientCreated: string | null }
   | { ok: false; error: string };
 export type ExcelColumnsResult = { ok: boolean; message: string };
 
@@ -237,14 +239,10 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
   else if (!basics.client) blockers.push(`Клиента ${basics.clientCode} нет в базе — создайте его в «Клиенты», потом загрузите строку снова.`);
   if (!basics.country) warnings.push(`Страны ${basics.countryCode} (конец номера) нет в справочнике стран.`);
 
+  // Получателя нет у клиента — создаётся из строки при сохранении (владелец видит его в предпросмотре и подтверждает).
   const recipientMatch = basics.client ? await findRecipient(basics.client.id, basics.recipient) : null;
-  if (basics.client && !recipientMatch) {
-    blockers.push(
-      basics.recipient.name
-        ? `Получателя ${basics.recipient.name} нет в списке получателей клиента ${basics.client.code} — создайте его.`
-        : "В строке нет получателя.",
-    );
-  }
+  const recipientNew = Boolean(basics.client && !recipientMatch && basics.recipient.name);
+  if (basics.client && !recipientMatch && !basics.recipient.name) blockers.push("В строке нет получателя (колонка ФИО пустая).");
 
   const finance = await getFinanceSettings();
   const rowRate = num("rate");
@@ -331,6 +329,7 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
       countryName: basics.country?.nameRu ?? null,
       recipient: basics.recipient,
       recipientMatch: recipientMatch ? { id: recipientMatch.id, name: recipientMatch.name } : null,
+      recipientNew,
       tracks,
       found: { tracks: trackList, itemTracks: trackOfItem },
       weightKg: positive(num("weightKg")),
@@ -368,43 +367,33 @@ export async function previewExcelRow(text: string): Promise<ExcelRowPreviewResu
   return buildPreview(text);
 }
 
-/** Создать получателя клиента из строки: ФИО, адрес, телефон, страна — из конца номера строки. */
-export async function createRecipientFromRow(text: string): Promise<{ ok: boolean; message: string }> {
-  const session = await requireAdmin();
-  return createRecipient(text, session.user.id);
-}
-
-async function createRecipient(text: string, authorId: string): Promise<{ ok: boolean; message: string }> {
-  const basics = await readBasics(text);
-  if ("error" in basics) return { ok: false, message: basics.error };
-  if (!basics.client) return { ok: false, message: `Клиента ${basics.clientCode ?? ""} нет в базе` };
-  const r = basics.recipient;
-  if (!r.name) return { ok: false, message: "В строке нет ФИО получателя" };
-  if (await findRecipient(basics.client.id, r)) return { ok: true, message: "Получатель уже есть у клиента" };
-  // Телефон: код страны отдельно, если номер с него начинается.
+/** Новый получатель клиента из строки: ФИО, адрес, телефон (код страны — отдельно), страна — из конца номера строки. */
+function newRecipientData(
+  customerId: string,
+  r: { name: string; address: string | null; phone: string | null },
+  country: { code: string; nameRu: string; phoneCode: string | null } | null,
+  authorId: string,
+) {
   const phoneDigits = digits(r.phone);
-  const dial = basics.country?.phoneCode ?? null;
+  const dial = country?.phoneCode ?? null;
   const dialDigits = digits(dial);
   const withDial = Boolean(dialDigits && phoneDigits.startsWith(dialDigits) && phoneDigits.length > dialDigits.length + 5);
-  await prisma.recipient.create({
-    data: {
-      customerId: basics.client.id,
-      name: r.name,
-      address: r.address,
-      phone: phoneDigits ? (withDial ? phoneDigits.slice(dialDigits.length) : phoneDigits) : null,
-      phoneDialCode: withDial ? dial : null,
-      countryCode: basics.country?.code ?? null,
-      country: basics.country?.nameRu ?? null,
-      authorId,
-    },
-  });
-  return { ok: true, message: `Получатель ${r.name} создан у клиента ${basics.client.code}` };
+  return {
+    customerId,
+    name: r.name,
+    address: r.address,
+    phone: phoneDigits ? (withDial ? phoneDigits.slice(dialDigits.length) : phoneDigits) : null,
+    phoneDialCode: withDial ? dial : null,
+    countryCode: country?.code ?? null,
+    country: country?.nameRu ?? null,
+    authorId,
+  };
 }
 
 /** Сохранить строку: заказы → задача → посылка. Время: заказы — T, задача — T + 10 с, посылка — T + 20 с (T — дата отправки или сейчас). */
 export async function saveExcelRow(text: string, found: ExcelRowTracks): Promise<ExcelRowSaveResult> {
   const session = await requireAdmin();
-  return saveRow(text, session.user.id, found);
+  return saveRow(text, session.user.id, { found, createRecipient: true });
 }
 
 /**
@@ -413,20 +402,26 @@ export async function saveExcelRow(text: string, found: ExcelRowTracks): Promise
  */
 export async function importExcelRow(text: string, opts: { createRecipient: boolean }): Promise<ExcelRowSaveResult> {
   const session = await requireAdmin();
-  if (opts.createRecipient) {
-    const recipient = await createRecipient(text, session.user.id);
-    if (!recipient.ok && !/нет в базе|нет ФИО/.test(recipient.message)) return { ok: false, error: recipient.message };
-  }
-  return saveRow(text, session.user.id);
+  return saveRow(text, session.user.id, { createRecipient: opts.createRecipient });
 }
 
-async function saveRow(text: string, userId: string, found?: ExcelRowTracks): Promise<ExcelRowSaveResult> {
-  const built = await buildPreview(text, found);
+async function saveRow(
+  text: string,
+  userId: string,
+  opts: { found?: ExcelRowTracks; createRecipient: boolean },
+): Promise<ExcelRowSaveResult> {
+  const built = await buildPreview(text, opts.found);
   if (!built.ok) return built;
   const p = built.preview;
   if (p.blockers.length) return { ok: false, error: p.blockers.join(" ") };
   const client = p.client!;
-  const recipientId = p.recipientMatch!.id;
+  if (!p.recipientMatch && !(p.recipientNew && opts.createRecipient)) {
+    return { ok: false, error: `Получателя ${p.recipient.name ?? ""} нет в списке получателей клиента ${client.code}.` };
+  }
+  const country =
+    !p.recipientMatch && p.countryCode
+      ? await prisma.country.findUnique({ where: { code: p.countryCode }, select: { code: true, nameRu: true, phoneCode: true } })
+      : null;
   const author = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!author) return { ok: false, error: "Пользователь не найден — войдите заново" };
 
@@ -438,6 +433,14 @@ async function saveRow(text: string, userId: string, found?: ExcelRowTracks): Pr
   const comment = p.sentDate ? "Загружено из Excel" : "Загружено из Excel (не отправлена)";
 
   const result = await prisma.$transaction(async (tx) => {
+    const recipientId =
+      p.recipientMatch?.id ??
+      (
+        await tx.recipient.create({
+          data: newRecipientData(client.id, { ...p.recipient, name: p.recipient.name! }, country, author.id),
+          select: { id: true },
+        })
+      ).id;
     const existingTask = await tx.parcelTask.findUnique({
       where: { number: p.taskNumber },
       select: {
@@ -548,5 +551,12 @@ async function saveRow(text: string, userId: string, found?: ExcelRowTracks): Pr
 
   revalidatePath("/parcels");
   revalidatePath("/orders");
-  return { ok: true, created: result.created, taskNumber: p.taskNumber, parcelId: result.parcel.id, parcelNumber: result.parcel.number };
+  return {
+    ok: true,
+    created: result.created,
+    taskNumber: p.taskNumber,
+    parcelId: result.parcel.id,
+    parcelNumber: result.parcel.number,
+    recipientCreated: p.recipientMatch ? null : p.recipient.name,
+  };
 }

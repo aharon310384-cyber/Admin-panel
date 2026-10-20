@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { ClipboardPaste, Columns3, Copy, Loader2, Save, UserPlus } from "lucide-react";
+import { ClipboardPaste, Columns3, Copy, Loader2, Save } from "lucide-react";
 import {
-  createRecipientFromRow,
   previewExcelRow,
   saveExcelColumns,
   saveExcelRow,
@@ -116,15 +115,6 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
     }
   };
 
-  const createRecipient = () =>
-    run(async () => {
-      const result = await createRecipientFromRow(text);
-      setNotice(result.message);
-      if (!result.ok) return;
-      const again = await previewExcelRow(text);
-      if (again.ok) setPreview(again.preview);
-    });
-
   const save = () =>
     run(async () => {
       if (!preview) return;
@@ -134,8 +124,6 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
         setError(null);
       } else setError({ text: result.error });
     });
-
-  const recipientMissing = Boolean(preview?.client && !preview.recipientMatch && preview.recipient.name);
 
   return (
     <div className="xr">
@@ -264,13 +252,11 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
               {preview.blockers.map((b, i) => <li key={i}>{b}</li>)}
             </ul>
           )}
-          {recipientMissing && (
-            <div className="xr-actions" style={{ marginBottom: 8 }}>
-              <button type="button" className="xr-btn" onClick={createRecipient} disabled={pending}>
-                <UserPlus size={13} /> Создать получателя из строки
-              </button>
-              <span className="xr-muted">ФИО, адрес и телефон — из строки, страна — {preview.countryCode}. Потом можно дополнить в «Получатели».</span>
-            </div>
+          {preview.recipientNew && !saved && (
+            <p className="xr-new">
+              Получателя <b>{preview.recipient.name}</b> нет у клиента {preview.client?.code} — при сохранении он будет создан из строки:
+              ФИО, адрес, телефон, страна {preview.countryCode}. Проверьте ниже и сохраните; паспорт и остальное можно дополнить потом в «Получатели».
+            </p>
           )}
           {notice && <p className="xr-ok" style={{ margin: "0 0 8px" }}>{notice}</p>}
 
@@ -306,7 +292,13 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
               <dt>Получатель</dt>
               <dd>
                 {preview.recipient.name ?? "—"}{" "}
-                {preview.recipientMatch ? <span className="xr-ok">✓ есть у клиента</span> : preview.client && <span className="xr-bad">нет у клиента</span>}
+                {preview.recipientMatch ? (
+                  <span className="xr-ok">✓ есть у клиента</span>
+                ) : preview.recipientNew ? (
+                  <span className="xr-bad">новый — будет создан</span>
+                ) : (
+                  preview.client && <span className="xr-bad">нет у клиента</span>
+                )}
               </dd>
               <dt>Адрес</dt><dd>{preview.recipient.address ?? "—"}</dd>
               <dt>Телефон</dt><dd className="xr-mono">{preview.recipient.phone ?? "—"}</dd>
@@ -355,6 +347,7 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
               <span className="xr-ok" role="status">
                 {saved.created ? "Сохранено" : "Обновлено"}: задача {saved.taskNumber}, посылка{" "}
                 <Link href={`/parcels/${saved.parcelId}`}>{saved.parcelNumber}</Link>
+                {saved.recipientCreated ? `, создан получатель ${saved.recipientCreated}` : ""}
               </span>
             )}
           </div>
@@ -402,6 +395,7 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
         .xr-internal { padding: 8px 10px; border: 1px dashed var(--color-border-strong); border-radius: 4px; }
         .xr-internal-title { font-weight: 700; color: var(--color-text) !important; }
         .xr-save { margin-top: 12px; }
+        .xr-new { margin: 0 0 8px; padding: 8px 10px; background: var(--color-muted-bg); border-radius: 4px; line-height: 1.5; }
         .xr-formula { margin-top: 12px; padding: 8px 10px; background: var(--color-muted-bg); border-radius: 4px; line-height: 1.5; color: var(--color-text-secondary); }
         .xr-code { padding: 4px 8px; background: #fff; border: 1px solid var(--color-border); border-radius: 4px; font-size: 12px; word-break: break-all; }
         .xr-from-excel { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; padding: 8px 10px; background: var(--color-warning-bg); border-radius: 4px; line-height: 1.45; }
