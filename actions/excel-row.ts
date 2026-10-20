@@ -8,7 +8,7 @@ import { getFinanceSettings } from "@/lib/finance";
 import { findExcelTracks } from "@/lib/ai-order-parser";
 import { splitExcelRow } from "@/lib/excel-row";
 import { alignRow, cellOf, cleanColumns, isPaidMark, numberOf, productItems, sentDateOf, type ExcelColumns } from "@/lib/excel-columns";
-import { foundInText, missedTracks, sameName } from "@/lib/excel-check";
+import { foundInText, latinCode, missedTracks, sameName } from "@/lib/excel-check";
 import { splitLegacyTaskNumber } from "@/lib/parcel-number";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { EU_DUTY_PER_ITEM_EUR } from "@/lib/eu-customs";
@@ -137,7 +137,7 @@ async function readBasics(text: string): Promise<RowBasics | { error: string }> 
   const clientCode = split.number.match(/^[A-Z]{2,4}(?=\d)/)?.[0] ?? null;
   const [client, country] = await Promise.all([
     clientCode
-      ? prisma.customer.findFirst({ where: { code: clientCode, deletedAt: null }, select: { id: true, code: true, name: true } })
+      ? findClient(clientCode)
       : null,
     prisma.country.findUnique({ where: { code: split.country }, select: { code: true, nameRu: true, phoneCode: true } }),
   ]);
@@ -156,6 +156,15 @@ async function readBasics(text: string): Promise<RowBasics | { error: string }> 
       phone: cellOf(cells, columns, "phone"),
     },
   };
+}
+
+/** Клиент по коду из номера строки: без учёта регистра и с кириллицей, похожей на латиницу («кс», «КС» = KC). */
+async function findClient(code: string) {
+  const clients = await prisma.customer.findMany({
+    where: { deletedAt: null, code: { not: null } },
+    select: { id: true, code: true, name: true },
+  });
+  return clients.find((c) => latinCode(c.code) === code) ?? null;
 }
 
 async function findRecipient(customerId: string, r: RowBasics["recipient"]) {

@@ -63,3 +63,11 @@ export function sameName(a: string, b: string): boolean {
   const left = words(a);
   return left.length > 0 && left === words(b);
 }
+
+// Кириллица, похожая на латиницу: код клиента «КС», набранный русскими буквами, — это «KC».
+const LOOKALIKE: Record<string, string> = { А: "A", В: "B", С: "C", Е: "E", Н: "H", К: "K", М: "M", О: "O", Р: "P", Т: "T", Х: "X", У: "Y" };
+
+/** Код клиента для сравнения: заглавные латинские, похожая кириллица — латиницей, без пробелов. */
+export function latinCode(value: string | null | undefined): string {
+  return [...(value ?? "").toUpperCase().replace(/\s+/g, "")].map((ch) => LOOKALIKE[ch] ?? ch).join("");
+}

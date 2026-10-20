@@ -43,7 +43,11 @@ export default function ClientForm({ countries, action }: Props) {
               autoComplete="off"
               autoFocus
             />
-            {errors?.code && <p className="field-error">{errors.code[0]}</p>}
+            {errors?.code ? (
+              <p className="field-error">{errors.code[0]}</p>
+            ) : (
+              <p className="field-hint">2–4 заглавные латинские буквы, как в начале номера строки Excel: KC4245MD → KC</p>
+            )}
           </div>
 
           <div className="field-row field-row--3">
@@ -149,6 +153,7 @@ export default function ClientForm({ countries, action }: Props) {
         .field-input--code { max-width: 200px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.03em; }
         .field-input--error { border-color: var(--color-danger); }
         .field-error { font-size: 12px; color: var(--color-danger); }
+        .field-hint { margin: 0; font-size: 12px; color: var(--color-muted); }
         .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
         .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; background: var(--color-accent); color: var(--color-accent-fg); border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: background 0.15s; }
         .btn-primary:hover { background: var(--color-accent-hover); }

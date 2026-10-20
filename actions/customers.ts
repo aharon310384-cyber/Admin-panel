@@ -21,7 +21,12 @@ const customerSchema = z.object({
 });
 
 const clientSchema = z.object({
-  code: z.string().trim().min(1, "Укажите код клиента"),
+  // Код клиента — начало номера строки Excel и номера задачи (KC4245MD): только заглавные латинские буквы
+  code: z
+    .string()
+    .trim()
+    .min(1, "Укажите код клиента")
+    .regex(/^[A-Z]{2,4}$/, "Код клиента — 2–4 заглавные латинские буквы, например KC. Русские и маленькие буквы нельзя"),
   lastName: z.string().optional(),
   firstName: z.string().optional(),
   middleName: z.string().optional(),
