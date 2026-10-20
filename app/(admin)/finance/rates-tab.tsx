@@ -23,7 +23,9 @@ export default function RatesTab({ settings, stats, isAdmin }: Props) {
           <div className="stat">
             <span className="stat-label">Текущий курс</span>
             <span className="stat-value mono">
-              1 USD = {settings.exchangeRateCnyPerUsd.toFixed(4)} CNY
+              {settings.exchangeRateCnyPerUsd != null
+                ? <>1 USD = {settings.exchangeRateCnyPerUsd.toFixed(4)} CNY</>
+                : "не задан"}
             </span>
           </div>
           <div className="stat">

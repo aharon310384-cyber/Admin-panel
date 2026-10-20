@@ -13,10 +13,10 @@ import { parcelStatusLabel, PARCEL_STATUS_LABELS } from "@/lib/statuses";
 import { ensureBaseline, ensureBaselines, recordVersion, recordVersions } from "@/lib/versions";
 import { trackAfterResponse } from "@/lib/tracking";
 import { activeServices, findShippingTariff } from "@/lib/tariffs";
+import { getFinanceSettings, RATE_EUR_MISSING, RATE_USD_MISSING } from "@/lib/finance";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-type DutySettings = { euDutyEnabled: boolean; euDutyPassToClient: boolean; exchangeRateCnyPerEur: number; exchangeRateCnyPerUsd: number };
 
 type OrderServiceFlags = {
   keepOriginalPackaging: boolean;
@@ -90,7 +90,7 @@ async function calcDutyFor(
   orders: (DutyOrderLine & { declaredValueUsd?: unknown })[],
   opts?: { manualLineCount?: number | null; passToClientOverride?: boolean | null },
 ): Promise<{ duty: DutyResult; passToClient: boolean }> {
-  const settings = (await prisma.financeSettings.findFirst()) as DutySettings | null;
+  const settings = await getFinanceSettings();
   let destinationIsEu = false;
   if (recipientId) {
     const recipient = await prisma.recipient.findUnique({
@@ -107,17 +107,17 @@ async function calcDutyFor(
   }
   const declaredValueUsd = orders.reduce((s, o) => s + Number(o.declaredValueUsd ?? 0), 0);
   const duty = computeEuCustomsDuty({
-    enabled: settings?.euDutyEnabled ?? true,
+    enabled: settings.euDutyEnabled,
     destinationIsEu,
     declaredValueUsd,
-    exchangeRateCnyPerEur: Number(settings?.exchangeRateCnyPerEur ?? 7.8),
-    exchangeRateCnyPerUsd: Number(settings?.exchangeRateCnyPerUsd ?? 7.1),
+    exchangeRateCnyPerEur: settings.exchangeRateCnyPerEur,
+    exchangeRateCnyPerUsd: settings.exchangeRateCnyPerUsd,
     orders,
     manualLineCount: opts?.manualLineCount ?? null,
   });
   // Переопределение на уровне посылки приоритетнее глобальной настройки
   const passToClient =
-    opts?.passToClientOverride != null ? opts.passToClientOverride : settings?.euDutyPassToClient ?? true;
+    opts?.passToClientOverride != null ? opts.passToClientOverride : settings.euDutyPassToClient;
   return { duty, passToClient };
 }
 
@@ -157,13 +157,15 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
 
   const taskNumber = await nextParcelTaskNumber(customer.code, recipient.countryCode);
   const billable = round2(orders.reduce((s, o) => s + Number(o.actualWeightKg ?? 0), 0));
-  const settings = await prisma.financeSettings.findFirst();
-  const rate = Number(settings?.exchangeRateCnyPerUsd ?? 7.1);
+  // Курс — только из «Финансы → Курс»; не задан — оформлять не по чему
+  const rate = (await getFinanceSettings()).exchangeRateCnyPerUsd;
+  if (!rate) return { error: RATE_USD_MISSING };
   // Тариф — по стране получателя и виду доставки («Логистика → Тарифы»)
   const tariff = await findShippingTariff(recipient.countryCode, first.deliveryType);
   const shippingCostUsd = tariff ? round2(billable * Number(tariff.pricePerKgUsd) + Number(tariff.handlingFeeUsd)) : 0;
 
   const { duty, passToClient } = await calcDutyFor(first.recipientId, orders);
+  if (duty.reason === "no-rate") return { error: RATE_EUR_MISSING };
   const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
   // услуги, выбранные клиентом на строках заказов, переходят в посылку (OR по строкам)
   const orderServices = servicesFromOrders(orders, billable, await activeServices());
@@ -253,6 +255,7 @@ export async function applyParcelServices(
     manualLineCount: opts.customsDutyManualLines ?? null,
     passToClientOverride: opts.customsDutyPassToClient ?? null,
   });
+  if (duty.reason === "no-rate") return { ok: false, warning: `${RATE_EUR_MISSING} Квитанция не пересчитана.` };
   const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
 
   const rate = Number(parcel.exchangeRateCnyPerUsd);
@@ -313,7 +316,7 @@ export async function applyParcelServices(
   const servicesTotal = await saveParcelServices(parcelId, services, rate);
   const subtotal = round2(shipping + servicesTotal);
   const discountPercent = opts.discountPercent ?? 0;
-  // скидка — только на услуги Postmanfox; пошлина ЕС добавляется отдельно, после скидки
+  // скидка — только на наши услуги; пошлина ЕС добавляется отдельно, после скидки
   const afterDiscount = round2(subtotal - subtotal * (discountPercent / 100));
   const totalUsd = round2(afterDiscount + dutyInTotal);
 

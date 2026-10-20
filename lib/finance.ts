@@ -5,12 +5,18 @@ import { prisma } from "@/lib/prisma";
 
 export type FinanceSettingsView = {
   id: string;
-  exchangeRateCnyPerUsd: number;
-  exchangeRateCnyPerEur: number;
+  exchangeRateCnyPerUsd: number | null; // null — курс не задан
+  exchangeRateCnyPerEur: number | null;
   euDutyEnabled: boolean;
   euDutyPassToClient: boolean;
   updatedAt: Date;
 };
+
+// Курс берётся только из «Финансы → Курс»: запасного числа в коде нет. Не задан — расчёт останавливается с этим сообщением.
+export const RATE_USD_MISSING = "Не задан курс ¥ за $ — задайте его в «Финансы → Курс».";
+export const RATE_EUR_MISSING = "Не задан курс ¥ за € для пошлины ЕС — задайте его в «Финансы → Курс».";
+
+const rateOf = (value: Prisma.Decimal | null) => (value != null && Number(value) > 0 ? Number(value) : null);
 
 export async function getFinanceSettings(): Promise<FinanceSettingsView> {
   let settings = await prisma.financeSettings.findFirst();
@@ -19,8 +25,8 @@ export async function getFinanceSettings(): Promise<FinanceSettingsView> {
   }
   return {
     id: settings.id,
-    exchangeRateCnyPerUsd: Number(settings.exchangeRateCnyPerUsd),
-    exchangeRateCnyPerEur: Number(settings.exchangeRateCnyPerEur),
+    exchangeRateCnyPerUsd: rateOf(settings.exchangeRateCnyPerUsd),
+    exchangeRateCnyPerEur: rateOf(settings.exchangeRateCnyPerEur),
     euDutyEnabled: settings.euDutyEnabled,
     euDutyPassToClient: settings.euDutyPassToClient,
     updatedAt: settings.updatedAt,
@@ -34,19 +40,21 @@ export type RatesStats = {
   totalCnyAll: number;
 };
 
-export async function getRatesStats(currentRate: number): Promise<RatesStats> {
+export async function getRatesStats(currentRate: number | null): Promise<RatesStats> {
   const epsilon = 0.0001;
   const [parcelsTotal, parcelsOnCurrentRate, sums] = await Promise.all([
     prisma.parcel.count({ where: { deletedAt: null } }),
-    prisma.parcel.count({
-      where: {
-        deletedAt: null,
-        exchangeRateCnyPerUsd: {
-          gte: currentRate - epsilon,
-          lte: currentRate + epsilon,
-        },
-      },
-    }),
+    currentRate == null
+      ? 0
+      : prisma.parcel.count({
+          where: {
+            deletedAt: null,
+            exchangeRateCnyPerUsd: {
+              gte: currentRate - epsilon,
+              lte: currentRate + epsilon,
+            },
+          },
+        }),
     prisma.parcel.aggregate({
       where: { deletedAt: null },
       _sum: { totalUsd: true, totalCny: true },

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { requireAdmin } from "@/lib/server-helpers";
 import { parseOrdersFromText, type ParsedOrderDraft } from "@/lib/ai-order-parser";
-import { getFinanceSettings } from "@/lib/finance";
+import { getFinanceSettings, RATE_USD_MISSING } from "@/lib/finance";
 import { recordVersion } from "@/lib/versions";
 
 export type ParseOrdersResponse =
@@ -27,6 +27,7 @@ export async function parseOrderText(text: string): Promise<ParseOrdersResponse>
 
   // Юани → доллары по курсу из «Финансы → Курс».
   const { exchangeRateCnyPerUsd } = await getFinanceSettings();
+  if (!exchangeRateCnyPerUsd) return { ok: false, error: RATE_USD_MISSING };
   const result = await parseOrdersFromText(text, catalog.map((c) => c.nameRu), exchangeRateCnyPerUsd);
   return result.ok ? { ...result, rateCnyPerUsd: exchangeRateCnyPerUsd } : result;
 }

@@ -50,8 +50,8 @@ export type DutyInput = {
   enabled: boolean; // мастер-выключатель меры (FinanceSettings)
   destinationIsEu: boolean; // страна получателя входит в ЕС
   declaredValueUsd: number; // сумма объявленных стоимостей строк, $
-  exchangeRateCnyPerEur: number; // курс EUR в юанях (¥ за €)
-  exchangeRateCnyPerUsd: number; // основной курс (¥ за $) — для пересчёта € ↔ $
+  exchangeRateCnyPerEur: number | null; // курс EUR в юанях (¥ за €); null — не задан
+  exchangeRateCnyPerUsd: number | null; // основной курс (¥ за $) — для пересчёта € ↔ $; null — не задан
   orders: DutyOrderLine[];
   manualLineCount?: number | null; // ручной перебор числа позиций (типов товара); null/undefined = авто
   now?: Date; // момент расчёта (по умолчанию текущий) — прокси даты отправки
@@ -64,7 +64,7 @@ export type DutyResult = {
   manualLineCount: number | null; // ручной перебор, если задан
   dutyEur: number; // сумма пошлины в €
   dutyUsd: number; // сумма пошлины в $
-  reason?: "not-enabled" | "not-eu" | "no-orders" | "out-of-window" | "over-cap";
+  reason?: "not-enabled" | "not-eu" | "no-orders" | "out-of-window" | "over-cap" | "no-rate";
 };
 
 /** Рассчитать таможенную пошлину ЕС для посылки. */
@@ -85,10 +85,9 @@ export function computeEuCustomsDuty(input: DutyInput): DutyResult {
   if (now < EU_DUTY_START || now >= EU_DUTY_END) return none("out-of-window");
   if (orders.length === 0) return none("no-orders");
 
-  // курс $ за € выводим из юаневых курсов: (¥/€) ÷ (¥/$) = $/€
-  const cnyPerEur = exchangeRateCnyPerEur > 0 ? exchangeRateCnyPerEur : 1;
-  const cnyPerUsd = exchangeRateCnyPerUsd > 0 ? exchangeRateCnyPerUsd : 1;
-  const rate = cnyPerEur / cnyPerUsd; // $ за €
+  // курс $ за € выводим из юаневых курсов: (¥/€) ÷ (¥/$) = $/€. Курса нет — пошлину не посчитать, а не считать по выдуманному
+  if (!exchangeRateCnyPerEur || exchangeRateCnyPerEur <= 0 || !exchangeRateCnyPerUsd || exchangeRateCnyPerUsd <= 0) return none("no-rate");
+  const rate = exchangeRateCnyPerEur / exchangeRateCnyPerUsd; // $ за €
   // порог €150: переводим объявленную стоимость из $ в €
   const declaredEur = declaredValueUsd / rate;
   // > €150 — режим обычных пошлин, фиксированный €3 не применяется

@@ -47,7 +47,7 @@ export type ExcelRowPreview = {
   euItemKinds: number | null;
   dutyEur: number | null;
   dutyCny: number | null;
-  rateEur: number;
+  rateEur: number | null;
   localDeliveryCny: number | null;
   discountPercent: number | null;
   totalCny: number | null;
@@ -240,6 +240,7 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
   const finance = await getFinanceSettings();
   const rowRate = num("rate");
   const rate = rowRate && rowRate > 0 ? rowRate : finance.exchangeRateCnyPerUsd;
+  if (!rate) return { ok: false, error: "Курса ¥ за $ нет ни в строке, ни в «Финансы → Курс» — задайте курс." };
   if (!rowRate) warnings.push(`Курса в строке нет — взят курс из «Финансы → Курс»: ${rate}.`);
 
   const photo = cellOf(cells, columns, "photoReport");
@@ -267,7 +268,10 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
   const rateEur = rowRateEur ?? finance.exchangeRateCnyPerEur;
   const euItemKinds = positive(num("euItemKinds"));
   const dutyEur = euItemKinds ? euItemKinds * EU_DUTY_PER_ITEM_EUR : null;
-  const dutyCny = dutyEur != null ? round2(dutyEur * rateEur) : null;
+  if (dutyEur != null && !rateEur) {
+    return { ok: false, error: "Курса ¥ за € нет ни в строке, ни в «Финансы → Курс» — пошлину ЕС не посчитать, задайте курс." };
+  }
+  const dutyCny = dutyEur != null && rateEur ? round2(dutyEur * rateEur) : null;
   const shippingUsd = num("shippingUsd");
   const totalUsdCell = num("totalUsd");
   const localDeliveryCny = positive(num("localDeliveryCny"));

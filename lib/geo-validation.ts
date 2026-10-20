@@ -44,7 +44,8 @@ async function nominatim(params: Record<string, string>): Promise<NominatimItem[
   const timer = setTimeout(() => controller.abort(), 3500);
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "Postmanfox-Admin/1.0 (recipient city validation)" },
+      // Nominatim просит своё имя программы в User-Agent; адрес приложения — из настроек сервера
+      headers: { "User-Agent": `Admin-panel/1.0 (recipient city validation${process.env.NEXT_PUBLIC_APP_URL ? `; ${process.env.NEXT_PUBLIC_APP_URL}` : ""})` },
       signal: controller.signal,
     });
     if (!res.ok) return [];
