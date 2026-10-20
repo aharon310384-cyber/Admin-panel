@@ -40,7 +40,7 @@ const SHIPPING: ShippingSeed[] = [
   { key: "UA_AIR", section: MAIN, direction: "Украина (авиа)", countryCodes: ["UA"], deliveryType: "AIR", pricePerKgUsd: 18, handlingFeeUsd: 2, minDays: 15, maxDays: 18, paymentTiming: "FLEXIBLE" },
   { key: "UA_SEA", section: MAIN, direction: "Украина (море)", countryCodes: ["UA"], deliveryType: "SEA", pricePerKgUsd: 7.5, handlingFeeUsd: 2, minDays: 50, maxDays: 65, paymentTiming: "FLEXIBLE" },
   { key: "BY", section: MAIN, direction: "Беларусь (авто)", countryCodes: ["BY"], deliveryType: "TRUCK", pricePerKgUsd: 15, handlingFeeUsd: 3, minDays: 15, maxDays: 25, paymentTiming: "BEFORE" },
-  { key: "MD", section: MAIN, direction: "Молдова", cargoType: "до 5 кг", countryCodes: ["MD"], deliveryType: "TRUCK", pricePerKgUsd: 18, handlingFeeUsd: 10, minDays: 15, maxDays: 20, paymentTiming: "FLEXIBLE" },
+  { key: "MD", section: MAIN, direction: "Молдова (авиа)", cargoType: "до 5 кг", countryCodes: ["MD"], deliveryType: "AIR", pricePerKgUsd: 18, handlingFeeUsd: 10, minDays: 15, maxDays: 20, paymentTiming: "FLEXIBLE" },
   { key: "KR_JP", section: POST, direction: "Южная Корея, Япония", countryCodes: ["KR", "JP"], deliveryType: "AIR", pricePerKgUsd: 11, handlingFeeUsd: 12, minDays: 10, maxDays: 15, paymentTiming: "BEFORE" },
   {
     key: "ASIA_OCEANIA",
@@ -118,7 +118,7 @@ type ServiceSeed = {
   code: string;
   name: string;
   description: string | null;
-  firstListDescription?: string; // описание из первого переноса — по нему видно, что услугу в админке ещё не меняли
+  was?: { name?: string; description?: string }; // как было в первом переносе — по этому видно, что услугу в админке ещё не меняли
   pricingType: ServicePricingType;
   value: number | null;
   percentMin?: number;
@@ -132,12 +132,12 @@ const AS_NEEDED = "При необходимости (без уведомлен�
 const AS_NEEDED_V1 = "При необходимости или по желанию клиента.";
 
 const SERVICES: ServiceSeed[] = [
-  { code: "COMPACT_PACK", name: "Компактная упаковка", description: AS_NEEDED, firstListDescription: AS_NEEDED_V1, pricingType: "PER_KG", value: 0.5, inPriceList: true, sortOrder: 10 },
+  { code: "COMPACT_PACK", name: "Компактная упаковка", description: AS_NEEDED, was: { description: AS_NEEDED_V1 }, pricingType: "PER_KG", value: 0.5, inPriceList: true, sortOrder: 10 },
   {
     code: "CONSOLIDATION",
-    name: "Консолидация",
+    name: "Объединение (консолидация)",
     description: "Объединение (консолидация) нескольких посылок в одну общую посылку (переупаковка обязательна).",
-    firstListDescription: "Объединение нескольких посылок в одну общую посылку. Переупаковка обязательна.",
+    was: { name: "Консолидация", description: "Объединение нескольких посылок в одну общую посылку. Переупаковка обязательна." },
     pricingType: "PER_KG",
     value: 0.3,
     inPriceList: true,
@@ -145,9 +145,9 @@ const SERVICES: ServiceSeed[] = [
   },
   {
     code: "DETAILED_CHECK",
-    name: "Детальная проверка и фотоотчёт",
+    name: "Детальная проверка и фотоотчет",
     description: "Товар тщательно проверяется на соответствие и на наличие брака и фотографируется. После фотографии отправляются клиенту.",
-    firstListDescription: "Тщательная проверка на соответствие и наличие брака с фотоотчетом.",
+    was: { name: "Детальная проверка и фотоотчёт", description: "Тщательная проверка на соответствие и наличие брака с фотоотчетом." },
     pricingType: "PER_ORDER",
     value: 2,
     selectableByClient: true,
@@ -155,14 +155,14 @@ const SERVICES: ServiceSeed[] = [
     sortOrder: 30,
   },
   { code: "KEEP_ORIGINAL_PACK", name: "Оставить оригинальную упаковку", description: null, pricingType: "PER_ORDER", value: 0, selectableByClient: true, inPriceList: false, sortOrder: 35 },
-  { code: "INSURANCE", name: "Дополнительная страховка", description: AS_NEEDED, firstListDescription: AS_NEEDED_V1, pricingType: "PERCENT", value: null, percentMin: 2, percentMax: 10, inPriceList: true, sortOrder: 40 },
-  { code: "REINFORCED_PACK", name: "Усиленная упаковка", description: AS_NEEDED, firstListDescription: AS_NEEDED_V1, pricingType: "MANUAL", value: null, inPriceList: true, sortOrder: 50 },
+  { code: "INSURANCE", name: "Дополнительная страховка", description: AS_NEEDED, was: { description: AS_NEEDED_V1 }, pricingType: "PERCENT", value: null, percentMin: 2, percentMax: 10, inPriceList: true, sortOrder: 40 },
+  { code: "REINFORCED_PACK", name: "Усиление упаковки", description: AS_NEEDED, was: { name: "Усиленная упаковка", description: AS_NEEDED_V1 }, pricingType: "MANUAL", value: null, inPriceList: true, sortOrder: 50 },
   { code: "MARKETPLACE_PURCHASE", name: "Выкуп из маркетплейсов", description: "TaoBao, 1688, Poizon, WeChat и т.д. (проекты по запросу).", pricingType: "PERCENT", value: null, percentMin: 5, percentMax: 10, inPriceList: true, sortOrder: 60 },
   {
     code: "STANDARD_CHECK",
-    name: "Стандартная проверка на соответствие",
-    description: "При выкупе товара: проверка на соответствие цвета, размера и видимых дефектов. Фотографии товара отправляются только в случае обнаружения брака.",
-    firstListDescription: "Проверка цвета, размера и видимых дефектов. Фото отправляются при обнаружении брака.",
+    name: "Стандартная проверка на соответствие (при выкупе товара)",
+    description: "Проверка товара на соответствие цвета, размера и видимых дефектов. Фотографии товара отправляются только в случае обнаружения брака.",
+    was: { name: "Стандартная проверка на соответствие", description: "Проверка цвета, размера и видимых дефектов. Фото отправляются при обнаружении брака." },
     pricingType: "PER_KG",
     value: 1,
     inPriceList: true,
@@ -253,22 +253,25 @@ async function migrateServices(companyId: string) {
   let migrated = 0;
   let corrected = 0;
   let created = 0;
-  for (const { percentMin = null, percentMax = null, selectableByClient = false, firstListDescription, ...seed } of SERVICES) {
+  for (const { percentMin = null, percentMax = null, selectableByClient = false, was, ...seed } of SERVICES) {
     const existing = await prisma.serviceTariff.findUnique({ where: { code: seed.code } });
     if (!existing) {
       await prisma.serviceTariff.create({ data: { ...seed, companyId, percentMin, percentMax, selectableByClient } });
       created += 1;
-    } else if (!existing.companyId) {
-      await prisma.serviceTariff.update({
-        where: { code: seed.code },
-        data: { companyId, description: existing.description ?? seed.description, inPriceList: seed.inPriceList, sortOrder: seed.sortOrder },
-      });
-      migrated += 1;
-    } else if (firstListDescription && existing.description === firstListDescription) {
-      // Описание из первого переноса — услугу в админке не меняли: описание и порядок — по прайс-листу.
-      await prisma.serviceTariff.update({ where: { code: seed.code }, data: { description: seed.description, sortOrder: seed.sortOrder } });
-      corrected += 1;
+      continue;
     }
+    // Название и описание — по прайс-листу, если они ещё такие, как в первом переносе (в админке не меняли).
+    const data: { name?: string; description?: string | null; companyId?: string; inPriceList?: boolean; sortOrder?: number } = {};
+    if (was?.name && existing.name === was.name) data.name = seed.name;
+    if (!existing.companyId) {
+      Object.assign(data, { companyId, description: existing.description ?? seed.description, inPriceList: seed.inPriceList, sortOrder: seed.sortOrder });
+    } else if (was?.description && existing.description === was.description) {
+      Object.assign(data, { description: seed.description, sortOrder: seed.sortOrder });
+    }
+    if (!Object.keys(data).length) continue;
+    await prisma.serviceTariff.update({ where: { code: seed.code }, data });
+    if (existing.companyId) corrected += 1;
+    else migrated += 1;
   }
   if (migrated || corrected || created) console.log(`Услуги: перенесено ${migrated}, исправлено по прайс-листу ${corrected}, создано ${created}`);
 }

@@ -42,8 +42,13 @@ export function formatServicePrice(service: ServicePriceFields): string {
   }
 }
 
-/** Подсказки к отметкам услуг в формах: код услуги → «0.3$/кг». */
-export type ServiceHints = Record<string, string>;
+/** Услуги для отметок в формах: код услуги → название и цена из справочника («0.3$/кг»). */
+export type ServiceHints = Record<string, { name: string; price: string }>;
+
+/** Название услуги из справочника; запасное — если услуги в справочнике нет. */
+export function serviceName(hints: ServiceHints, code: string, fallback: string): string {
+  return hints[code]?.name ?? fallback;
+}
 
 /** Список стран под направлением; не нужен, если название направления уже называет все страны. */
 export function countriesNote(codes: string[], direction: string, names: Map<string, string>): string | null {
