@@ -43,6 +43,7 @@ export default function ParcelsTable({
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<ParcelStatus>("DELIVERED");
+  const [notify, setNotify] = useState(true);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -59,9 +60,10 @@ export default function ParcelsTable({
   const apply = () => {
     const ids = [...selected];
     const label = PARCEL_STATUS_LABELS[status];
-    if (!confirm(`Поставить статус «${label}» посылкам: ${ids.length}? Клиентам с Telegram придёт сообщение о смене статуса.`)) return;
+    const message = notify ? "Клиентам с Telegram придёт сообщение о смене статуса." : "Сообщения клиентам не отправляются.";
+    if (!confirm(`Поставить статус «${label}» посылкам: ${ids.length}? ${message}`)) return;
     startTransition(async () => {
-      const r = await setParcelsStatus(ids, status);
+      const r = await setParcelsStatus(ids, status, notify);
       const text = [`Статус «${label}» поставлен: ${r.changed}`, ...r.errors].join(". ");
       setResult({ ok: r.ok, text });
       if (r.ok) setSelected(new Set());
@@ -153,6 +155,9 @@ export default function ParcelsTable({
                 <select className="sticky-select" value={status} onChange={(e) => setStatus(e.target.value as ParcelStatus)} aria-label="Новый статус">
                   {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
+                <label className="sticky-check" title="Снимите, если закрываете давно дошедшие посылки">
+                  <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Сообщить клиентам
+                </label>
                 <button type="button" className="btn-primary" onClick={apply} disabled={pending}>Поставить статус</button>
                 <button type="button" className="btn-secondary" onClick={() => setSelected(new Set())}>Снять отметки</button>
               </div>
@@ -203,6 +208,8 @@ export default function ParcelsTable({
         .sticky-bar { position: sticky; bottom: calc(var(--shell-bottom, 0px) + 36px); z-index: 10; margin-top: 12px; padding: 10px 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: 0 8px 24px oklch(20% 0.02 60 / 0.18); display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
         .sticky-info { font-size: 13.5px; }
         .sticky-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .sticky-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+        .sticky-check input { margin: 0; accent-color: var(--color-accent); }
         .sticky-select { height: 32px; padding: 0 8px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); font: inherit; font-size: 13px; background: #fff; }
         .btn-secondary { display: inline-flex; align-items: center; padding: 7px 12px; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; color: var(--color-text); cursor: pointer; }
         .btn-secondary:hover { background: var(--color-muted-bg); }

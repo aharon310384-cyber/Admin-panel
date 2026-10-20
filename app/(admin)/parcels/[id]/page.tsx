@@ -9,6 +9,7 @@ import { parcelStatusLabel, orderStatusLabel, deliveryTypeLabel, PARCEL_STATUS_C
 import { computeEuCustomsDuty, hasIncompleteHsCodes } from "@/lib/eu-customs";
 import ParcelControls from "@/components/parcels/parcel-controls";
 import TrackingBlock, { type TrackingView } from "@/components/parcels/tracking-block";
+import InternalComments from "@/components/parcels/internal-comments";
 import { getTrackingKey, type TrackingEvent } from "@/lib/tracking";
 import { trackingStatusLabel, trackingUrl } from "@/lib/tracking-labels";
 import Form from "@/components/form/form";
@@ -41,11 +42,12 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
     include: {
       customer: true,
       recipient: true,
-      parcelTask: { select: { number: true, note: true, destinationCountry: true } },
+      parcelTask: { select: { number: true, note: true, internalComment: true, destinationCountry: true } },
       orders: { orderBy: { createdAt: "asc" } },
       services: { orderBy: { id: "asc" } },
       statusHistory: { orderBy: { createdAt: "asc" } },
       tracking: true,
+      finance: true,
     },
   });
   if (!parcel) notFound();
@@ -222,6 +224,32 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                 ))}
               </ul>
             </section>
+
+            {/* Внутренние комментарии */}
+            <section className="card">
+              <h2 className="card-title">Внутренние комментарии</h2>
+              <InternalComments
+                parcelId={parcel.id}
+                parcel={parcel.internalComment ?? ""}
+                task={parcel.parcelTask?.internalComment ?? ""}
+                hasTask={Boolean(parcel.parcelTask)}
+              />
+            </section>
+
+            {/* Себестоимость и выручка — только сотрудники; в кабинет клиента не попадает (отдельная таблица ParcelFinance) */}
+            {(parcel.finance || parcel.declaredValueUsd != null) && (
+              <section className="card">
+                <h2 className="card-title">Стоимость и выручка</h2>
+                <table className="rcpt">
+                  <tbody>
+                    <tr><td>Стоимость товаров в посылке</td><td className="r">{parcel.declaredValueUsd != null ? formatUsd(Number(parcel.declaredValueUsd)) : "—"}</td></tr>
+                    <tr><td>Стоимость отправки для нас</td><td className="r">{parcel.finance?.carrierCostCny != null ? `¥${Number(parcel.finance.carrierCostCny).toFixed(2)}` : "—"}</td></tr>
+                    <tr><td>Выручка</td><td className="r">{parcel.finance?.revenueCny != null ? `¥${Number(parcel.finance.revenueCny).toFixed(2)}` : "—"}</td></tr>
+                  </tbody>
+                </table>
+                <p className="muted" style={{ margin: "6px 0 0", fontSize: 12 }}>Видят только сотрудники.</p>
+              </section>
+            )}
 
             {/* Квитанция */}
             <section className="card">

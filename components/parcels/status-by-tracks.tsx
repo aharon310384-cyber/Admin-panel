@@ -21,6 +21,7 @@ export default function StatusByTracks() {
   const [missing, setMissing] = useState<string[]>([]);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<ParcelStatus>("DELIVERED");
+  const [notify, setNotify] = useState(true);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -44,7 +45,7 @@ export default function StatusByTracks() {
   const apply = () =>
     startTransition(async () => {
       const label = PARCEL_STATUS_LABELS[status];
-      const result = await setParcelsStatus([...checked], status);
+      const result = await setParcelsStatus([...checked], status, notify);
       setMessage({ ok: result.ok, text: [`Статус «${label}» поставлен: ${result.changed}`, ...result.errors].join(". ") });
       const again = await findParcelsByTracks(text);
       setFound(again.found);
@@ -116,6 +117,9 @@ export default function StatusByTracks() {
             <select className="sbt-select" value={status} onChange={(e) => setStatus(e.target.value as ParcelStatus)} aria-label="Новый статус">
               {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
+            <label className="sbt-check" title="Снимите, если закрываете давно дошедшие посылки">
+              <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Сообщить клиентам
+            </label>
             <button type="button" className="sbt-btn sbt-btn--primary" onClick={apply} disabled={pending || checked.size === 0}>
               Поставить статус ({checked.size})
             </button>
@@ -147,6 +151,8 @@ export default function StatusByTracks() {
             .sbt-missing { margin: 0; color: var(--color-warning); word-break: break-word; }
             .sbt-ok { margin: 0; color: var(--color-success); }
             .sbt-error { margin: 0; color: var(--color-danger); }
+            .sbt-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+            .sbt-check input { margin: 0; accent-color: var(--color-accent); }
             .sbt-select { height: 30px; padding: 0 8px; border: 1px solid var(--color-border-strong); border-radius: 4px; font: inherit; background: #fff; }
             .sbt-btn { padding: 5px 14px; font: inherit; color: var(--color-text); background: #fff; border: 1px solid var(--color-border-strong); border-radius: 4px; cursor: pointer; }
             .sbt-btn:hover:not(:disabled) { background: var(--color-muted-bg); }

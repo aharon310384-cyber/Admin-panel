@@ -16,6 +16,7 @@ export type OrderInitial = {
   productNameText: string;
   trackNumber: string | null;
   customerComment: string | null;
+  internalComment: string | null;
   quantity: number;
   unitPriceUsd: number | null;
   actualWeightKg: number | null;
@@ -153,8 +154,19 @@ export default function OrderForm({
               name="customerComment"
               className="of-input of-textarea"
               rows={3}
-              placeholder="Пожелания и примечания клиента (напр. № заказа #3661, «упаковать аккуратно»)"
+              placeholder="Пожелания и примечания клиента (напр. № заказа #3661, «упаковать аккуратно»). Клиент видит его в кабинете"
               defaultValue={initial?.customerComment ?? ""}
+            />
+          </label>
+
+          <label className="of-field of-field--wide">
+            <span className="of-label">Внутренний комментарий</span>
+            <textarea
+              name="internalComment"
+              className="of-input of-textarea"
+              rows={2}
+              placeholder="Для сотрудников, клиент не видит"
+              defaultValue={initial?.internalComment ?? ""}
             />
           </label>
         </div>

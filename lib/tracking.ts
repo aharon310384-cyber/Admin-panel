@@ -221,6 +221,7 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
   const since = Date.now() - RECENT_DAYS * DAY;
   const toRegister: Target[] = [];
   const toFetch: Target[] = [];
+  let tooOld = 0;
   for (const parcel of parcels) {
     const number = normalizeTrackNumber(parcel.trackingNumber ?? "");
     if (!number) continue;
@@ -230,7 +231,10 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
       continue;
     }
     const shippedAt = parcel.statusHistory[0]?.createdAt ?? parcel.updatedAt;
-    if (all && shippedAt.getTime() < since) continue;
+    if (all && shippedAt.getTime() < since) {
+      tooOld++;
+      continue;
+    }
     toRegister.push({ parcelId: parcel.id, number });
   }
 
@@ -252,6 +256,12 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
     `требуют внимания ${problems}`,
   ];
   if (counters.errors.length) parts.push(`ошибок по номерам ${counters.errors.length} (${counters.errors.slice(0, 3).join("; ")})`);
+  if (all) {
+    // Почему посылка «Отправлена», а на слежение не встала
+    const noNumber = await prisma.parcel.count({ where: { deletedAt: null, status: "SHIPPED", trackingNumber: null } });
+    if (tooOld) parts.push(`отправлены больше ${RECENT_DAYS} дней назад и сами не ставятся — ${tooOld} (поставить: кнопка в карточке; дошедшие — отметить «Доставлена»)`);
+    if (noNumber) parts.push(`«Отправлена» без трек-номера — ${noNumber}`);
+  }
   const message = failure ? `${failure}. Успели: ${parts.join(", ")}` : `Готово: ${parts.join(", ")}`;
 
   if (all) {

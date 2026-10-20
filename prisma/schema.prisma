@@ -427,8 +427,9 @@ model Order {
   reinforcedPackRequested Boolean @default(false) // «Усиленная упаковка» — сумму задаёт админ на посылке
   productUrl             String?
   imageUrl               String?
-  // комментарий клиента к заказу (пожелания/примечания; ИИ тоже может заполнить)
+  // комментарий клиента к заказу (пожелания/примечания; ИИ тоже может заполнить); клиент видит его в кабинете
   customerComment        String?
+  internalComment        String? // внутренний комментарий: видят только сотрудники
   // процесс
   status       OrderStatus @default(NEW)
   sortingId    String?     // документ «Сортировка» коробки
@@ -486,6 +487,7 @@ model Parcel {
   exchangeRateCnyPerUsd Decimal  @default(7.1) // зафиксирован при оплате
   shippingCostUsd       Decimal? // Отправка = billableWeightKg × ставка
   discountPercent       Decimal? // скидка % от итога
+  declaredValueUsd      Decimal? // стоимость товаров внутри посылки, $ (из Excel — колонка «стоимость товаров»)
   // Таможенная пошлина ЕС — НЕ услуга Postmanfox, не попадает под скидку
   customsDutyEur        Decimal? // €3 × число тарифных позиций (если применимо)
   customsDutyUsd        Decimal? // конвертация пошлины в $ по курсу EUR
@@ -501,6 +503,7 @@ model Parcel {
   // отслеживание
   trackingNumber String?  // трек-номер посылки (международный)
   notes          String?
+  internalComment String? // внутренний комментарий: видят только сотрудники
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
@@ -515,6 +518,7 @@ model Parcel {
   allocationItems PaymentAllocationItem[]
   ledgerEntries   ClientLedger[]
   tracking        ParcelTracking?
+  finance         ParcelFinance?
 
   @@index([customerId])
   @@index([boxId])
@@ -702,6 +706,7 @@ model ParcelTask {
   customerId         String
   destinationCountry String?
   note               String?
+  internalComment    String? // внутренний комментарий: видят только сотрудники
   createdById        String
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
@@ -1084,6 +1089,27 @@ model ParcelTracking {
 }
 
 /// Настройки отслеживания посылок (17TRACK). Одна запись.
+/// Себестоимость и выручка посылки — ТОЛЬКО для сотрудников. Отдельная таблица, чтобы эти суммы
+/// не попали в кабинет клиента вместе с посылкой: кабинет её не читает.
+model ParcelFinance {
+  parcelId       String   @id
+  carrierCostCny Decimal? // стоимость отправки для нас, ¥ (из Excel — колонка «стоимость отправки для нас»)
+  revenueCny     Decimal? // выручка, ¥
+  updatedAt      DateTime @updatedAt
+  updatedBy      String?
+
+  parcel Parcel @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+}
+
+/// Загрузка из Excel: в какой колонке листа что лежит (буквы Excel: {"taskNumber":"B","info":"D",…}).
+/// Строку копируют начиная с колонки номера строки (taskNumber). Колонки — настройка, а не код: у каждой компании свой лист.
+model ExcelImportSettings {
+  id        String   @id @default(cuid())
+  columns   Json     @default("{}")
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
 model TrackingSettings {
   id         String    @id @default(cuid())
   apiKey     String?   // ключ API 17TRACK (заголовок 17token); в браузер не отдаётся

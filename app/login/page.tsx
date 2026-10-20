@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import LoginForm from "./login-form";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { siteLabel } from "@/lib/brand";
-import { getAdminBrand } from "@/lib/company";
+import { adminTabIcon, getAdminBrand } from "@/lib/company";
 
-export const metadata: Metadata = {
-  title: "Вход",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const icon = await adminTabIcon();
+  return { title: "Вход", icons: { icon, apple: icon } };
+}
 
 export default async function LoginPage() {
   const brand = await getAdminBrand();
