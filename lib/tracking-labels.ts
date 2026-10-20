@@ -47,3 +47,17 @@ export function trackingStatusLabel(status: string | null | undefined, subStatus
 export function trackingUrl(number: string): string {
   return `https://t.17track.net/ru#nums=${encodeURIComponent(number)}`;
 }
+
+/** Языки событий 17TRACK: бесплатно, если язык даёт сам перевозчик; иначе события приходят на языке перевозчика. */
+export const TRACKING_LANGS: [string, string][] = [
+  ["ru", "Русский"],
+  ["en", "English"],
+  ["uk", "Українська"],
+  ["de", "Deutsch"],
+  ["pl", "Polski"],
+  ["fr", "Français"],
+  ["es", "Español"],
+  ["it", "Italiano"],
+  ["tr", "Türkçe"],
+  ["zh-hans", "中文"],
+];

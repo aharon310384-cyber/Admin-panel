@@ -1105,6 +1105,7 @@ model ParcelTracking {
   events       Json?     // события: [{ at, text, location }], новые первыми
   problem      Boolean   @default(false) // нужна проверка человеком: возврат, не вручена, таможня, нет данных
   error        String?   // последняя ошибка 17TRACK по номеру
+  fallbackAt   DateTime? // переставлен на запасного перевозчика (TrackingSettings.fallbackCarrier) — второй раз не переставляем
   checkedAt    DateTime?
   updatedAt    DateTime  @updatedAt
 
@@ -1139,6 +1140,13 @@ model ExcelImportSettings {
 model TrackingSettings {
   id         String    @id @default(cuid())
   apiKey     String?   // ключ API 17TRACK (заголовок 17token); в браузер не отдаётся
+  lang       String    @default("ru") // язык событий у 17TRACK (бесплатно — если язык даёт сам перевозчик)
+  // Запасной перевозчик: номер с этой приставкой 17TRACK сам не определил или за fallbackAfterHours ничего не нашёл —
+  // переставить на этого перевозчика (смена перевозчика тратит ещё 1 номер квоты)
+  fallbackPrefixes    String? // через запятую: CK, LK, LC
+  fallbackCarrier     Int?    // код перевозчика в 17TRACK
+  fallbackCarrierName String?
+  fallbackAfterHours  Int     @default(24)
   lastSyncAt DateTime?
   lastSync   String?   // итог последней проверки одной строкой
   updatedAt  DateTime  @updatedAt

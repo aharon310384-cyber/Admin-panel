@@ -84,6 +84,13 @@ export default async function SettingsPage() {
             <div className="card">
               <h2 className="card-title">Отслеживание посылок (17TRACK)</h2>
               <TrackingSettings
+                options={{
+                  lang: tracking?.lang ?? "ru",
+                  fallbackPrefixes: tracking?.fallbackPrefixes ?? "",
+                  fallbackCarrier: tracking?.fallbackCarrier ?? null,
+                  fallbackCarrierName: tracking?.fallbackCarrierName ?? null,
+                  fallbackAfterHours: tracking?.fallbackAfterHours ?? 24,
+                }}
                 keyTail={tracking?.apiKey ? tracking.apiKey.slice(-4) : null}
                 isAdmin={session?.user.role === "ADMIN"}
                 lastSyncAt={tracking?.lastSyncAt ? formatDateTime(tracking.lastSyncAt) : null}
