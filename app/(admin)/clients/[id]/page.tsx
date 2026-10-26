@@ -302,7 +302,7 @@ export default async function ClientDetailPage({
         .address-cell { max-width: 320px; min-width: 220px; }
 
         .btn-ghost { display: inline-flex; align-items: center; padding: 5px 10px; background: transparent; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--color-accent); text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
-        .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
+        .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
         .btn-sm { padding: 4px 8px; }
 
         @media (max-width: 768px) { .grid { grid-template-columns: minmax(0, 1fr); } }

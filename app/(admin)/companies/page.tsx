@@ -91,7 +91,7 @@ export default async function CompaniesPage() {
         .name-link { color: inherit; text-decoration: none; }
         .name-link:hover { color: var(--color-accent); }
         .code { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: var(--radius-full); font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: var(--color-status-new); background: var(--color-status-new-bg); }
-        .role { display: inline-flex; margin-right: 6px; padding: 2px 8px; border-radius: var(--radius-full); font-size: 11.5px; font-weight: 600; color: var(--color-accent); background: oklch(52% 0.14 42 / 0.1); white-space: nowrap; }
+        .role { display: inline-flex; margin-right: 6px; padding: 2px 8px; border-radius: var(--radius-full); font-size: 11.5px; font-weight: 600; color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 10%, transparent); white-space: nowrap; }
         .strong { font-weight: 600; }
         .muted { color: var(--color-muted); }
       `}</style>

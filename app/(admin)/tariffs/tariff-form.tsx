@@ -193,7 +193,7 @@ export const TARIFF_FORM_CSS = `
   .field-static { padding: 10px 0; font-size: 13.5px; color: var(--color-text-secondary); }
   .required { color: var(--color-danger); }
   .field-input { padding: 10px 14px; background: oklch(99% 0.008 65 / 0.6); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 14px; color: var(--color-text); font-family: var(--font-sans); outline: none; transition: border-color 0.15s; min-width: 0; }
-  .field-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px oklch(52% 0.14 42 / 0.1); }
+  .field-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 10%, transparent); }
   .field-input:disabled { color: var(--color-muted); background: var(--color-muted-bg); }
   .field-input--error { border-color: var(--color-danger); }
   .field-textarea { resize: vertical; min-height: 64px; line-height: 1.45; }

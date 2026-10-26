@@ -99,14 +99,14 @@ export function BrandLogo({
             radial-gradient(120% 90% at 25% 15%, oklch(100% 0 0 / 0.32), transparent 55%),
             linear-gradient(
               135deg,
-              oklch(64% 0.16 55) 0%,
-              oklch(54% 0.15 42) 48%,
-              oklch(46% 0.14 32) 100%
+              color-mix(in srgb, var(--color-accent) 78%, white) 0%,
+              var(--color-accent) 48%,
+              color-mix(in srgb, var(--color-accent) 82%, black) 100%
             );
           box-shadow:
             0 1px 0 oklch(100% 0 0 / 0.22) inset,
             0 -1px 0 oklch(20% 0.04 30 / 0.2) inset,
-            0 6px 18px oklch(52% 0.14 42 / 0.32),
+            0 6px 18px color-mix(in srgb, var(--color-accent) 32%, transparent),
             0 1px 3px oklch(30% 0.05 35 / 0.18);
           transition: box-shadow 0.25s ease, transform 0.25s ease;
         }
@@ -135,7 +135,7 @@ export function BrandLogo({
           box-shadow:
             0 1px 0 oklch(100% 0 0 / 0.28) inset,
             0 -1px 0 oklch(20% 0.04 30 / 0.22) inset,
-            0 10px 24px oklch(52% 0.14 42 / 0.42),
+            0 10px 24px color-mix(in srgb, var(--color-accent) 42%, transparent),
             0 2px 6px oklch(30% 0.05 35 / 0.22);
           transform: translateY(-1px);
         }
@@ -157,8 +157,8 @@ export function BrandLogo({
           font-weight: 700;
           background: linear-gradient(
             135deg,
-            oklch(60% 0.16 50),
-            oklch(48% 0.15 35)
+            color-mix(in srgb, var(--color-accent) 85%, white),
+            color-mix(in srgb, var(--color-accent) 85%, black)
           );
           -webkit-background-clip: text;
           background-clip: text;

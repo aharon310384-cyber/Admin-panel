@@ -114,7 +114,7 @@ export default async function SettingsPage() {
         .settings-link:hover { text-decoration: underline; }
 
         .account-info { display: flex; gap: 16px; }
-        .account-avatar { width: 56px; height: 56px; background: oklch(52% 0.14 42 / 0.12); color: var(--color-accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; flex-shrink: 0; }
+        .account-avatar { width: 56px; height: 56px; background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; flex-shrink: 0; }
 
         .info-list { display: flex; flex-direction: column; gap: 10px; flex: 1; }
         .info-row { display: flex; gap: 12px; font-size: 13px; }
@@ -122,7 +122,7 @@ export default async function SettingsPage() {
         .info-row dd { flex: 1; color: var(--color-text); margin: 0; }
 
         .role-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--radius-full); font-size: 11px; font-weight: 500; }
-        .role-badge--admin { background: oklch(52% 0.14 42 / 0.12); color: var(--color-accent); }
+        .role-badge--admin { background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent); }
         .role-badge--manager { background: var(--color-status-new-bg); color: var(--color-status-new); }
 
         .ui-menu { list-style: none; margin: 0; padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden; }
