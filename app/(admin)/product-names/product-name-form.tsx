@@ -56,16 +56,19 @@ export default function ProductNameForm({
         <div className="field-grid">
           <div className="field">
             <label className="field-label">
-              Код <span className="required">*</span>
+              Код {productName && <span className="required">*</span>}
             </label>
             <input
               type="text"
               name="code"
               defaultValue={productName?.code ?? ""}
               className={`field-input mono ${errors?.code ? "field-input--error" : ""}`}
-              placeholder="PF-070000"
+              placeholder={productName ? "000123" : "присвоится автоматически"}
             />
             {errors?.code && <p className="field-error">{errors.code[0]}</p>}
+            {!productName && (
+              <p className="field-hint">Пусто — программа даст следующий номер. Можно вписать свой.</p>
+            )}
           </div>
 
           <div className="field">

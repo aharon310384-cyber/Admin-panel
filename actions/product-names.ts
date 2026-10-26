@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { nextProductCode } from "@/lib/product-codes";
 import { productGroupPath } from "@/lib/products";
 import { requireAdmin } from "@/lib/server-helpers";
 
 const productNameSchema = z.object({
-  code: z.string().trim().min(1, "Код обязателен"),
+  code: z.string().trim(), // у новой записи пусто — программа присвоит следующий номер
   nameRu: z.string().trim().min(1, "Наименование RU обязательно"),
   nameEn: z.string().trim().optional(),
   nameCn: z.string().trim().optional(),
@@ -69,23 +70,25 @@ export async function createProductName(formData: FormData) {
 
   const { code, nameRu, nameEn, nameCn, parentId, hsCode } = parsed.data;
   const isGroup = formData.get("isGroup") === "1";
-  if (await codeExists(code)) {
+  if (code && (await codeExists(code))) {
     return { error: { code: ["Такой код уже есть в регистре"] } };
   }
 
   const parent = await resolveParentGroup(parentId);
   if ("error" in parent) return { error: { parentId: [parent.error] } };
 
-  await prisma.productName.create({
-    data: {
-      code,
-      nameRu,
-      nameEn: nameEn || null,
-      nameCn: nameCn || null,
-      isGroup,
-      parentId: parent.parentId,
-      hsCode: isGroup ? null : hsCode || null,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.productName.create({
+      data: {
+        code: code || (await nextProductCode(tx)),
+        nameRu,
+        nameEn: nameEn || null,
+        nameCn: nameCn || null,
+        isGroup,
+        parentId: parent.parentId,
+        hsCode: isGroup ? null : hsCode || null,
+      },
+    });
   });
 
   revalidatePath("/product-names");
@@ -101,6 +104,7 @@ export async function updateProductName(id: string, formData: FormData) {
   }
 
   const { code, nameRu, nameEn, nameCn, parentId, hsCode } = parsed.data;
+  if (!code) return { error: { code: ["Код обязателен"] } };
   const current = await prisma.productName.findFirst({
     where: { id, deletedAt: null },
     select: { isGroup: true, hsCode: true },

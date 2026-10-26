@@ -2,8 +2,11 @@
 // 1) Если групп ещё нет — группой становится каждая запись, в которой лежат другие записи,
 //    и раздел без товаров (верхний уровень, код на 0000, без HS-кода). Дальше группы создаются только в справочнике.
 // 2) Записи из удалённых групп поднимаются на верхний уровень — иначе их не видно в списке.
+// 3) Коды с префиксом PF- (PostmanFox) получают новые номера без префикса: 000001, 000002… (решение владельца 2026-10-26).
+//    Порядок — по прежнему коду, поэтому группа и её товары идут подряд. Заказы ссылаются на запись, а не на код.
 // Запускается при деплое (npm run db:upgrade) и вручную: npm run db:upgrade:product-names. Повторный запуск ничего не меняет.
 import { PrismaClient } from "@prisma/client";
+import { nextProductCode } from "../lib/product-codes";
 
 const prisma = new PrismaClient();
 
@@ -27,7 +30,18 @@ async function main() {
     data: { parentId: null },
   });
 
-  console.log(`Наименования: групп отмечено ${groups}, поднято из удалённых групп ${lifted.count}`);
+  const oldCodes = await prisma.productName.findMany({
+    where: { code: { startsWith: "PF-" } },
+    select: { id: true },
+    orderBy: { code: "asc" },
+  });
+  for (const { id } of oldCodes) {
+    await prisma.productName.update({ where: { id }, data: { code: await nextProductCode(prisma) } });
+  }
+
+  console.log(
+    `Наименования: групп отмечено ${groups}, поднято из удалённых групп ${lifted.count}, новые коды вместо PF- — ${oldCodes.length}`
+  );
 }
 
 main()
