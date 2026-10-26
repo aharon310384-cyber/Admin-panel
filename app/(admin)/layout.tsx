@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import AdminShell from "@/components/layout/admin-shell";
 import { BrandProvider } from "@/components/brand/brand-context";
+import { adminThemeCss } from "@/lib/brand";
 import { adminTabIcon, getAdminBrand } from "@/lib/company";
 import { getUserInterface } from "@/lib/interface-settings";
 import "./density.css";
@@ -28,8 +29,11 @@ export default async function AdminLayout({
     getAdminBrand(),
   ]);
 
+  const theme = adminThemeCss(brand);
+
   return (
     <BrandProvider brand={brand}>
+      {theme && <style>{theme}</style>}
       <AdminShell
         userName={session.user.name ?? "Пользователь"}
         userRole={session.user.role}

@@ -232,16 +232,16 @@ export default function TelegramEntryPage() {
           display: inline-flex; align-items: center; gap: 10px; margin-bottom: 4px;
           text-decoration: none; border-radius: 12px;
         }
-        .tg-brand:focus-visible { outline: 2px solid #6dab3c; outline-offset: 4px; }
+        .tg-brand:focus-visible { outline: 2px solid var(--cab-green, #6dab3c); outline-offset: 4px; }
         .tg-brand-fox { width: 52px; height: 52px; object-fit: contain; }
         .tg-wordmark { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; line-height: 1; }
         .tg-wordmark-soft { color: #3c4a32; }
-        .tg-wordmark-accent { color: #e8730e; }
+        .tg-wordmark-accent { color: var(--cab-orange, #e8730e); }
         .tg-site {
           margin-top: 6px; font-size: 13px; color: #79836f; text-decoration: none;
           transition: color 0.15s;
         }
-        .tg-site:hover { color: #4e8a2a; text-decoration: underline; }
+        .tg-site:hover { color: var(--cab-green-deep, #4e8a2a); text-decoration: underline; }
         .tg-title { margin: 0; font-size: 20px; font-weight: 700; }
         .tg-sub { margin: 0; font-size: 14px; line-height: 1.5; color: #79836f; }
         .tg-notice {
@@ -254,7 +254,7 @@ export default function TelegramEntryPage() {
           color: #1d2718; background: #f4f7f0; border: 1px solid rgba(29,39,24,0.12);
           outline: none; transition: border-color 0.15s, background 0.15s;
         }
-        .tg-input:focus { border-color: #6dab3c; background: #fff; }
+        .tg-input:focus { border-color: var(--cab-green, #6dab3c); background: #fff; }
         .tg-error { margin: 0; font-size: 13px; color: #d64545; text-align: left; }
         .tg-or {
           display: flex; align-items: center; gap: 10px; width: 100%; margin: 4px 0;
@@ -272,12 +272,12 @@ export default function TelegramEntryPage() {
         .tg-btn {
           width: 100%; margin-top: 6px; padding: 13px; border-radius: 14px; border: none; cursor: pointer;
           font-size: 15px; font-weight: 700; text-decoration: none; text-align: center; color: #fff;
-          background: linear-gradient(150deg, #6dab3c, #4e8a2a);
+          background: linear-gradient(150deg, var(--cab-green, #6dab3c), var(--cab-green-deep, #4e8a2a));
         }
         .tg-btn--ghost { background: transparent; color: #79836f; font-weight: 600; }
         .tg-spinner {
           width: 36px; height: 36px; border-radius: 50%;
-          border: 3px solid rgba(109,171,60,0.25); border-top-color: #6dab3c;
+          border: 3px solid color-mix(in srgb, var(--cab-green, #6dab3c) 25%, transparent); border-top-color: var(--cab-green, #6dab3c);
           animation: tg-spin 0.8s linear infinite;
         }
         @keyframes tg-spin { to { transform: rotate(360deg); } }

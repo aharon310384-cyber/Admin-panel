@@ -4,7 +4,7 @@ import { cache } from "react";
 import { connection } from "next/server";
 import type { Company } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { Brand, CompanyImage } from "@/lib/brand";
+import { brandColor, type Brand, type CompanyImage } from "@/lib/brand";
 
 // Компании и их бренды. Админка показывает бренд компании-склада (adminBrand),
 // кабинет клиента и Telegram — бренд компании клиентов (cabinetBrand).
@@ -28,6 +28,8 @@ export const COMPANY_FIELDS = {
   telegramSignature: true,
   logoType: true,
   iconType: true,
+  primaryColor: true,
+  accentColor: true,
   adminBrand: true,
   cabinetBrand: true,
   createdAt: true,
@@ -43,7 +45,9 @@ export function companyImageUrl(company: Pick<CompanyView, "id" | "updatedAt" | 
 }
 
 function toBrand(company: CompanyView | null, fallbackName: string): Brand {
-  if (!company) return { name: fallbackName, tagline: null, siteUrl: null, trackingUrl: null, logoUrl: null, iconUrl: null };
+  if (!company) {
+    return { name: fallbackName, tagline: null, siteUrl: null, trackingUrl: null, logoUrl: null, iconUrl: null, primaryColor: null, accentColor: null };
+  }
   return {
     name: company.name,
     tagline: company.tagline,
@@ -51,6 +55,8 @@ function toBrand(company: CompanyView | null, fallbackName: string): Brand {
     trackingUrl: company.trackingUrl,
     logoUrl: companyImageUrl(company, "logo"),
     iconUrl: companyImageUrl(company, "icon"),
+    primaryColor: brandColor(company.primaryColor),
+    accentColor: brandColor(company.accentColor),
   };
 }
 
@@ -70,15 +76,23 @@ export async function getAdminBrand(): Promise<Brand> {
   return toBrand(await findAdminCompany(), "Админ-панель");
 }
 
-/** Значок вкладки браузера для админки и её входа: знак или буквы компании-склада, а не значок кабинета клиента. */
-export async function adminTabIcon(): Promise<string> {
-  const brand = await getAdminBrand();
-  return `/api/company/admin-icon?v=${encodeURIComponent(`${brand.name}-${brand.iconUrl ?? ""}`)}`;
-}
-
 /** Бренд кабинета клиента. */
 export async function getCabinetBrand(): Promise<Brand> {
   return toBrand(await findCabinetCompany(), "Личный кабинет");
+}
+
+// Адрес значка меняется вместе с названием, знаком и цветом — браузер не покажет старый.
+const tabIconUrl = (route: string, brand: Brand) =>
+  `/api/company/${route}?v=${encodeURIComponent(`${brand.name}-${brand.iconUrl ?? ""}-${brand.primaryColor ?? ""}`)}`;
+
+/** Значок вкладки браузера для админки и её входа: знак или буквы компании-склада, а не значок кабинета клиента. */
+export async function adminTabIcon(): Promise<string> {
+  return tabIconUrl("admin-icon", await getAdminBrand());
+}
+
+/** Значок вкладки браузера для кабинета клиента и входа в него: знак или буквы компании клиентов. */
+export async function cabinetTabIcon(): Promise<string> {
+  return tabIconUrl("cabinet-icon", await getCabinetBrand());
 }
 
 /** Тексты Telegram от компании клиентов: приветствие бота и подпись под уведомлениями. */

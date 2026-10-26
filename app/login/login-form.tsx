@@ -156,7 +156,7 @@ export default function LoginForm() {
 
         .field-input:focus {
           border-color: var(--color-accent);
-          box-shadow: 0 0 0 3px oklch(52% 0.14 42 / 0.12);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent);
         }
 
         .field-input--error {

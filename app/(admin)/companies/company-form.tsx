@@ -1,12 +1,12 @@
 "use client";
 
-import { startTransition, useActionState, useEffect } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import type { CompanyFormState } from "@/actions/companies";
 
-// Карточка компании: название, где показывается её бренд, сайт, контакты, тексты Telegram.
+// Карточка компании: название, где показывается её бренд, цвета, сайт, контакты, тексты Telegram.
 
 export type CompanyFormValues = {
   code: string;
@@ -22,9 +22,52 @@ export type CompanyFormValues = {
   address: string | null;
   telegramGreeting: string | null;
   telegramSignature: string | null;
+  primaryColor: string | null;
+  accentColor: string | null;
   adminBrand: boolean;
   cabinetBrand: boolean;
 };
+
+const isColor = (value: string) => /^#[0-9a-f]{6}$/i.test(value);
+
+/** Цвет: образец с выбором из палитры и поле для кода цвета. Пусто — стандартный цвет. */
+function ColorField({ name, label, hint, initial, readOnly, error }: { name: string; label: string; hint: string; initial: string; readOnly: boolean; error?: string }) {
+  const [value, setValue] = useState(initial);
+  return (
+    <div className="field">
+      <label className="field-label" htmlFor={`company-${name}`}>{label}</label>
+      <div className="color-row">
+        <input
+          type="color"
+          aria-label={`${label}: выбрать из палитры`}
+          value={isColor(value) ? value.toLowerCase() : "#ffffff"}
+          onChange={(event) => setValue(event.target.value.toUpperCase())}
+          disabled={readOnly}
+          className={`color-swatch ${isColor(value) ? "" : "color-swatch--empty"}`}
+        />
+        <input
+          id={`company-${name}`}
+          name={name}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          placeholder="стандартный"
+          maxLength={7}
+          disabled={readOnly}
+          autoComplete="off"
+          spellCheck={false}
+          className={`field-input color-code ${error ? "field-input--error" : ""}`}
+        />
+        {value && !readOnly && (
+          <button type="button" className="btn-secondary color-clear" onClick={() => setValue("")}>
+            Стандартный
+          </button>
+        )}
+      </div>
+      {error && <p className="field-error">{error}</p>}
+      <p className="field-hint">{hint}</p>
+    </div>
+  );
+}
 
 type Props = {
   company?: CompanyFormValues; // нет — новая компания
@@ -133,6 +176,29 @@ export default function CompanyForm({ company, action, isAdmin }: Props) {
       </section>
 
       <section className="card">
+        <h2 className="section-title">Цвета</h2>
+        <div className="field-grid">
+          <ColorField
+            name="primaryColor"
+            label="Основной цвет"
+            hint="Админка — кнопки, ссылки, выделение и значок вкладки без знака. Кабинет клиента — кнопки и выделение."
+            initial={company?.primaryColor ?? ""}
+            readOnly={readOnly}
+            error={errors.primaryColor?.[0]}
+          />
+          <ColorField
+            name="accentColor"
+            label="Второй цвет"
+            hint="Кабинет клиента — акценты рядом с основным цветом. В админке пока не используется."
+            initial={company?.accentColor ?? ""}
+            readOnly={readOnly}
+            error={errors.accentColor?.[0]}
+          />
+        </div>
+        <p className="field-hint color-note">Код цвета вида #1A2B3C или выбор из палитры. Пусто — стандартные цвета системы.</p>
+      </section>
+
+      <section className="card">
         <h2 className="section-title">Сайт</h2>
         <div className="field-grid">
           {input("siteUrl", "Сайт", { placeholder: "https://…", hint: "Сюда ведёт логотип. Пусто — логотип без ссылки." })}
@@ -197,7 +263,7 @@ export default function CompanyForm({ company, action, isAdmin }: Props) {
         .field-static { padding: 10px 0; font-family: var(--font-mono); font-size: 13px; color: var(--color-text-secondary); }
         .required { color: var(--color-danger); }
         .field-input { padding: 10px 14px; background: oklch(99% 0.008 65 / 0.6); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 14px; color: var(--color-text); font-family: var(--font-sans); outline: none; transition: border-color 0.15s; }
-        .field-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px oklch(52% 0.14 42 / 0.1); }
+        .field-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 10%, transparent); }
         .field-input:disabled { color: var(--color-muted); background: var(--color-muted-bg); }
         .field-input--error { border-color: var(--color-danger); }
         .field-textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
@@ -207,6 +273,14 @@ export default function CompanyForm({ company, action, isAdmin }: Props) {
         .brand-role { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; color: var(--color-text); cursor: pointer; }
         .brand-role input { margin-top: 3px; }
         .brand-role > span { display: flex; flex-direction: column; gap: 2px; }
+        .color-row { display: flex; align-items: center; gap: 8px; }
+        .color-swatch { flex-shrink: 0; width: 42px; height: 40px; padding: 3px; background: transparent; border: 1px solid var(--color-border); border-radius: var(--radius-sm); cursor: pointer; }
+        .color-swatch:disabled { cursor: default; }
+        .color-swatch--empty { opacity: 0.45; }
+        .color-code { width: 120px; font-family: var(--font-mono); text-transform: uppercase; }
+        .color-code::placeholder { text-transform: none; }
+        .color-note { margin-top: 12px; }
+        .color-clear { padding: 8px 12px; font-size: 13px; cursor: pointer; font-family: var(--font-sans); }
         .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
         .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; background: var(--color-accent); color: var(--color-accent-fg); border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: background 0.15s; }
         .btn-primary:hover { background: var(--color-accent-hover); }

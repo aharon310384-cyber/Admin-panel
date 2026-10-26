@@ -240,7 +240,7 @@ export default function OrderForm({
         .of-label { font-size: 12px; font-weight: 600; color: var(--color-muted); }
         .of-label i { color: var(--color-danger); font-style: normal; }
         .of-input { padding: 9px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13.5px; color: var(--color-text); background: var(--color-surface); outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
-        .of-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px oklch(52% 0.14 42 / 0.1); }
+        .of-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 10%, transparent); }
         .of-input--mono { font-family: var(--font-mono); font-size: 12.5px; }
         .of-textarea { resize: vertical; font-family: var(--font-sans); line-height: 1.45; }
         .of-hint { font-size: 12px; margin-top: 1px; }

@@ -476,7 +476,7 @@ export default function OrderBulkImport({
       <style>{`
         .bi { display: flex; flex-direction: column; gap: 14px; padding: 20px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); }
         .bi-head { display: flex; align-items: center; gap: 12px; }
-        .bi-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; color: var(--color-accent); background: oklch(52% 0.14 42 / 0.1); flex-shrink: 0; }
+        .bi-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 10%, transparent); flex-shrink: 0; }
         .bi-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--color-text); }
         .bi-sub { margin: 2px 0 0; font-size: 12.5px; color: var(--color-muted); }
         .bi-textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13.5px; font-family: var(--font-sans); color: var(--color-text); background: var(--color-surface); resize: vertical; outline: none; transition: border-color 0.15s; }

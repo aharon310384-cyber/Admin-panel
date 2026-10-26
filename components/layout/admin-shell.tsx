@@ -316,7 +316,7 @@ export default function AdminShell({
         .pnl-item span { overflow: hidden; text-overflow: ellipsis; }
         .pnl-item svg { flex-shrink: 0; }
         .pnl-item:hover { color: var(--color-text); background: var(--color-muted-bg); }
-        .pnl-item--active { color: var(--color-accent); background: oklch(52% 0.14 42 / 0.08); }
+        .pnl-item--active { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
         .pnl--v .pnl-item { display: flex; width: 100%; }
 
         .pnl-section { padding: 5px 10px; }
@@ -340,7 +340,7 @@ export default function AdminShell({
         }
         .pnl--v .pnl-tab { max-width: none; width: 100%; }
         .pnl-tab--plain { border-color: transparent; background: none; }
-        .pnl-tab--active { border-color: oklch(52% 0.14 42 / 0.45); background: oklch(52% 0.14 42 / 0.08); }
+        .pnl-tab--active { border-color: color-mix(in srgb, var(--color-accent) 45%, transparent); background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
         .pnl-tab-link {
           display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; padding: 6px 4px 6px 9px; font-size: 13px; font-weight: 500;
           color: var(--color-text-secondary); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
