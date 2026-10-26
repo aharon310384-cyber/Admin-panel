@@ -19,7 +19,8 @@ import ExcelFile from "@/components/import/excel-file";
 // Колонки листа (буквы Excel) — настройка сверху. ИИ находит только треки; остальное — из колонок.
 
 const money = (n: number | null, sign: string) => (n == null ? "—" : `${sign}${n.toFixed(2)}`);
-const dateLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("ru-RU", { timeZone: "UTC" }) : null);
+// Дата отправки из строки — день без часового пояса: год.месяц.день, как везде.
+const dateLabel = (iso: string | null) => (iso ? iso.slice(0, 10).replaceAll("-", ".") : null);
 
 /** Номер строки без приписки: «OG4283AE объем» → «OG4283AE». */
 const taskOf = (value: string | null | undefined) => value?.trim().match(/^[A-Za-z]{2,4}\d+[A-Za-z]{2,4}/)?.[0].toUpperCase() ?? null;

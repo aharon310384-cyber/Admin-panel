@@ -6,6 +6,8 @@
 // в «Ещё», а не поместившиеся в строку прячутся с панели и остаются только в «Ещё».
 // Строки списков документов помечаются data-doc="order|parcel" и data-doc-id: щелчок делает строку текущей,
 // и «Изменить» (F2), «Связанные документы» (Ctrl+Shift+S), «История изменений» работают по ней.
+// Списку с полями поиска (search) окно ставит строку поиска справа на панели, как в 1С: Ctrl+F — в строку,
+// Alt+F — «Расширенный поиск», Ctrl+Alt+F — найти по значению ячейки, по которой щёлкнули, Ctrl+Q — отменить.
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -14,10 +16,12 @@ import FavoriteStar from "@/components/layout/favorite-star";
 import { useForms } from "@/components/form/form-context";
 import FormSettingsDialog, { type FormSettingsResult } from "@/components/form/form-settings";
 import { applyWidths, attachResize, clearWidths } from "@/components/form/column-widths";
-import { applyColumns, describeTables, type TableInfo } from "@/components/form/columns";
+import { applyColumns, describeTables, headCells, type TableInfo } from "@/components/form/columns";
 import MoreMenu, { type BarCommand } from "@/components/form/more-menu";
+import FormSearch, { useListSearch } from "@/components/form/form-search";
 import { SEARCH_PARAMS, type ColumnLayout, type ColumnWidths, type FormPart, type MoreCommandId } from "@/lib/form";
 import { DOC_LINKS, cardTarget, isDocEntity, type DocTarget } from "@/lib/related";
+import type { ListSearchField } from "@/lib/list-search";
 
 // На обёртке (span вокруг кнопки с подтверждением) нажимается сама кнопка внутри.
 function pressable(el: HTMLElement) {
@@ -33,10 +37,14 @@ type FormProps = {
   guid?: string; // идентификатор записи — для «{guid}»
   header?: React.ReactNode; // шапка: отбор, поиск, реквизиты
   footer?: React.ReactNode; // подвал: итоги, пояснения
+  search?: { fields: ListSearchField[] }; // поиск списка: поля «Где искать»; отбирает страница (lib/list-search.ts)
   children: React.ReactNode; // страницы
 };
 
-export default function Form({ formKey, title, titleExtra, commands, links, guid, header, footer, children }: FormProps) {
+// Ячейка списка, по которой щёлкнули: заголовок её столбца и значение — для «Найти по текущему значению».
+type CellValue = { column: string; value: string };
+
+export default function Form({ formKey, title, titleExtra, commands, links, guid, header, footer, search, children }: FormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -51,6 +59,8 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
   const [current, setCurrent] = useState<DocTarget | null>(null);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [notice, setNotice] = useState("");
+  const [cell, setCell] = useState<CellValue | null>(null);
+  const listSearch = useListSearch(formKey, search?.fields);
 
   const settings = forms?.forms[formKey];
   const hidden = settings?.hidden ?? [];
@@ -94,12 +104,13 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     };
     const fit = () => {
       const more = panel.querySelector<HTMLElement>(".form-more");
+      const searchBox = panel.querySelector<HTMLElement>(":scope > .form-search");
       const items = [...panel.children].filter(
-        (el): el is HTMLElement => el instanceof HTMLElement && el !== more && el.tagName !== "STYLE"
+        (el): el is HTMLElement => el instanceof HTMLElement && el !== more && el !== searchBox && el.tagName !== "STYLE"
       );
       items.forEach((el) => el.removeAttribute("data-overflow"));
       const gap = 6;
-      let room = panel.clientWidth - (more?.offsetWidth ?? 0) - gap;
+      let room = panel.clientWidth - (more?.offsetWidth ?? 0) - (searchBox ? searchBox.offsetWidth + gap : 0) - gap;
       for (const el of items) if (el.hasAttribute("data-pinned")) room -= el.offsetWidth + gap;
       for (const el of items) {
         if (el.hasAttribute("data-pinned")) continue;
@@ -113,7 +124,15 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     applyColumns(form, columnsRef.current);
     applyWidths(form, widthsRef.current);
     // Щелчок по строке списка документов — текущая строка (подсветка — в density.css).
+    // Ячейка запоминается для «Найти по текущему значению»: заголовок столбца и текст.
     const onRowClick = (event: MouseEvent) => {
+      const td = (event.target as HTMLElement).closest<HTMLTableCellElement>(".form-pages tbody td");
+      const table = td?.closest("table");
+      if (td && table && form.contains(td)) {
+        const column = headCells(table)[td.cellIndex]?.textContent?.trim() ?? "";
+        const value = td.textContent?.trim() ?? "";
+        setCell(column && value && value !== "—" ? { column, value: value.slice(0, 100) } : null);
+      }
       const row = (event.target as HTMLElement).closest<HTMLTableRowElement>(".form-pages tr[data-doc-id]");
       if (!row || !form.contains(row) || !isDocEntity(row.dataset.doc)) return;
       form.querySelectorAll("tr[data-current]").forEach((el) => el !== row && el.removeAttribute("data-current"));
@@ -168,6 +187,49 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     return () => window.removeEventListener("keydown", onKey);
   }, [related, openCurrent, router]);
 
+  // «Найти по текущему значению»: поле — по заголовку столбца ячейки; столбца нет среди полей — поиск по всем полям.
+  const findValue = () => {
+    if (!cell) return;
+    const field = listSearch.fields.find((f) => f.label === cell.column) ?? listSearch.fields.find((f) => cell.column.startsWith(f.label));
+    if (field) listSearch.extended(field.key, cell.value, "any");
+    else listSearch.quick(cell.value);
+  };
+  const findValueRef = useRef(findValue);
+  const listSearchRef = useRef(listSearch);
+  useEffect(() => {
+    findValueRef.current = findValue;
+    listSearchRef.current = listSearch;
+  });
+
+  // Клавиши поиска, как в 1С. Ctrl+F — в строку поиска окна (если она есть), вместо поиска браузера.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== "KeyF" && event.code !== "KeyQ") return;
+      const s = listSearchRef.current;
+      const ctrl = event.ctrlKey || event.metaKey;
+      if (event.code === "KeyF" && ctrl && !event.altKey && !event.shiftKey) {
+        const input = ref.current?.querySelector<HTMLInputElement>('input[type="search"]');
+        if (!input) return;
+        event.preventDefault();
+        input.focus();
+        input.select();
+      } else if (!s.enabled) {
+        return;
+      } else if (event.code === "KeyF" && event.altKey && ctrl) {
+        event.preventDefault();
+        findValueRef.current();
+      } else if (event.code === "KeyF" && event.altKey && !event.shiftKey) {
+        event.preventDefault();
+        s.openDialog();
+      } else if (event.code === "KeyQ" && ctrl && !event.altKey && !event.shiftKey) {
+        event.preventDefault();
+        s.cancel();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 2500);
@@ -178,6 +240,8 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
   const enabled = new Set<string>(["refresh", "editForm"]);
   for (const item of bar) if (!item.disabled) enabled.add(item.id);
   if (hasSearch) enabled.add("find");
+  if (listSearch.enabled) enabled.add("advancedFind");
+  if (listSearch.enabled && cell) enabled.add("findValue");
   if (searchActive) enabled.add("cancelFind");
   if (guid) enabled.add("guid");
   if (settings?.widths || settings?.columns) enabled.add("defaultSettings");
@@ -231,6 +295,10 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
         return openCurrent && router.push(openCurrent);
       case "find":
         return ref.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
+      case "advancedFind":
+        return listSearch.openDialog();
+      case "findValue":
+        return findValue();
       case "cancelFind": {
         const next = new URLSearchParams(params.toString());
         SEARCH_PARAMS.forEach((name) => next.delete(name));
@@ -304,7 +372,13 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
             </button>
           )
         )}
-        <MoreMenu bar={bar} enabled={enabled} onCommand={run} />
+        {listSearch.enabled && <FormSearch search={listSearch} />}
+        <MoreMenu
+          bar={bar}
+          enabled={enabled}
+          onCommand={run}
+          recentSearches={listSearch.history.map((item) => ({ label: item.label, onSelect: () => listSearch.apply(item) }))}
+        />
       </div>
       {header && shown("header") && (
         <div className="form-header" data-form-part="header">
@@ -396,7 +470,7 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
           display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 8px;
           color: var(--color-text); cursor: pointer; outline: none; user-select: none;
         }
-        .more-item[data-highlighted] { background: #fde7b8; }
+        .more-item[data-highlighted], .more-item[data-state="open"] { background: #fde7b8; }
         .more-item[data-disabled] { color: var(--color-muted); opacity: 0.6; cursor: default; }
         .more-icon { display: inline-flex; width: 16px; flex-shrink: 0; color: var(--color-text-secondary); }
         .more-label { flex: 1; white-space: nowrap; }

@@ -55,19 +55,20 @@ const cnyFormatter = new Intl.NumberFormat("ru-RU", {
 
 const numberFormatter = new Intl.NumberFormat("ru-RU");
 
-const dateFormatter = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
+// Даты — год.месяц.день (2026.10.26 14:05): так они правильно сортируются и сравниваются, как в 1С.
+const dateParts = new Intl.DateTimeFormat("ru-RU", {
   year: "numeric",
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
+  hourCycle: "h23",
 });
+
+function partsOf(date: Date | string) {
+  const parts = Object.fromEntries(dateParts.formatToParts(new Date(date)).map((p) => [p.type, p.value]));
+  return { day: `${parts.year}.${parts.month}.${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
 
 function toNumber(value: PriceValue): number {
   if (typeof value === "object" && value !== null && "toNumber" in value) {
@@ -95,11 +96,12 @@ export function formatNumber(n: number): string {
 }
 
 export function formatDate(date: Date | string): string {
-  return dateFormatter.format(new Date(date));
+  return partsOf(date).day;
 }
 
 export function formatDateTime(date: Date | string): string {
-  return dateTimeFormatter.format(new Date(date));
+  const { day, time } = partsOf(date);
+  return `${day} ${time}`;
 }
 
 export function slugify(text: string): string {
