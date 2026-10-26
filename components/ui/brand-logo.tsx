@@ -99,9 +99,9 @@ export function BrandLogo({
             radial-gradient(120% 90% at 25% 15%, oklch(100% 0 0 / 0.32), transparent 55%),
             linear-gradient(
               135deg,
-              color-mix(in srgb, var(--color-accent) 78%, white) 0%,
-              var(--color-accent) 48%,
-              color-mix(in srgb, var(--color-accent) 82%, black) 100%
+              var(--brand-mark-light, oklch(64% 0.16 55)) 0%,
+              var(--brand-mark, oklch(54% 0.15 42)) 48%,
+              var(--brand-mark-dark, oklch(46% 0.14 32)) 100%
             );
           box-shadow:
             0 1px 0 oklch(100% 0 0 / 0.22) inset,
@@ -157,8 +157,8 @@ export function BrandLogo({
           font-weight: 700;
           background: linear-gradient(
             135deg,
-            color-mix(in srgb, var(--color-accent) 85%, white),
-            color-mix(in srgb, var(--color-accent) 85%, black)
+            var(--brand-mark-light, oklch(60% 0.16 50)),
+            var(--brand-mark-dark, oklch(48% 0.15 35))
           );
           -webkit-background-clip: text;
           background-clip: text;
