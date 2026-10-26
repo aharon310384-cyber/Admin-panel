@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Eye } from "lucide-react";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
-import { getCabinetBrand } from "@/lib/company";
-import { cabinetDescription } from "@/lib/brand";
+import { cabinetTabIcon, getCabinetBrand } from "@/lib/company";
+import { cabinetDescription, cabinetThemeStyle } from "@/lib/brand";
 import { BrandProvider } from "@/components/brand/brand-context";
 import CabinetBrand from "@/components/cabinet/cabinet-brand";
 import CabinetNav from "@/components/cabinet/cabinet-nav";
@@ -12,13 +12,14 @@ import TelegramInit from "@/components/cabinet/telegram-init";
 
 // Своё название вкладки у кабинета: «Обзор | <компания>» вместо общего «… | Админ-панель»
 export async function generateMetadata(): Promise<Metadata> {
-  const brand = await getCabinetBrand();
+  const [brand, icon] = await Promise.all([getCabinetBrand(), cabinetTabIcon()]);
   return {
     title: {
       default: `Личный кабинет | ${brand.name}`,
       template: `%s | ${brand.name}`,
     },
     description: cabinetDescription(brand),
+    icons: { icon, apple: icon },
   };
 }
 
@@ -31,7 +32,7 @@ export default async function ClientCabinetLayout({
   const isAdminView = mode === "admin";
 
   return (
-    <div className="cab-root">
+    <div className="cab-root" style={cabinetThemeStyle(brand)}>
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       <TelegramInit />
       <BrandProvider brand={brand}>

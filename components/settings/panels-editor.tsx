@@ -277,7 +277,7 @@ export default function PanelsEditor({
               display: flex; align-items: center; justify-content: center; min-height: 170px;
               border-radius: 6px; background: var(--color-muted-bg); color: var(--color-muted); font-size: 13px;
             }
-            .pe-zone--target { border-color: var(--color-accent); background: oklch(52% 0.14 42 / 0.05); cursor: pointer; }
+            .pe-zone--target { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 5%, transparent); cursor: pointer; }
 
             .pe-tray-label { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
             .pe-tray { min-height: 64px; flex-direction: row; flex-wrap: wrap; align-content: flex-start; border-style: solid; border-color: transparent; background: #dcd6cc; }

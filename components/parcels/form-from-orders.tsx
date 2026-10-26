@@ -95,7 +95,7 @@ export default function FormFromOrders({
         .ffo-empty { color: var(--color-muted); font-size: 14px; }
         .ffo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
         .ffo-row { border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); }
-        .ffo-row.on { border-color: var(--color-accent); background: oklch(52% 0.14 42 / 0.05); }
+        .ffo-row.on { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 5%, transparent); }
         .ffo-lbl { display: flex; align-items: center; gap: 12px; padding: 10px 12px; cursor: pointer; }
         .ffo-info { display: flex; flex-direction: column; gap: 2px; }
         .ffo-name { font-size: 13.5px; font-weight: 600; }

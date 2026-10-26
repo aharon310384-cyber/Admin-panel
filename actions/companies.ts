@@ -7,7 +7,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
 
-// «Администрирование → Компании»: название, сайт, контакты, тексты Telegram и чей бренд где показывается.
+// «Администрирование → Компании»: название, сайт, цвета, контакты, тексты Telegram и чей бренд где показывается.
 // Логотип и знак загружаются отдельно — /api/company/[id]/[image].
 
 export type CompanyFormState = { error?: Record<string, string[] | undefined>; ok?: boolean };
@@ -31,6 +31,15 @@ const link = z
   .refine((value) => !value || isHttpUrl(value), "Полный адрес, начиная с https://")
   .transform((value) => value || null);
 
+// Цвет вида #1A2B3C (можно #ABC или без #). Пусто — «убрали»: стандартный вид, начальные данные его не вернут.
+const color = z
+  .string()
+  .trim()
+  .transform((value) => value.replace(/^#?/, "#").toUpperCase())
+  .transform((value) => (/^#[0-9A-F]{3}$/.test(value) ? value.replace(/[0-9A-F]/g, (c) => c + c) : value))
+  .refine((value) => value === "#" || /^#[0-9A-F]{6}$/.test(value), "Цвет вида #1A2B3C")
+  .transform((value) => (value === "#" ? "" : value));
+
 const companySchema = z.object({
   name: z.string().trim().min(1, "Укажите название").max(80, "Не длиннее 80 знаков"),
   legalName: text(200),
@@ -48,6 +57,8 @@ const companySchema = z.object({
   address: text(300),
   telegramGreeting: text(500),
   telegramSignature: text(200),
+  primaryColor: color,
+  accentColor: color,
   adminBrand: z.boolean(),
   cabinetBrand: z.boolean(),
 });
@@ -73,6 +84,8 @@ function readForm(formData: FormData) {
     address: value("address"),
     telegramGreeting: value("telegramGreeting"),
     telegramSignature: value("telegramSignature"),
+    primaryColor: value("primaryColor"),
+    accentColor: value("accentColor"),
     adminBrand: formData.get("adminBrand") === "on",
     cabinetBrand: formData.get("cabinetBrand") === "on",
   });

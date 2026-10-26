@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import LoginForm from "./login-form";
 import { BrandLogo } from "@/components/ui/brand-logo";
-import { siteLabel } from "@/lib/brand";
+import { adminThemeCss, siteLabel } from "@/lib/brand";
 import { adminTabIcon, getAdminBrand } from "@/lib/company";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,9 +12,11 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LoginPage() {
   const brand = await getAdminBrand();
   const logo = <BrandLogo name={brand.name} iconUrl={brand.iconUrl} size="lg" />;
+  const theme = adminThemeCss(brand);
 
   return (
     <div className="login-page">
+      {theme && <style>{theme}</style>}
       <div className="login-card">
         <div className="login-header">
           {brand.siteUrl ? (
@@ -56,7 +58,7 @@ export default async function LoginPage() {
           background: var(--color-bg);
           background-image: radial-gradient(
             ellipse 80% 60% at 50% -10%,
-            oklch(52% 0.14 42 / 0.08),
+            color-mix(in srgb, var(--color-accent) 8%, transparent),
             transparent
           );
         }

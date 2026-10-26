@@ -5,6 +5,9 @@
 // админка (склад) — ShuTai, кабинет клиента и Telegram — PostmanFox.
 // Компания создаётся, только если её ещё нет: то, что поменяли в «Администрирование → Компании», не трогается.
 // Отметка бренда ставится, только если её нет у другой компании. Повторный запуск ничего не меняет.
+// Логотип и знак PostmanFox — файлы в prisma/seed-data/postmanfox/: программа берёт их только из карточки компании.
+// Цвета (шаг 4, 2026-10-26) у уже созданной компании ставятся, только если их ещё не задавали (null);
+// убранный в карточке цвет ("") не возвращается.
 import { readFile } from "fs/promises";
 import path from "path";
 import { PrismaClient, type Prisma } from "@prisma/client";
@@ -18,6 +21,8 @@ const COMPANIES: Seed[] = [
     code: "SHUTAI",
     name: "ShuTai",
     legalName: "Guangzhou ShuTai Trading Co., Ltd.",
+    primaryColor: "#183E42", // тёмно-бирюзовый
+    accentColor: "#D7663D", // терракотовый
     adminBrand: true,
   },
   {
@@ -27,8 +32,9 @@ const COMPANIES: Seed[] = [
     siteUrl: "https://postmanfox.com/",
     trackingUrl: "https://postmanfox.com/ru/treking-posylok/",
     telegramGreeting: "Здравствуйте! 🦊 Это кабинет PostmanFox.",
-    logoFile: "public/brand/logo.png",
-    iconFile: "public/brand/favicon.png",
+    // цвета не заданы — кабинет в стандартных цветах
+    logoFile: "prisma/seed-data/postmanfox/logo.png",
+    iconFile: "prisma/seed-data/postmanfox/icon.png",
     cabinetBrand: true,
   },
 ];
@@ -45,7 +51,11 @@ async function image(file: string | undefined) {
 
 async function main() {
   for (const { logoFile, iconFile, ...seed } of COMPANIES) {
-    if (await prisma.company.findUnique({ where: { code: seed.code }, select: { id: true } })) continue;
+    const existing = await prisma.company.findUnique({ where: { code: seed.code }, select: { id: true } });
+    if (existing) {
+      await fillColors(seed);
+      continue;
+    }
 
     const adminTaken = seed.adminBrand && (await prisma.company.count({ where: { adminBrand: true } })) > 0;
     const cabinetTaken = seed.cabinetBrand && (await prisma.company.count({ where: { cabinetBrand: true } })) > 0;
@@ -64,6 +74,15 @@ async function main() {
       },
     });
     console.log(`Компания ${seed.name} создана`);
+  }
+}
+
+async function fillColors(seed: Seed) {
+  for (const field of ["primaryColor", "accentColor"] as const) {
+    const value = seed[field];
+    if (!value) continue;
+    const updated = await prisma.company.updateMany({ where: { code: seed.code, [field]: null }, data: { [field]: value } });
+    if (updated.count) console.log(`Компания ${seed.name}: ${field === "primaryColor" ? "основной" : "второй"} цвет ${value}`);
   }
 }
 

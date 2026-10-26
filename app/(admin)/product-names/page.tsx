@@ -268,7 +268,7 @@ export default async function ProductNamesPage({
         .hs-missing { color: var(--color-danger); font-weight: 600; }
         .hs-desc { font-size: 11.5px; color: var(--color-muted); margin-top: 4px; max-width: 240px; line-height: 1.35; }
         .btn-ghost { display: inline-flex; align-items: center; padding: 5px 10px; background: transparent; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--color-accent); text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
-        .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
+        .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
         .row-clickable { cursor: pointer; }
         .row-clickable:hover td { background: var(--color-muted-bg); }
         .btn-sm { padding: 4px 8px; }

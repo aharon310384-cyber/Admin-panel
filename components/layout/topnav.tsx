@@ -279,7 +279,7 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
           white-space: nowrap; transition: color 0.15s, background 0.15s;
         }
         .topnav-link:hover { color: var(--color-text); background: var(--color-muted-bg); }
-        .topnav-link--active { color: var(--color-accent); background: oklch(52% 0.14 42 / 0.08); }
+        .topnav-link--active { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
 
         .topnav-data { position: relative; }
         .topnav-trigger { gap: 6px; }
@@ -324,7 +324,7 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
           text-decoration: none; white-space: nowrap; transition: color 0.15s, background 0.15s;
         }
         .topnav-item:hover { color: var(--color-text); background: var(--color-muted-bg); }
-        .topnav-item--active { color: var(--color-accent); background: oklch(52% 0.14 42 / 0.08); }
+        .topnav-item--active { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
         .topnav-item--soon { color: var(--color-muted); opacity: 0.55; cursor: default; pointer-events: none; }
         .topnav-item svg { flex-shrink: 0; }
 
@@ -340,7 +340,7 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
         .topnav-user { display: flex; align-items: center; gap: 8px; padding-left: 8px; border-left: 1px solid var(--color-border); }
         .topnav-avatar {
           width: 26px; height: 26px; flex-shrink: 0;
-          background: oklch(52% 0.14 42 / 0.15); color: var(--color-accent);
+          background: color-mix(in srgb, var(--color-accent) 15%, transparent); color: var(--color-accent);
           border-radius: 50%; display: flex; align-items: center; justify-content: center;
           font-size: 12px; font-weight: 600;
         }
