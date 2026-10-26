@@ -95,6 +95,7 @@ export const MORE_COMMAND_IDS = [
   "unpost",
   "findValue",
   "find",
+  "advancedFind",
   "cancelFind",
   "listSettings",
   "chooseSettings",
@@ -132,6 +133,7 @@ export const MORE_COMMANDS: MoreCommand[][] = [
   [
     { id: "findValue", label: "Найти по текущему значению", shortcut: "Ctrl+Alt+F" },
     { id: "find", label: "Найти…", shortcut: "Ctrl+F" },
+    { id: "advancedFind", label: "Расширенный поиск…", shortcut: "Alt+F" },
     { id: "cancelFind", label: "Отменить поиск", shortcut: "Ctrl+Q" },
   ],
   [
@@ -155,5 +157,9 @@ export const MORE_COMMANDS: MoreCommand[][] = [
   ],
 ];
 
+// Команды поиска — в «Ещё» одним подменю, как в 1С.
+export const SEARCH_COMMANDS_LABEL = "Управление поиском";
+
 // Параметры адреса, в которых окна держат строку поиска: «Отменить поиск» убирает их.
-export const SEARCH_PARAMS = ["search", "track", "q"];
+// q, sf, sv, sm — поиск списка (lib/list-search.ts).
+export const SEARCH_PARAMS = ["search", "track", "q", "sf", "sv", "sm"];

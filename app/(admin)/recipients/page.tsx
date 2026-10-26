@@ -8,6 +8,7 @@ import ClickableRow from "@/components/ui/clickable-row";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 import Form from "@/components/form/form";
+import { clientFields, readListSearch, searchConditions, searchParamsOf, type ServerSearchField } from "@/lib/list-search";
 
 export const metadata: Metadata = { title: "Получатели" };
 
@@ -39,25 +40,43 @@ function recipientOrderBy(field: SortField, dir: SortDirection): Prisma.Recipien
   }
 }
 
+// Поиск списка (строка поиска и «Расширенный поиск»): подписи — как заголовки столбцов таблицы.
+const SEARCH_FIELDS: ServerSearchField<Prisma.RecipientWhereInput>[] = [
+  { key: "client", label: "Клиент", where: (f) => ({ customer: { OR: [{ code: f }, { name: f }] } }) },
+  { key: "name", label: "Имя", where: (f) => ({ name: f }) },
+  { key: "phone", label: "Телефон", where: (f) => ({ phone: f }) },
+  { key: "country", label: "Страна", where: (f) => ({ country: f }) },
+  { key: "city", label: "Город", where: (f) => ({ city: f }) },
+  { key: "address", label: "Адрес", where: (f) => ({ address: f }) },
+  { key: "postal", label: "Индекс", where: (f) => ({ postalCode: f }) },
+  { key: "passport", label: "Номер паспорта", where: (f) => ({ passportNumber: f }) },
+];
+const LIMIT = 300;
+
 export default async function RecipientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; q?: string; sf?: string; sv?: string; sm?: string }>;
 }) {
   const params = await searchParams;
   const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+  const search = readListSearch(params);
+  const where: Prisma.RecipientWhereInput = { deletedAt: null, AND: searchConditions(search, SEARCH_FIELDS) };
 
-  const recipients = await prisma.recipient.findMany({
-    where: { deletedAt: null },
-    include: { customer: { select: { code: true } } },
-    orderBy: recipientOrderBy(sortField, sortDir),
-    take: 300,
-  });
+  const [recipients, total] = await Promise.all([
+    prisma.recipient.findMany({
+      where,
+      include: { customer: { select: { code: true } } },
+      orderBy: recipientOrderBy(sortField, sortDir),
+      take: LIMIT,
+    }),
+    prisma.recipient.count({ where }),
+  ]);
 
   // Клик по заголовку переключает направление; текущий столбец — инвертирует, новый — по возрастанию.
   const sortHref = (field: SortField) => {
     const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
-    return buildListHref("/recipients", {}, { sort: `${field}_${nextDir}` });
+    return buildListHref("/recipients", searchParamsOf(search), { sort: `${field}_${nextDir}` });
   };
 
   return (
@@ -71,7 +90,13 @@ export default async function RecipientsPage({
             Создать
           </Link>
         }
-        footer={<>{recipients.length} получателей · привязаны к клиентам</>}
+        search={{ fields: clientFields(SEARCH_FIELDS) }}
+        footer={
+          <>
+            {total > recipients.length ? `Показаны ${recipients.length} из ${total} — уточните поиск (Ctrl+F)` : `${total} получателей`} ·
+            привязаны к клиентам
+          </>
+        }
       >
         <div className="card">
           <div className="table-wrap">

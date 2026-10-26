@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 import OrdersSelectTable, { type OrderRow } from "@/components/orders/orders-select-table";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 import Form from "@/components/form/form";
+import { clientFields, readListSearch, searchConditions, searchParamsOf, type ServerSearchField } from "@/lib/list-search";
 
 export const metadata: Metadata = { title: "Заказы" };
 
@@ -56,24 +57,41 @@ function orderOrderBy(field: SortField, dir: SortDirection): Prisma.OrderOrderBy
   }
 }
 
+// Поиск списка (строка поиска и «Расширенный поиск»): подписи — как заголовки столбцов таблицы.
+const SEARCH_FIELDS: ServerSearchField<Prisma.OrderWhereInput>[] = [
+  { key: "track", label: "Входящий трек-номер", where: (f) => ({ trackNumber: f }) },
+  { key: "number", label: "Номер", where: (f) => ({ number: f }) },
+  { key: "client", label: "Клиент", where: (f) => ({ customer: { OR: [{ code: f }, { name: f }] } }) },
+  { key: "product", label: "Наименование", where: (f) => ({ productNameText: f }) },
+  { key: "recipient", label: "Получатель", where: (f) => ({ recipient: { name: f } }) },
+  { key: "comment", label: "Комментарий", where: (f) => ({ customerComment: f }) },
+  { key: "parcel", label: "Номер посылки", where: (f) => ({ parcel: { number: f } }) },
+];
+const LIMIT = 200;
+
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; q?: string; sf?: string; sv?: string; sm?: string }>;
 }) {
   const params = await searchParams;
   const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+  const search = readListSearch(params);
+  const where: Prisma.OrderWhereInput = { deletedAt: null, AND: searchConditions(search, SEARCH_FIELDS) };
 
-  const orders = await prisma.order.findMany({
-    where: { deletedAt: null },
-    include: { customer: true, recipient: true },
-    orderBy: orderOrderBy(sortField, sortDir),
-    take: 200,
-  });
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      include: { customer: true, recipient: true },
+      orderBy: orderOrderBy(sortField, sortDir),
+      take: LIMIT,
+    }),
+    prisma.order.count({ where }),
+  ]);
 
   const sortHref = (field: SortField) => {
     const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
-    return buildListHref("/orders", {}, { sort: `${field}_${nextDir}` });
+    return buildListHref("/orders", searchParamsOf(search), { sort: `${field}_${nextDir}` });
   };
   const sortHrefs = Object.fromEntries(
     SORT_FIELDS.map((f) => [f, sortHref(f)]),
@@ -109,7 +127,13 @@ export default async function OrdersPage({
           Создать
         </Link>
       }
-      footer={<>{orders.length} заказов · отметьте принятые → «Оформить на отправку»</>}
+      search={{ fields: clientFields(SEARCH_FIELDS) }}
+      footer={
+        <>
+          {total > orders.length ? `Показаны ${orders.length} из ${total} — уточните поиск (Ctrl+F)` : `${total} заказов`} · отметьте
+          принятые → «Оформить на отправку»
+        </>
+      }
     >
       <OrdersSelectTable orders={rows} sortHrefs={sortHrefs} sortField={sortField} sortDir={sortDir} />
     </Form>

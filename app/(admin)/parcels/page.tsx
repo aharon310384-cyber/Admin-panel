@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 import { deliveryTypeLabel } from "@/lib/statuses";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 import { trackingStatusLabel } from "@/lib/tracking-labels";
+import { clientFields, readListSearch, searchConditions, searchParamsOf, type ServerSearchField } from "@/lib/list-search";
 import Form from "@/components/form/form";
 import ParcelsTable, { type ParcelRow } from "@/components/parcels/parcels-table";
 import StatusByTracks from "@/components/parcels/status-by-tracks";
@@ -56,20 +57,38 @@ function parcelOrderBy(field: SortField, dir: SortDirection): Prisma.ParcelOrder
   }
 }
 
+// Поиск списка (строка поиска и «Расширенный поиск»): подписи — как заголовки столбцов таблицы.
+const SEARCH_FIELDS: ServerSearchField<Prisma.ParcelWhereInput>[] = [
+  { key: "track", label: "Трек-номер", where: (f) => ({ trackingNumber: f }) },
+  { key: "task", label: "Задача", where: (f) => ({ parcelTask: { number: f } }) },
+  { key: "client", label: "Клиент", where: (f) => ({ customer: { OR: [{ code: f }, { name: f }] } }) },
+  { key: "recipient", label: "Получатель", where: (f) => ({ recipient: { name: f } }) },
+  { key: "number", label: "Номер посылки", where: (f) => ({ number: f }) },
+  { key: "incoming", label: "Входящий трек-номер", where: (f) => ({ orders: { some: { deletedAt: null, trackNumber: f } } }) },
+];
+const LIMIT = 200;
+
 export default async function ParcelsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; tracking?: string }>;
+  searchParams: Promise<{ sort?: string; tracking?: string; q?: string; sf?: string; sv?: string; sm?: string }>;
 }) {
   const params = await searchParams;
+  const search = readListSearch(params);
   const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
   const onlyProblems = params.tracking === "problem";
   // «Требуют внимания»: отправленные, по которым 17TRACK сообщил о проблеме
   const problemWhere: Prisma.ParcelWhereInput = { status: "SHIPPED", tracking: { problem: true } };
 
-  const [parcels, problemCount] = await Promise.all([
+  const where: Prisma.ParcelWhereInput = {
+    deletedAt: null,
+    ...(onlyProblems ? problemWhere : {}),
+    AND: searchConditions(search, SEARCH_FIELDS),
+  };
+
+  const [parcels, total, problemCount] = await Promise.all([
     prisma.parcel.findMany({
-      where: { deletedAt: null, ...(onlyProblems ? problemWhere : {}) },
+      where,
       include: {
         customer: { select: { name: true, code: true } },
         recipient: { select: { name: true } },
@@ -78,12 +97,13 @@ export default async function ParcelsPage({
         _count: { select: { orders: true } },
       },
       orderBy: parcelOrderBy(sortField, sortDir),
-      take: 200,
+      take: LIMIT,
     }),
+    prisma.parcel.count({ where }),
     prisma.parcel.count({ where: { deletedAt: null, ...problemWhere } }),
   ]);
 
-  const filter = { tracking: onlyProblems ? "problem" : undefined };
+  const filter = { tracking: onlyProblems ? "problem" : undefined, ...searchParamsOf(search) };
   const sortHrefs = Object.fromEntries(
     SORT_FIELDS.map((field) => {
       const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
@@ -123,7 +143,7 @@ export default async function ParcelsPage({
       commands={
         <>
           <Link
-            href={buildListHref("/parcels", { sort }, { tracking: onlyProblems ? null : "problem" })}
+            href={buildListHref("/parcels", { sort, ...searchParamsOf(search) }, { tracking: onlyProblems ? null : "problem" })}
             className={`cmd${onlyProblems ? " cmd--on" : ""}`}
             data-command="tracking-problems"
             aria-pressed={onlyProblems}
@@ -135,7 +155,13 @@ export default async function ParcelsPage({
           <StatusByTracks />
         </>
       }
-      footer={<>{parcels.length} посылок{onlyProblems ? " требуют внимания" : ""} · отметьте посылки слева, чтобы поставить статус сразу нескольким</>}
+      search={{ fields: clientFields(SEARCH_FIELDS) }}
+      footer={
+        <>
+          {total > parcels.length ? `Показаны ${parcels.length} из ${total} — уточните поиск (Ctrl+F)` : `${total} посылок`}
+          {onlyProblems ? " требуют внимания" : ""} · отметьте посылки слева, чтобы поставить статус сразу нескольким
+        </>
+      }
     >
       <ParcelsTable rows={rows} sortHrefs={sortHrefs} sortField={sortField} sortDir={sortDir} />
       <style>{`.cmd--on { background: #fde7b8; border-color: #e0a84a; }`}</style>

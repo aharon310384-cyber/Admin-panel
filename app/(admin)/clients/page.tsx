@@ -8,6 +8,7 @@ import ClickableRow from "@/components/ui/clickable-row";
 import SortableHeader from "@/components/ui/sortable-header";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 import Form from "@/components/form/form";
+import { clientFields, readListSearch, searchConditions, searchParamsOf, type ServerSearchField } from "@/lib/list-search";
 
 export const metadata: Metadata = { title: "Клиенты" };
 
@@ -52,26 +53,41 @@ function clientOrderBy(field: SortField, dir: SortDirection): Prisma.CustomerOrd
   }
 }
 
+// Поиск списка (строка поиска и «Расширенный поиск»): подписи — как заголовки столбцов таблицы.
+const SEARCH_FIELDS: ServerSearchField<Prisma.CustomerWhereInput>[] = [
+  { key: "code", label: "Код", where: (f) => ({ code: f }) },
+  { key: "name", label: "Имя", where: (f) => ({ name: f }) },
+  { key: "phone", label: "Телефон", where: (f) => ({ phone: f }) },
+  { key: "email", label: "Email", where: (f) => ({ email: f }) },
+  { key: "city", label: "Город", where: (f) => ({ city: f }) },
+];
+const LIMIT = 300;
+
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; q?: string; sf?: string; sv?: string; sm?: string }>;
 }) {
   const params = await searchParams;
   const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+  const search = readListSearch(params);
+  const where: Prisma.CustomerWhereInput = { deletedAt: null, AND: searchConditions(search, SEARCH_FIELDS) };
 
-  const clients = await prisma.customer.findMany({
-    where: { deletedAt: null },
-    include: {
-      _count: { select: { orders: { where: { deletedAt: null } }, parcels: { where: { deletedAt: null } }, recipients: true } },
-    },
-    orderBy: clientOrderBy(sortField, sortDir),
-    take: 300,
-  });
+  const [clients, total] = await Promise.all([
+    prisma.customer.findMany({
+      where,
+      include: {
+        _count: { select: { orders: { where: { deletedAt: null } }, parcels: { where: { deletedAt: null } }, recipients: true } },
+      },
+      orderBy: clientOrderBy(sortField, sortDir),
+      take: LIMIT,
+    }),
+    prisma.customer.count({ where }),
+  ]);
 
   const sortHref = (field: SortField) => {
     const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
-    return buildListHref("/clients", {}, { sort: `${field}_${nextDir}` });
+    return buildListHref("/clients", searchParamsOf(search), { sort: `${field}_${nextDir}` });
   };
 
   return (
@@ -85,7 +101,8 @@ export default async function ClientsPage({
             Создать
           </Link>
         }
-        footer={<>{clients.length} клиентов</>}
+        search={{ fields: clientFields(SEARCH_FIELDS) }}
+        footer={<>{total > clients.length ? `Показаны ${clients.length} из ${total} — уточните поиск (Ctrl+F)` : `${total} клиентов`}</>}
       >
         <div className="card">
           <div className="table-wrap">
