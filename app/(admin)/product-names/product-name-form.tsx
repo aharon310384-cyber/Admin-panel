@@ -13,36 +13,46 @@ type ProductNameForForm = {
   nameRu: string;
   nameEn: string | null;
   nameCn: string | null;
-  category: string | null;
+  isGroup: boolean;
   parentId: string | null;
   hsCode: string | null;
   hsDescription: string | null;
 };
 
-type SectionOption = {
-  id: string;
-  code: string;
-  nameRu: string;
-};
+type GroupOption = { id: string; label: string };
 
 type Props = {
   action: ActionFn;
   productName?: ProductNameForForm;
-  /** секции верхнего уровня для выбора родителя */
-  sections?: SectionOption[];
+  /** новая запись — группа (папка); у существующей берётся из записи */
+  isGroup?: boolean;
+  /** группы деревом для выбора «В группе» (без самой группы и её подгрупп) */
+  groups?: GroupOption[];
+  /** группа новой записи — та, что открыта в списке */
+  defaultParentId?: string;
 };
 
-export default function ProductNameForm({ action, productName, sections = [] }: Props) {
+export default function ProductNameForm({
+  action,
+  productName,
+  isGroup: isNewGroup = false,
+  groups = [],
+  defaultParentId,
+}: Props) {
   const [state, formAction, isPending] = useActionState<FormState, FormData>(
     async (_state, formData) => (await action(formData)) ?? {},
     {}
   );
+  const isGroup = productName?.isGroup ?? isNewGroup;
+  const parentId = productName ? productName.parentId : defaultParentId ?? null;
+  const backHref = parentId ? `/product-names?group=${parentId}` : "/product-names";
   const errors = state?.error;
 
   return (
     <form action={formAction} className="product-name-form">
+      {!productName && isGroup && <input type="hidden" name="isGroup" value="1" />}
       <div className="card">
-        <h2 className="section-title">Карточка наименования</h2>
+        <h2 className="section-title">{isGroup ? "Карточка группы" : "Карточка наименования"}</h2>
         <div className="field-grid">
           <div className="field">
             <label className="field-label">
@@ -67,7 +77,7 @@ export default function ProductNameForm({ action, productName, sections = [] }: 
               name="nameRu"
               defaultValue={productName?.nameRu ?? ""}
               className={`field-input ${errors?.nameRu ? "field-input--error" : ""}`}
-              placeholder="Одежда"
+              placeholder={isGroup ? "Одежда" : "Футболка"}
             />
             {errors?.nameRu && <p className="field-error">{errors.nameRu[0]}</p>}
           </div>
@@ -79,7 +89,7 @@ export default function ProductNameForm({ action, productName, sections = [] }: 
               name="nameEn"
               defaultValue={productName?.nameEn ?? ""}
               className="field-input"
-              placeholder="Clothing"
+              placeholder={isGroup ? "Clothing" : "T-shirt"}
             />
           </div>
 
@@ -90,54 +100,56 @@ export default function ProductNameForm({ action, productName, sections = [] }: 
               name="nameCn"
               defaultValue={productName?.nameCn ?? ""}
               className="field-input"
-              placeholder="衣服"
+              placeholder={isGroup ? "衣服" : "T恤"}
             />
           </div>
 
           <div className="field">
-            <label className="field-label">Секция (раздел)</label>
+            <label className="field-label">В группе</label>
             <select
               name="parentId"
-              defaultValue={productName?.parentId ?? ""}
-              className="field-input"
+              defaultValue={parentId ?? ""}
+              className={`field-input ${errors?.parentId ? "field-input--error" : ""}`}
             >
-              <option value="">— без секции (верхний уровень) —</option>
-              {sections
-                .filter((section) => section.id !== productName?.id)
-                .map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.code} · {section.nameRu}
-                  </option>
-                ))}
+              <option value="">— верхний уровень —</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.label}
+                </option>
+              ))}
             </select>
+            {errors?.parentId && <p className="field-error">{errors.parentId[0]}</p>}
             <p className="field-hint">
-              Позиция привязывается к секции; раздел подставится автоматически. Оставьте
-              пустым, если это сама секция.
+              {isGroup
+                ? "Группа — папка для порядка в справочнике, как в 1С. В заказе выбирается только товар."
+                : "Перенести товар в другую группу — выбрать её здесь."}
             </p>
           </div>
 
-          <div className="field">
-            <label className="field-label">HS-код (ТН ВЭД)</label>
-            <input
-              type="text"
-              name="hsCode"
-              defaultValue={productName?.hsCode ?? ""}
-              className={`field-input mono ${errors?.hsCode ? "field-input--error" : ""}`}
-              placeholder="6109 10"
-            />
-            {errors?.hsCode && <p className="field-error">{errors.hsCode[0]}</p>}
-            {productName?.hsDescription && (
-              <p className="field-hint">
-                <strong>EU CN 2026:</strong> {productName.hsDescription}
-              </p>
-            )}
-            <p className="field-hint">Тарифная классификация для таможни ЕС (€3 за позицию)</p>
-          </div>
+          {!isGroup && (
+            <div className="field">
+              <label className="field-label">HS-код (ТН ВЭД)</label>
+              <input
+                type="text"
+                name="hsCode"
+                defaultValue={productName?.hsCode ?? ""}
+                className={`field-input mono ${errors?.hsCode ? "field-input--error" : ""}`}
+                placeholder="6109 10"
+              />
+              {errors?.hsCode && <p className="field-error">{errors.hsCode[0]}</p>}
+              {productName?.hsDescription && (
+                <p className="field-hint">
+                  <strong>EU CN 2026:</strong> {productName.hsDescription}
+                </p>
+              )}
+              <p className="field-hint">Тарифная классификация для таможни ЕС (€3 за позицию)</p>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="form-actions">
-        <Link href="/product-names" className="btn-secondary">
+        <Link href={backHref} className="btn-secondary">
           Отмена
         </Link>
         <button type="submit" disabled={isPending} className="btn-primary">
@@ -148,6 +160,8 @@ export default function ProductNameForm({ action, productName, sections = [] }: 
             </>
           ) : productName ? (
             "Сохранить изменения"
+          ) : isGroup ? (
+            "Создать группу"
           ) : (
             "Создать наименование"
           )}

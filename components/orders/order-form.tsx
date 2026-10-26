@@ -131,7 +131,7 @@ export default function OrderForm({
             {matched ? (
               matched.hsCode?.trim() ? (
                 <span className="of-hint of-hint--ok">
-                  Из справочника · {matched.category ?? "без секции"} · HS {matched.hsCode}
+                  Из справочника · {matched.category ?? "без группы"} · HS {matched.hsCode}
                 </span>
               ) : (
                 <span className="of-hint of-hint--warn">

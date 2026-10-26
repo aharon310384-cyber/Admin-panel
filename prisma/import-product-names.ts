@@ -1,6 +1,6 @@
-// Импорт большого справочника наименований (секции → позиции) в ProductName.
-// Идемпотентно (upsert по code). Секция = PF-СС0000 (parentId null),
-// позиция = PF-СС{seq:0000} (parentId = id секции, category = nameRu секции).
+// Импорт большого справочника наименований (группы → товары) в ProductName.
+// Идемпотентно (upsert по code). Группа = PF-СС0000 (isGroup, parentId null),
+// товар = PF-СС{seq:0000} (parentId = id группы).
 //
 // Запуск: npm run product-names:import
 // БД берётся из DATABASE_URL (.env). Для прод-базы:
@@ -36,14 +36,15 @@ async function main() {
   let items = 0;
 
   for (const section of PRODUCT_NAME_SECTIONS) {
-    // 1) Секция (верхний уровень).
+    // 1) Группа (верхний уровень).
     const parent = await prisma.productName.upsert({
       where: { code: section.code },
       update: {
         nameRu: section.ru,
         nameEn: section.en,
         nameCn: section.cn,
-        category: null,
+        isGroup: true,
+        hsCode: null,
         parentId: null,
         deletedAt: null,
       },
@@ -52,11 +53,12 @@ async function main() {
         nameRu: section.ru,
         nameEn: section.en,
         nameCn: section.cn,
+        isGroup: true,
       },
     });
     sections += 1;
 
-    // 2) Позиции секции.
+    // 2) Товары группы.
     for (const item of section.items) {
       await prisma.productName.upsert({
         where: { code: itemCode(section.code, item.seq) },
@@ -66,7 +68,7 @@ async function main() {
           nameCn: item.cn,
           hsCode: item.hs,
           hsDescription: cnDescription(item.hs),
-          category: section.ru,
+          isGroup: false,
           parentId: parent.id,
           deletedAt: null,
         },
@@ -77,7 +79,6 @@ async function main() {
           nameCn: item.cn,
           hsCode: item.hs,
           hsDescription: cnDescription(item.hs),
-          category: section.ru,
           parentId: parent.id,
         },
       });
@@ -86,7 +87,7 @@ async function main() {
   }
 
   console.log(
-    `Импортировано: секций ${sections}, позиций ${items} (ожидалось ${PRODUCT_NAME_ITEM_COUNT}).`
+    `Импортировано: групп ${sections}, товаров ${items} (ожидалось ${PRODUCT_NAME_ITEM_COUNT}).`
   );
 }
 

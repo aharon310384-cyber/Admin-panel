@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { productGroupPath } from "@/lib/products";
 import { requireAdmin } from "@/lib/server-helpers";
 
 const productNameSchema = z.object({
@@ -11,7 +12,6 @@ const productNameSchema = z.object({
   nameRu: z.string().trim().min(1, "Наименование RU обязательно"),
   nameEn: z.string().trim().optional(),
   nameCn: z.string().trim().optional(),
-  category: z.string().trim().optional(),
   parentId: z.string().trim().optional(),
   hsCode: z
     .string()
@@ -26,19 +26,28 @@ function productNamePayload(formData: FormData) {
     nameRu: String(formData.get("nameRu") ?? "").trim(),
     nameEn: String(formData.get("nameEn") ?? "").trim(),
     nameCn: String(formData.get("nameCn") ?? "").trim(),
-    category: String(formData.get("category") ?? "").trim(),
     parentId: String(formData.get("parentId") ?? "").trim(),
     hsCode: String(formData.get("hsCode") ?? "").trim(),
   };
 }
 
-/** Секция-родитель по id: возвращает саму запись (для авто-category и валидации). */
-async function resolveParentSection(parentId: string | undefined) {
-  if (!parentId) return null;
-  return prisma.productName.findFirst({
-    where: { id: parentId, deletedAt: null },
-    select: { id: true, nameRu: true },
-  });
+/** Список, открытый на группе записи: после сохранения возвращаемся туда, откуда пришли. */
+function listHref(parentId: string | null) {
+  return parentId ? `/product-names?group=${parentId}` : "/product-names";
+}
+
+/** Группа, в которую кладётся запись: только группа справочника; группу нельзя вложить в себя и свои подгруппы. */
+async function resolveParentGroup(
+  parentId: string | undefined,
+  selfId?: string
+): Promise<{ parentId: string | null } | { error: string }> {
+  if (!parentId) return { parentId: null };
+  const path = await productGroupPath(parentId);
+  if (!path.length) return { error: "Группа не найдена — выберите другую" };
+  if (selfId && path.some((group) => group.id === selfId)) {
+    return { error: "Группу нельзя положить в саму себя или в свою подгруппу" };
+  }
+  return { parentId };
 }
 
 async function codeExists(code: string, exceptId?: string): Promise<boolean> {
@@ -58,12 +67,14 @@ export async function createProductName(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const { code, nameRu, nameEn, nameCn, category, parentId, hsCode } = parsed.data;
+  const { code, nameRu, nameEn, nameCn, parentId, hsCode } = parsed.data;
+  const isGroup = formData.get("isGroup") === "1";
   if (await codeExists(code)) {
     return { error: { code: ["Такой код уже есть в регистре"] } };
   }
 
-  const parent = await resolveParentSection(parentId);
+  const parent = await resolveParentGroup(parentId);
+  if ("error" in parent) return { error: { parentId: [parent.error] } };
 
   await prisma.productName.create({
     data: {
@@ -71,15 +82,14 @@ export async function createProductName(formData: FormData) {
       nameRu,
       nameEn: nameEn || null,
       nameCn: nameCn || null,
-      // если выбрана секция — category берём из неё, иначе из поля
-      category: parent ? parent.nameRu : category || null,
-      parentId: parent?.id ?? null,
-      hsCode: hsCode || null,
+      isGroup,
+      parentId: parent.parentId,
+      hsCode: isGroup ? null : hsCode || null,
     },
   });
 
   revalidatePath("/product-names");
-  redirect("/product-names");
+  redirect(listHref(parent.parentId));
 }
 
 export async function updateProductName(id: string, formData: FormData) {
@@ -90,14 +100,20 @@ export async function updateProductName(id: string, formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  const { code, nameRu, nameEn, nameCn, category, parentId, hsCode } = parsed.data;
+  const { code, nameRu, nameEn, nameCn, parentId, hsCode } = parsed.data;
+  const current = await prisma.productName.findFirst({
+    where: { id, deletedAt: null },
+    select: { isGroup: true, hsCode: true },
+  });
+  if (!current) return { error: { code: ["Запись удалена — откройте справочник заново"] } };
   if (await codeExists(code, id)) {
     return { error: { code: ["Такой код уже есть в регистре"] } };
   }
 
-  // защита от зацикливания: секция не может быть родителем самой себя
-  const parent = parentId === id ? null : await resolveParentSection(parentId);
+  const parent = await resolveParentGroup(parentId, id);
+  if ("error" in parent) return { error: { parentId: [parent.error] } };
 
+  const nextHsCode = current.isGroup ? null : hsCode || null;
   await prisma.productName.update({
     where: { id },
     data: {
@@ -105,20 +121,29 @@ export async function updateProductName(id: string, formData: FormData) {
       nameRu,
       nameEn: nameEn || null,
       nameCn: nameCn || null,
-      category: parent ? parent.nameRu : category || null,
-      parentId: parent?.id ?? null,
-      hsCode: hsCode || null,
-      deletedAt: null,
+      parentId: parent.parentId,
+      hsCode: nextHsCode,
+      // официальное описание относится к прежнему HS-коду
+      ...(nextHsCode !== current.hsCode && { hsDescription: null }),
     },
   });
 
   revalidatePath("/product-names");
   revalidatePath(`/product-names/${id}/edit`);
-  redirect("/product-names");
+  redirect(listHref(parent.parentId));
 }
 
-export async function deleteProductName(id: string) {
+export async function deleteProductName(id: string): Promise<{ error?: string } | void> {
   await requireAdmin();
+
+  const record = await prisma.productName.findFirst({
+    where: { id, deletedAt: null },
+    select: { parentId: true, _count: { select: { children: { where: { deletedAt: null } } } } },
+  });
+  if (!record) return { error: "Запись уже удалена" };
+  if (record._count.children > 0) {
+    return { error: "В группе есть записи — сначала перенесите их в другую группу или удалите" };
+  }
 
   await prisma.productName.update({
     where: { id },
@@ -126,5 +151,5 @@ export async function deleteProductName(id: string) {
   });
 
   revalidatePath("/product-names");
-  redirect("/product-names");
+  redirect(listHref(record.parentId));
 }

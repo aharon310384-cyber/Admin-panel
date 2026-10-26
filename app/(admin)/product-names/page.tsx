@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
-import { Plus, Search } from "lucide-react";
+import { ChevronRight, Folder, FolderPlus, Pencil, Plus, Search } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { productGroupPath } from "@/lib/products";
 import SortableHeader from "@/components/ui/sortable-header";
 import { Pagination } from "@/components/ui/pagination";
 import TableRowLink from "@/components/ui/table-row-link";
@@ -14,14 +15,18 @@ export const metadata: Metadata = { title: "Наименования товар�
 
 const LIMIT = 50;
 
+// Справочник — как «Номенклатура» в 1С: открыта одна группа (папка), в ней сначала группы, потом товары.
+// Двойной щелчок по группе открывает её, по товару — карточку. Поиск ищет по всем группам.
+
 type SearchParams = {
   page?: string;
   search?: string;
   sort?: string;
+  group?: string;
 };
 
 type SortDirection = "asc" | "desc";
-type ProductNameSortField = "code" | "nameRu" | "nameEn" | "nameCn" | "category" | "hsCode" | "createdAt";
+type ProductNameSortField = "code" | "nameRu" | "nameEn" | "nameCn" | "hsCode" | "createdAt";
 
 function dash(value: string | null | undefined): string {
   return value?.trim() || "—";
@@ -34,7 +39,6 @@ function normalizeSort(sort: string | undefined): [ProductNameSortField, SortDir
     "nameRu",
     "nameEn",
     "nameCn",
-    "category",
     "hsCode",
     "createdAt",
   ]);
@@ -46,8 +50,8 @@ function normalizeSort(sort: string | undefined): [ProductNameSortField, SortDir
 }
 
 function productNamesHref(
-  values: { search?: string; sort?: string; page?: string },
-  overrides: { search?: string; sort?: string; page?: string | null }
+  values: { search?: string; sort?: string; page?: string; group?: string },
+  overrides: { search?: string; sort?: string; page?: string | null; group?: string | null }
 ): string {
   const query = new URLSearchParams();
   const next = { ...values, ...overrides };
@@ -66,7 +70,8 @@ function productNameOrderBy(
   field: ProductNameSortField,
   direction: SortDirection
 ): Prisma.ProductNameOrderByWithRelationInput[] {
-  return [{ [field]: direction }, { code: "asc" }];
+  // группы — всегда над товарами
+  return [{ isGroup: "desc" }, { [field]: direction }, { code: "asc" }];
 }
 
 export default async function ProductNamesPage({
@@ -82,6 +87,11 @@ export default async function ProductNamesPage({
   const sort = params.sort ?? "code_asc";
   const [sortField, sortDir] = normalizeSort(sort);
 
+  // открытая группа: путь от верхнего уровня; при поиске — все группы сразу
+  const path = !search && params.group ? await productGroupPath(params.group) : [];
+  const group = path.at(-1);
+  const groupParam = group?.id;
+
   const where = {
     deletedAt: null,
     ...(search
@@ -91,29 +101,37 @@ export default async function ProductNamesPage({
             { nameRu: { contains: search, mode: "insensitive" } },
             { nameEn: { contains: search, mode: "insensitive" } },
             { nameCn: { contains: search, mode: "insensitive" } },
-            { category: { contains: search, mode: "insensitive" } },
             { hsCode: { contains: search, mode: "insensitive" } },
+            { parent: { is: { nameRu: { contains: search, mode: "insensitive" } } } },
           ],
         }
-      : {}),
+      : { parentId: group?.id ?? null }),
   } satisfies Prisma.ProductNameWhereInput;
 
-  const [productNames, total] = await Promise.all([
+  const [productNames, total, groupCount] = await Promise.all([
     prisma.productName.findMany({
       where,
       orderBy: productNameOrderBy(sortField, sortDir),
       skip: (page - 1) * LIMIT,
       take: LIMIT,
+      include: {
+        parent: { select: { nameRu: true } },
+        _count: { select: { children: { where: { deletedAt: null } } } },
+      },
     }),
     prisma.productName.count({ where }),
+    prisma.productName.count({ where: { ...where, isGroup: true } }),
   ]);
 
   const totalPages = Math.ceil(total / LIMIT);
+  const current = { search, sort: params.sort, group: groupParam };
   const sortHref = (field: ProductNameSortField, defaultDirection: SortDirection = "asc") => {
     const nextDirection =
       sortField === field ? (sortDir === "asc" ? "desc" : "asc") : defaultDirection;
-    return productNamesHref({ search, sort }, { sort: `${field}_${nextDirection}`, page: null });
+    return productNamesHref(current, { sort: `${field}_${nextDirection}`, page: null });
   };
+  const groupHref = (id: string | null) => productNamesHref({ sort: params.sort }, { group: id });
+  const createQuery = groupParam ? `&parent=${groupParam}` : "";
 
   return (
     <>
@@ -122,28 +140,79 @@ export default async function ProductNamesPage({
         title="Наименования товаров"
         commands={
           isAdmin && (
-            <Link href="/product-names/new" className="cmd cmd--primary" data-command="create">
-              <Plus size={15} />
-              Создать
-            </Link>
+            <>
+              <Link
+                href={`/product-names/new${groupParam ? `?parent=${groupParam}` : ""}`}
+                className="cmd cmd--primary"
+                data-command="create"
+              >
+                <Plus size={15} />
+                Создать
+              </Link>
+              <Link
+                href={`/product-names/new?type=group${createQuery}`}
+                className="cmd"
+                data-command="create-group"
+              >
+                <FolderPlus size={15} />
+                Создать группу
+              </Link>
+            </>
           )
         }
         header={
-          <div className="search-wrap">
-            <Search size={15} className="search-icon" />
-            <form>
-              <input type="hidden" name="sort" value={`${sortField}_${sortDir}`} />
-              <input
-                type="search"
-                name="search"
-                placeholder="Поиск по коду, наименованию, секции или HS-коду..."
-                defaultValue={search}
-                className="search-input"
-              />
-            </form>
+          <div className="pn-header">
+            <div className="search-wrap">
+              <Search size={15} className="search-icon" />
+              <form>
+                <input type="hidden" name="sort" value={`${sortField}_${sortDir}`} />
+                <input
+                  type="search"
+                  name="search"
+                  placeholder="Поиск по всем группам: код, наименование, группа, HS-код..."
+                  defaultValue={search}
+                  className="search-input"
+                />
+              </form>
+            </div>
+            {search ? (
+              <p className="pn-crumbs">
+                Найдено во всех группах ·{" "}
+                <Link href={productNamesHref({ sort: params.sort }, {})} className="pn-crumb">
+                  сбросить поиск
+                </Link>
+              </p>
+            ) : (
+              <nav className="pn-crumbs" aria-label="Группы">
+                {group ? (
+                  <Link href={groupHref(null)} className="pn-crumb">
+                    Все группы
+                  </Link>
+                ) : (
+                  <span className="pn-crumb-current">Все группы</span>
+                )}
+                {path.map((item) => (
+                  <span key={item.id} className="pn-crumb-step">
+                    <ChevronRight size={13} />
+                    {item.id === group?.id ? (
+                      <span className="pn-crumb-current">{item.nameRu}</span>
+                    ) : (
+                      <Link href={groupHref(item.id)} className="pn-crumb">
+                        {item.nameRu}
+                      </Link>
+                    )}
+                  </span>
+                ))}
+              </nav>
+            )}
           </div>
         }
-        footer={<>{total} записей в регистре</>}
+        footer={
+          <>
+            Групп: {groupCount} · товаров: {total - groupCount}
+            {search ? " (найдено)" : group ? " в группе" : " на верхнем уровне"}
+          </>
+        }
       >
         <div className="card">
           <div className="table-wrap">
@@ -184,14 +253,6 @@ export default async function ProductNamesPage({
                   </th>
                   <th>
                     <SortableHeader
-                      label="Секция"
-                      href={sortHref("category")}
-                      active={sortField === "category"}
-                      direction={sortDir}
-                    />
-                  </th>
-                  <th>
-                    <SortableHeader
                       label="HS-код"
                       href={sortHref("hsCode")}
                       active={sortField === "hsCode"}
@@ -201,38 +262,72 @@ export default async function ProductNamesPage({
                 </tr>
               </thead>
               <tbody>
-                {productNames.map((item) => (
-                  <TableRowLink
-                    key={item.id}
-                    href={`/product-names/${item.id}/edit`}
-                  >
-                    <td>
-                      <span className="code-pill">{item.code}</span>
-                    </td>
-                    <td>{item.nameRu}</td>
-                    <td className="text-muted">{dash(item.nameEn)}</td>
-                    <td className="text-muted">{dash(item.nameCn)}</td>
-                    <td className="text-muted">{dash(item.category)}</td>
-                    <td>
-                      {item.hsCode?.trim() ? (
-                        <>
-                          <span className="code-pill">{item.hsCode}</span>
-                          {item.hsDescription && (
-                            <div className="hs-desc" title="Официальное описание EU CN 2026">
-                              {item.hsDescription}
-                            </div>
+                {productNames.map((item) =>
+                  item.isGroup ? (
+                    <TableRowLink key={item.id} href={groupHref(item.id)} className="row-group">
+                      <td>
+                        <span className="code-pill">{item.code}</span>
+                      </td>
+                      <td>
+                        <span className="pn-group-name">
+                          <Link href={groupHref(item.id)} className="pn-group-link" title="Открыть группу">
+                            <Folder size={15} className="pn-folder" />
+                            {item.nameRu}
+                          </Link>
+                          <span className="text-muted">({item._count.children})</span>
+                          {isAdmin && (
+                            <Link
+                              href={`/product-names/${item.id}/edit`}
+                              className="pn-edit"
+                              title="Изменить группу"
+                              aria-label="Изменить группу"
+                            >
+                              <Pencil size={13} />
+                            </Link>
                           )}
-                        </>
-                      ) : (
-                        <span className="hs-missing" title="HS-код не указан">—</span>
-                      )}
-                    </td>
-                  </TableRowLink>
-                ))}
+                        </span>
+                        {search && item.parent && (
+                          <div className="pn-parent">в группе «{item.parent.nameRu}»</div>
+                        )}
+                      </td>
+                      <td className="text-muted">{dash(item.nameEn)}</td>
+                      <td className="text-muted">{dash(item.nameCn)}</td>
+                      <td />
+                    </TableRowLink>
+                  ) : (
+                    <TableRowLink key={item.id} href={`/product-names/${item.id}/edit`}>
+                      <td>
+                        <span className="code-pill">{item.code}</span>
+                      </td>
+                      <td>
+                        {item.nameRu}
+                        {search && item.parent && (
+                          <div className="pn-parent">в группе «{item.parent.nameRu}»</div>
+                        )}
+                      </td>
+                      <td className="text-muted">{dash(item.nameEn)}</td>
+                      <td className="text-muted">{dash(item.nameCn)}</td>
+                      <td>
+                        {item.hsCode?.trim() ? (
+                          <>
+                            <span className="code-pill">{item.hsCode}</span>
+                            {item.hsDescription && (
+                              <div className="hs-desc" title="Официальное описание EU CN 2026">
+                                {item.hsDescription}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="hs-missing" title="HS-код не указан">—</span>
+                        )}
+                      </td>
+                    </TableRowLink>
+                  )
+                )}
                 {productNames.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="table-empty">
-                      Наименования не найдены
+                    <td colSpan={5} className="table-empty">
+                      {search ? "Ничего не найдено" : "В группе пока пусто"}
                     </td>
                   </tr>
                 )}
@@ -243,17 +338,24 @@ export default async function ProductNamesPage({
           <Pagination
             currentPage={page}
             totalPages={totalPages}
-            hrefForPage={(p) => productNamesHref({ search, sort }, { page: String(p) })}
+            hrefForPage={(p) => productNamesHref(current, { page: String(p) })}
           />
         </div>
 
       </Form>
 
       <style>{`
+        .pn-header { display: flex; flex-direction: column; gap: 8px; width: 100%; }
         .search-wrap { position: relative; width: 100%; max-width: 520px; }
         .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
         .search-input { width: 100%; padding: 9px 12px 9px 36px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13.5px; color: var(--color-text); font-family: var(--font-sans); outline: none; transition: border-color 0.15s; }
         .search-input:focus { border-color: var(--color-accent); }
+
+        .pn-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; font-size: 13px; color: var(--color-muted); }
+        .pn-crumb-step { display: inline-flex; align-items: center; gap: 4px; }
+        .pn-crumb { color: var(--color-accent); text-decoration: none; }
+        .pn-crumb:hover { text-decoration: underline; }
+        .pn-crumb-current { color: var(--color-text); font-weight: 600; }
 
         .card { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); overflow: hidden; }
         .table-wrap { overflow-x: auto; }
@@ -263,15 +365,20 @@ export default async function ProductNamesPage({
         .table tbody tr:last-child td { border-bottom: none; }
         .table tbody tr:hover td { background: var(--color-muted-bg); }
 
+        .pn-group-name { display: inline-flex; align-items: center; gap: 6px; }
+        .pn-group-link { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--color-text); text-decoration: none; }
+        .pn-group-link:hover { color: var(--color-accent); }
+        .pn-folder { color: var(--color-accent); flex-shrink: 0; }
+        .pn-edit { display: inline-flex; padding: 3px; border-radius: var(--radius-sm); color: var(--color-muted); }
+        .pn-edit:hover { color: var(--color-accent); background: var(--color-muted-bg); }
+        .pn-parent { font-size: 11.5px; color: var(--color-muted); margin-top: 3px; }
+
         .code-pill { display: inline-flex; align-items: center; justify-content: center; padding: 3px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--color-text); background: var(--color-muted-bg); white-space: nowrap; }
         .text-muted { color: var(--color-muted); }
         .hs-missing { color: var(--color-danger); font-weight: 600; }
         .hs-desc { font-size: 11.5px; color: var(--color-muted); margin-top: 4px; max-width: 240px; line-height: 1.35; }
-        .btn-ghost { display: inline-flex; align-items: center; padding: 5px 10px; background: transparent; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--color-accent); text-decoration: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
-        .btn-ghost:hover { background: oklch(52% 0.14 42 / 0.08); }
         .row-clickable { cursor: pointer; }
         .row-clickable:hover td { background: var(--color-muted-bg); }
-        .btn-sm { padding: 4px 8px; }
         .table-empty { text-align: center; padding: 40px 16px !important; color: var(--color-muted); }
       `}</style>
     </>
