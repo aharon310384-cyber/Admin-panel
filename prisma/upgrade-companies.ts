@@ -6,8 +6,8 @@
 // Компания создаётся, только если её ещё нет: то, что поменяли в «Администрирование → Компании», не трогается.
 // Отметка бренда ставится, только если её нет у другой компании. Повторный запуск ничего не меняет.
 // Логотип и знак PostmanFox — файлы в prisma/seed-data/postmanfox/: программа берёт их только из карточки компании.
-// Цвета (шаг 4, 2026-10-26) у уже созданной компании ставятся, только если их ещё не задавали (null);
-// убранный в карточке цвет ("") не возвращается.
+// Цвета компаний не задаются: админка и кабинет в стандартных цветах, пока их не впишут в карточке
+// (решение владельца 2026-10-26). Цвета ShuTai, поставленные первой версией шага 4, убираются.
 import { readFile } from "fs/promises";
 import path from "path";
 import { PrismaClient, type Prisma } from "@prisma/client";
@@ -21,8 +21,6 @@ const COMPANIES: Seed[] = [
     code: "SHUTAI",
     name: "ShuTai",
     legalName: "Guangzhou ShuTai Trading Co., Ltd.",
-    primaryColor: "#183E42", // тёмно-бирюзовый
-    accentColor: "#D7663D", // терракотовый
     adminBrand: true,
   },
   {
@@ -32,7 +30,6 @@ const COMPANIES: Seed[] = [
     siteUrl: "https://postmanfox.com/",
     trackingUrl: "https://postmanfox.com/ru/treking-posylok/",
     telegramGreeting: "Здравствуйте! 🦊 Это кабинет PostmanFox.",
-    // цвета не заданы — кабинет в стандартных цветах
     logoFile: "prisma/seed-data/postmanfox/logo.png",
     iconFile: "prisma/seed-data/postmanfox/icon.png",
     cabinetBrand: true,
@@ -51,11 +48,7 @@ async function image(file: string | undefined) {
 
 async function main() {
   for (const { logoFile, iconFile, ...seed } of COMPANIES) {
-    const existing = await prisma.company.findUnique({ where: { code: seed.code }, select: { id: true } });
-    if (existing) {
-      await fillColors(seed);
-      continue;
-    }
+    if (await prisma.company.findUnique({ where: { code: seed.code }, select: { id: true } })) continue;
 
     const adminTaken = seed.adminBrand && (await prisma.company.count({ where: { adminBrand: true } })) > 0;
     const cabinetTaken = seed.cabinetBrand && (await prisma.company.count({ where: { cabinetBrand: true } })) > 0;
@@ -75,15 +68,17 @@ async function main() {
     });
     console.log(`Компания ${seed.name} создана`);
   }
+  await clearFirstColors();
 }
 
-async function fillColors(seed: Seed) {
-  for (const field of ["primaryColor", "accentColor"] as const) {
-    const value = seed[field];
-    if (!value) continue;
-    const updated = await prisma.company.updateMany({ where: { code: seed.code, [field]: null }, data: { [field]: value } });
-    if (updated.count) console.log(`Компания ${seed.name}: ${field === "primaryColor" ? "основной" : "второй"} цвет ${value}`);
-  }
+// Первая версия шага 4 ставила ShuTai цвета #183E42 / #D7663D. Убираем только эту пару:
+// цвета, выбранные в карточке, не трогаются.
+async function clearFirstColors() {
+  const cleared = await prisma.company.updateMany({
+    where: { code: "SHUTAI", primaryColor: "#183E42", accentColor: "#D7663D" },
+    data: { primaryColor: null, accentColor: null },
+  });
+  if (cleared.count) console.log("Компания ShuTai: цвета убраны — админка в стандартных цветах");
 }
 
 main()

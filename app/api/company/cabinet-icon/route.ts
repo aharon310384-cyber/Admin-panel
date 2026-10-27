@@ -5,5 +5,5 @@ import { tabIconResponse } from "@/lib/tab-icon";
 export const dynamic = "force-dynamic";
 
 export function GET() {
-  return tabIconResponse({ cabinetBrand: true }, { name: "Личный кабинет", color: "#6dab3c" });
+  return tabIconResponse({ cabinetBrand: true }, { name: "Личный кабинет", gradient: ["#87ba5f", "#6dab3c", "#4e8a2a"] });
 }

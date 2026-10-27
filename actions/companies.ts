@@ -31,7 +31,7 @@ const link = z
   .refine((value) => !value || isHttpUrl(value), "Полный адрес, начиная с https://")
   .transform((value) => value || null);
 
-// Цвет вида #1A2B3C (можно #ABC или без #). Пусто — «убрали»: стандартный вид, начальные данные его не вернут.
+// Цвет вида #1A2B3C (можно #ABC или без #). Пусто — стандартный вид.
 const color = z
   .string()
   .trim()

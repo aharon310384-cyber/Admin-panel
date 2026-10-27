@@ -6,7 +6,7 @@
   --muted: #74695a;
   --line: rgba(86, 65, 38, 0.12);
   --accent: var(--color-accent);
-  --accent-soft: color-mix(in srgb, var(--color-accent) 35%, white);
+  --accent-soft: #f4c7ae;
   --success: #2d7c62;
   --color-bg: #f3efe6;
   --color-surface: rgba(255, 252, 246, 0.82);
