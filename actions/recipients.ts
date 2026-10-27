@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
 import { checkCityCountry, countPhoneDigits, isPhoneLengthValid } from "@/lib/geo-validation";
+import { hasCyrillic, matchCountry } from "@/lib/geo-names";
 
 const recipientSchema = z.object({
   customerId: z.string().min(1, "Выберите клиента-владельца"),
@@ -105,6 +106,21 @@ function toData(parsed: z.infer<typeof recipientSchema>) {
   };
 }
 
+type RecipientInput = z.infer<typeof recipientSchema>;
+
+/**
+ * Страна и город — по-английски (решение владельца 2026-10-27): страна только из справочника (код и английское
+ * название), город латиницей. Возвращает данные с английской страной или ошибки по полям.
+ */
+async function englishGeo(data: RecipientInput): Promise<{ data: RecipientInput } | { error: Record<string, string[]> }> {
+  const countries = await prisma.country.findMany({ select: { code: true, nameRu: true, nameEn: true, aliases: true } });
+  const code = data.countryCode?.toUpperCase();
+  const country = (code && countries.find((c) => c.code === code)) || matchCountry(data.country, countries);
+  if (!country) return { error: { country: ["Выберите страну из списка — из справочника стран"] } };
+  if (hasCyrillic(data.city)) return { error: { city: ["Город — по-английски, латиницей (например Guangzhou)"] } };
+  return { data: { ...data, countryCode: country.code, country: country.nameEn } };
+}
+
 /**
  * Проверки, зависящие от справочника стран:
  *  - строгая длина телефонного номера для выбранной страны;
@@ -173,7 +189,11 @@ export async function createRecipient(formData: FormData) {
     return { error: { customerId: ["Клиент-владелец не найден"] } };
   }
 
-  const geoErrors = await validateGeoFields(parsed.data);
+  const geo = await englishGeo(parsed.data);
+  if ("error" in geo) {
+    return { error: geo.error };
+  }
+  const geoErrors = await validateGeoFields(geo.data);
   if (geoErrors) {
     return { error: geoErrors };
   }
@@ -186,7 +206,7 @@ export async function createRecipient(formData: FormData) {
   });
 
   const recipient = await prisma.recipient.create({
-    data: { customerId: owner.id, authorId: author?.id ?? null, ...toData(parsed.data) },
+    data: { customerId: owner.id, authorId: author?.id ?? null, ...toData(geo.data) },
   });
 
   revalidatePath("/recipients");
@@ -211,14 +231,18 @@ export async function updateRecipient(id: string, formData: FormData) {
     return { error: { customerId: ["Клиент-владелец не найден"] } };
   }
 
-  const geoErrors = await validateGeoFields(parsed.data);
+  const geo = await englishGeo(parsed.data);
+  if ("error" in geo) {
+    return { error: geo.error };
+  }
+  const geoErrors = await validateGeoFields(geo.data);
   if (geoErrors) {
     return { error: geoErrors };
   }
 
   await prisma.recipient.update({
     where: { id },
-    data: { customerId: owner.id, ...toData(parsed.data) },
+    data: { customerId: owner.id, ...toData(geo.data) },
   });
 
   revalidatePath(`/recipients/${id}`);

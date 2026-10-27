@@ -4,7 +4,8 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
-type FormState = { error?: Record<string, string[]> };
+// values — что было введено: после ошибки форма показывает те же значения, а не пустые поля
+type FormState = { error?: Record<string, string[]>; values?: Record<string, string> };
 type ActionFn = (formData: FormData) => Promise<FormState | void>;
 
 type CountryOption = {
@@ -20,11 +21,15 @@ type Props = {
 
 export default function ClientForm({ countries, action }: Props) {
   const [state, formAction, isPending] = useActionState<FormState, FormData>(
-    async (_state, formData) => (await action(formData)) ?? {},
+    async (_state, formData) => ({
+      ...((await action(formData)) ?? {}),
+      values: Object.fromEntries([...formData.entries()].map(([key, value]) => [key, String(value)])),
+    }),
     {}
   );
 
   const errors = state?.error;
+  const value = (name: string) => state?.values?.[name] ?? "";
 
   return (
     <form action={formAction} className="customer-form">
@@ -38,6 +43,7 @@ export default function ClientForm({ countries, action }: Props) {
             <input
               type="text"
               name="code"
+              defaultValue={value("code")}
               className={`field-input field-input--code ${errors?.code ? "field-input--error" : ""}`}
               placeholder="YN"
               autoComplete="off"
@@ -53,15 +59,15 @@ export default function ClientForm({ countries, action }: Props) {
           <div className="field-row field-row--3">
             <div className="field">
               <label className="field-label">Фамилия</label>
-              <input type="text" name="lastName" className="field-input" placeholder="Иванов" />
+              <input type="text" name="lastName" defaultValue={value("lastName")} className="field-input" placeholder="Иванов" />
             </div>
             <div className="field">
               <label className="field-label">Имя</label>
-              <input type="text" name="firstName" className="field-input" placeholder="Иван" />
+              <input type="text" name="firstName" defaultValue={value("firstName")} className="field-input" placeholder="Иван" />
             </div>
             <div className="field">
               <label className="field-label">Отчество</label>
-              <input type="text" name="middleName" className="field-input" placeholder="Иванович" />
+              <input type="text" name="middleName" defaultValue={value("middleName")} className="field-input" placeholder="Иванович" />
             </div>
           </div>
 
@@ -70,6 +76,7 @@ export default function ClientForm({ countries, action }: Props) {
             <input
               type="email"
               name="email"
+              defaultValue={value("email")}
               className={`field-input ${errors?.email ? "field-input--error" : ""}`}
               placeholder="client@example.com"
               autoComplete="off"
@@ -79,7 +86,7 @@ export default function ClientForm({ countries, action }: Props) {
 
           <div className="field">
             <label className="field-label">Telegram</label>
-            <input type="text" name="telegramUsername" className="field-input" placeholder="@username" />
+            <input type="text" name="telegramUsername" defaultValue={value("telegramUsername")} className="field-input" placeholder="@username" />
           </div>
 
           <div className="field">
@@ -87,6 +94,7 @@ export default function ClientForm({ countries, action }: Props) {
             <input
               type="tel"
               name="phone"
+              defaultValue={value("phone")}
               className="field-input"
               placeholder="+7 903 111-44-55"
               inputMode="tel"
@@ -100,23 +108,32 @@ export default function ClientForm({ countries, action }: Props) {
             <input
               type="text"
               name="country"
+              defaultValue={value("country")}
               list="client-country-options"
-              className="field-input"
-              placeholder="Россия"
+              className={`field-input ${errors?.country ? "field-input--error" : ""}`}
+              placeholder="Russia"
               autoComplete="off"
             />
             <datalist id="client-country-options">
               {countries.map((c) => (
-                <option key={c.code} value={c.nameRu}>
-                  {c.code} — {c.nameEn}
+                <option key={c.code} value={c.nameEn}>
+                  {c.code} — {c.nameRu}
                 </option>
               ))}
             </datalist>
+            {errors?.country && <p className="field-error">{errors.country[0]}</p>}
           </div>
 
           <div className="field">
             <label className="field-label">Город</label>
-            <input type="text" name="city" className="field-input" placeholder="Казань" />
+            <input
+              type="text"
+              name="city"
+              defaultValue={value("city")}
+              className={`field-input ${errors?.city ? "field-input--error" : ""}`}
+              placeholder="Kazan"
+            />
+            {errors?.city && <p className="field-error">{errors.city[0]}</p>}
           </div>
         </div>
       </div>

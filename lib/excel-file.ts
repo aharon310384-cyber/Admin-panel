@@ -13,7 +13,7 @@ export type ExcelFileSheet = { name: string; rows: ExcelFileRow[] };
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Значение ячейки так, как его видно в Excel: дата — «2026.10.07», формула — её результат, «ИСТИНА» — «+». */
-function cellText(value: ExcelJS.CellValue): string {
+export function cellText(value: ExcelJS.CellValue): string {
   if (value == null) return "";
   if (value instanceof Date) return `${value.getUTCFullYear()}.${pad(value.getUTCMonth() + 1)}.${pad(value.getUTCDate())}`;
   if (typeof value === "number") return String(value);

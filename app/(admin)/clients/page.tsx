@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { FileSpreadsheet, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import ClickableRow from "@/components/ui/clickable-row";
@@ -21,6 +21,7 @@ const SORT_FIELDS = [
   "name",
   "phone",
   "email",
+  "country",
   "city",
   "recipientsCount",
   "ordersCount",
@@ -45,6 +46,8 @@ function clientOrderBy(field: SortField, dir: SortDirection): Prisma.CustomerOrd
       return { phone: dir };
     case "email":
       return { email: dir };
+    case "country":
+      return { country: dir };
     case "city":
       return { city: dir };
     case "createdAt":
@@ -59,6 +62,7 @@ const SEARCH_FIELDS: ServerSearchField<Prisma.CustomerWhereInput>[] = [
   { key: "name", label: "Имя", where: (f) => ({ name: f }) },
   { key: "phone", label: "Телефон", where: (f) => ({ phone: f }) },
   { key: "email", label: "Email", where: (f) => ({ email: f }) },
+  { key: "country", label: "Страна", where: (f) => ({ country: f }) },
   { key: "city", label: "Город", where: (f) => ({ city: f }) },
 ];
 const LIMIT = 300;
@@ -96,10 +100,16 @@ export default async function ClientsPage({
         formKey="clients"
         title="Клиенты"
         commands={
-          <Link href="/clients/new" className="cmd cmd--primary" data-command="create">
-            <Plus size={15} />
-            Создать
-          </Link>
+          <>
+            <Link href="/clients/new" className="cmd cmd--primary" data-command="create">
+              <Plus size={15} />
+              Создать
+            </Link>
+            <Link href="/clients/import" className="cmd" data-command="import" title="Обновить список клиентов из файла Excel">
+              <FileSpreadsheet size={15} />
+              Загрузить из Excel
+            </Link>
+          </>
         }
         search={{ fields: clientFields(SEARCH_FIELDS) }}
         footer={<>{total > clients.length ? `Показаны ${clients.length} из ${total} — уточните поиск (Ctrl+F)` : `${total} клиентов`}</>}
@@ -113,6 +123,7 @@ export default async function ClientsPage({
                   <th><SortableHeader label="Имя" href={sortHref("name")} active={sortField === "name"} direction={sortDir} /></th>
                   <th><SortableHeader label="Телефон" href={sortHref("phone")} active={sortField === "phone"} direction={sortDir} /></th>
                   <th><SortableHeader label="Email" href={sortHref("email")} active={sortField === "email"} direction={sortDir} /></th>
+                  <th><SortableHeader label="Страна" href={sortHref("country")} active={sortField === "country"} direction={sortDir} /></th>
                   <th><SortableHeader label="Город" href={sortHref("city")} active={sortField === "city"} direction={sortDir} /></th>
                   <th><SortableHeader label="Получателей" href={sortHref("recipientsCount")} active={sortField === "recipientsCount"} direction={sortDir} /></th>
                   <th><SortableHeader label="Заказов" href={sortHref("ordersCount")} active={sortField === "ordersCount"} direction={sortDir} /></th>
@@ -127,6 +138,7 @@ export default async function ClientsPage({
                     <td className="strong">{c.name}</td>
                     <td className="mono text-muted">{dash(c.phone)}</td>
                     <td className="text-muted">{dash(c.email)}</td>
+                    <td className="text-muted">{dash(c.country)}</td>
                     <td className="text-muted">{dash(c.city)}</td>
                     <td className="tabular">{c._count.recipients}</td>
                     <td className="tabular">{c._count.orders}</td>
@@ -135,7 +147,7 @@ export default async function ClientsPage({
                   </ClickableRow>
                 ))}
                 {clients.length === 0 && (
-                  <tr><td colSpan={9} className="table-empty">Клиентов пока нет</td></tr>
+                  <tr><td colSpan={10} className="table-empty">Клиентов пока нет</td></tr>
                 )}
               </tbody>
             </table>

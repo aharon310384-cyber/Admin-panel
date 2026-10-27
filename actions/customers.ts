@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
+import { hasCyrillic, matchCountry } from "@/lib/geo-names";
 
 const customerSchema = z.object({
   name: z.string().min(2, "Имя должно быть не короче 2 символов"),
@@ -395,6 +396,17 @@ export async function createClient(formData: FormData) {
     city,
   } = parsed.data;
 
+  // Страна — только из справочника, по-английски; город — латиницей (решение владельца 2026-10-27)
+  let countryEn: string | null = null;
+  if (country?.trim()) {
+    const countries = await prisma.country.findMany({ select: { code: true, nameRu: true, nameEn: true, aliases: true } });
+    countryEn = matchCountry(country, countries)?.nameEn ?? null;
+    if (!countryEn) return { error: { country: ["Выберите страну из списка — из справочника стран"] } };
+  }
+  if (hasCyrillic(city)) {
+    return { error: { city: ["Город — по-английски, латиницей (например Guangzhou)"] } };
+  }
+
   // Код уникален (без учёта регистра) — проверяем среди активных клиентов заранее,
   // чтобы вернуть понятную ошибку до попадания на unique-constraint БД.
   const codeVariants = Array.from(new Set([code, code.toUpperCase(), code.toLowerCase()]));
@@ -427,7 +439,7 @@ export async function createClient(formData: FormData) {
         email: email || null,
         telegramUsername: telegram,
         phone: phone?.trim() || null,
-        country: country?.trim() || null,
+        country: countryEn,
         city: city?.trim() || null,
       },
     });
