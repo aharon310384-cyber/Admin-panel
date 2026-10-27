@@ -349,6 +349,7 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
                 {saved.created ? "Сохранено" : "Обновлено"}: задача {saved.taskNumber}, посылка{" "}
                 <Link href={`/parcels/${saved.parcelId}`}>{saved.parcelNumber}</Link>
                 {saved.recipientCreated ? `, создан получатель ${saved.recipientCreated}` : ""}
+                {saved.tracking ? ", ставится на слежение" : ""}
               </span>
             )}
           </div>

@@ -13,6 +13,7 @@ import { splitLegacyTaskNumber } from "@/lib/parcel-number";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { EU_DUTY_PER_ITEM_EUR } from "@/lib/eu-customs";
 import { ensureBaselines, recordVersions } from "@/lib/versions";
+import { getTrackingKey, shippedRecently, trackAfterResponse } from "@/lib/tracking";
 
 // Загрузка из Excel, шаг 2 (docs/product/задание-excel.md): строка листа целиком → заказы → задача → посылка.
 // ИИ находит в большой ячейке только входящие треки и какой товар к какому треку; всё остальное — из колонок строки.
@@ -67,7 +68,15 @@ export type ExcelRowPreview = {
 
 export type ExcelRowPreviewResult = { ok: true; preview: ExcelRowPreview } | { ok: false; error: string; detail?: string };
 export type ExcelRowSaveResult =
-  | { ok: true; created: boolean; taskNumber: string; parcelId: string; parcelNumber: string; recipientCreated: string | null }
+  | {
+      ok: true;
+      created: boolean;
+      taskNumber: string;
+      parcelId: string;
+      parcelNumber: string;
+      recipientCreated: string | null;
+      tracking: boolean; // посылка ставится на слежение (17TRACK) сразу после сохранения
+    }
   | { ok: false; error: string };
 export type ExcelColumnsResult = { ok: boolean; message: string };
 
@@ -546,8 +555,13 @@ async function saveRow(
 
     await recordVersions("order", orderIds, { authorId: author.id, comment: created ? comment : "Обновлено из Excel" }, tx);
     await recordVersions("parcel", [parcel.id], { authorId: author.id, comment: created ? comment : "Обновлено из Excel" }, tx);
-    return { created, parcel };
+    return { created, parcel, status };
   });
+
+  // Отправленная посылка с трек-номером встаёт на слежение сразу, не дожидаясь проверки по расписанию (раз в 2 часа).
+  // Отправленные больше 60 дней назад — как и по расписанию, только кнопкой в карточке: история не тратит квоту 17TRACK.
+  const tracking = result.status === "SHIPPED" && Boolean(p.parcelTrack) && shippedRecently(T) && Boolean(await getTrackingKey());
+  if (tracking) trackAfterResponse([result.parcel.id]);
 
   revalidatePath("/parcels");
   revalidatePath("/orders");
@@ -558,5 +572,6 @@ async function saveRow(
     parcelId: result.parcel.id,
     parcelNumber: result.parcel.number,
     recipientCreated: p.recipientMatch ? null : p.recipient.name,
+    tracking,
   };
 }

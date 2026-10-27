@@ -134,7 +134,10 @@ export default function ExcelFile({ columns }: { columns: ExcelColumns }) {
         try {
           const r = await importExcelRow(row.text, { createRecipient: createRecipients });
           result = r.ok
-            ? { ok: true, text: `${r.created ? "загружена" : "обновлена"} · ${r.parcelNumber}${r.recipientCreated ? ` · новый получатель ${r.recipientCreated}` : ""}` }
+            ? {
+                ok: true,
+                text: `${r.created ? "загружена" : "обновлена"} · ${r.parcelNumber}${r.recipientCreated ? ` · новый получатель ${r.recipientCreated}` : ""}${r.tracking ? " · на слежение" : ""}`,
+              }
             : { ok: false, text: r.error };
         } catch {
           result = { ok: false, text: "не получилось — попробуйте ещё раз" };
