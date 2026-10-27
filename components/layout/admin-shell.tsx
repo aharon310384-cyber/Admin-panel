@@ -1,7 +1,7 @@
 "use client";
 
 // Каркас админки: верхнее меню, панели по настройке сотрудника («Настройка панелей», как в 1С) и рабочая область.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import TopNav from "@/components/layout/topnav";
 import { cn } from "@/lib/utils";
@@ -87,6 +87,25 @@ export default function AdminShell({
   const [tabs, setTabs] = useState<PageRef[]>([]);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const lastRecorded = useRef<string | null>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const hasBottom = panels.bottom.length > 0;
+
+  // Подвал окна и боковые панели стоят вплотную к нижней панели, как в 1С: высота панели зависит от числа строк,
+  // шрифта и масштаба браузера, поэтому её меряем, а не берём заранее (иначе между подвалом и панелью щель).
+  useLayoutEffect(() => {
+    const layout = layoutRef.current;
+    const zone = bottomRef.current;
+    if (!layout || !zone) return;
+    const measure = () => layout.style.setProperty("--shell-bottom", `${zone.getBoundingClientRect().height}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(zone);
+    return () => {
+      observer.disconnect();
+      layout.style.removeProperty("--shell-bottom");
+    };
+  }, [hasBottom]);
 
   useEffect(() => setFavorites(savedFavorites), [savedFavorites]);
   useEffect(() => setHistory(savedHistory), [savedHistory]);
@@ -249,7 +268,7 @@ export default function AdminShell({
     <FormsContext.Provider
       value={{ forms, saveForm, closeCurrent: pathname === HOME_PATH ? null : () => closeTab(pathname) }}
     >
-    <div className={cn("admin-layout", panels.bottom.length > 0 && "admin-layout--bottom")}>
+    <div ref={layoutRef} className={cn("admin-layout", hasBottom && "admin-layout--bottom")}>
       <TopNav userName={userName} userRole={userRole} favorites={favorites} onPinFavorite={changePin} onRemoveFavorite={changeFavorite} />
 
       {panels.top.length > 0 && <div className="shell-zone shell-zone--top">{rows("top")}</div>}
@@ -262,13 +281,21 @@ export default function AdminShell({
         {panels.right.length > 0 && columns("right")}
       </div>
 
-      {panels.bottom.length > 0 && <div className="shell-zone shell-zone--bottom">{rows("bottom")}</div>}
+      {hasBottom && (
+        <div ref={bottomRef} className="shell-zone shell-zone--bottom">
+          {rows("bottom")}
+        </div>
+      )}
 
       <style>{`
         .admin-layout { --topnav-h: 42px; display: flex; flex-direction: column; min-height: 100dvh; }
         .shell-body { flex: 1; display: flex; min-width: 0; }
         .admin-main { flex: 1; min-width: 0; overflow-x: clip; }
         .admin-content { padding: 12px 16px 20px; width: 100%; }
+        /* Окно с подвалом занимает всю высоту до нижней панели, подвал прижат к ней, как в 1С: без отступа и щели снизу */
+        .admin-main:has(.form-footer) { display: flex; flex-direction: column; }
+        .admin-content:has(> .form > .form-footer) { flex: 1; display: flex; flex-direction: column; padding-bottom: 0 !important; }
+        .admin-content > .form:has(> .form-footer) { flex: 1; }
 
         .shell-zone { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); }
         .shell-zone--top { border-bottom: 1px solid var(--color-border); position: relative; z-index: 25; }
