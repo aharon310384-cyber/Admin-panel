@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { formatDateTime } from "@/lib/utils";
 import OrderForm from "@/components/orders/order-form";
 import { serviceHints } from "@/lib/tariffs";
 import { catalogItemOptions } from "@/lib/products";
@@ -24,13 +25,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
 
   if (!order) notFound();
 
-  const createdAtLabel = new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(order.createdAt);
+  const createdAtLabel = formatDateTime(order.createdAt);
   const authorLabel = order.author?.name ?? "—";
 
   const [customers, recipients, productNames, deliveryMethods, hints] = await Promise.all([

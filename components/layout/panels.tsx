@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Clock, House, Pin, Star, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   SECTIONS,
   pathMatches,
@@ -235,7 +235,7 @@ function visitTime(at: string) {
   const sameDay = date.toDateString() === today.toDateString();
   return sameDay
     ? date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+    : formatDate(date);
 }
 
 // ── Панель истории
