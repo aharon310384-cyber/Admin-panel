@@ -129,7 +129,7 @@ type RowBasics = {
   tail: string | null;
   clientCode: string | null;
   client: { id: string; code: string; name: string } | null;
-  country: { code: string; nameRu: string; phoneCode: string | null } | null;
+  country: { code: string; nameEn: string; phoneCode: string | null } | null;
   countryCode: string | null;
   recipient: { name: string | null; address: string | null; phone: string | null };
 };
@@ -150,7 +150,7 @@ async function readBasics(text: string): Promise<RowBasics | { error: string }> 
     clientCode
       ? findClient(clientCode)
       : null,
-    prisma.country.findUnique({ where: { code: split.country }, select: { code: true, nameRu: true, phoneCode: true } }),
+    prisma.country.findUnique({ where: { code: split.country }, select: { code: true, nameEn: true, phoneCode: true } }),
   ]);
   return {
     cells,
@@ -335,7 +335,7 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
       client: basics.client,
       clientCode: basics.clientCode,
       countryCode: basics.countryCode,
-      countryName: basics.country?.nameRu ?? null,
+      countryName: basics.country?.nameEn ?? null,
       recipient: basics.recipient,
       recipientMatch: recipientMatch ? { id: recipientMatch.id, name: recipientMatch.name } : null,
       recipientNew,
@@ -376,11 +376,11 @@ export async function previewExcelRow(text: string): Promise<ExcelRowPreviewResu
   return buildPreview(text);
 }
 
-/** Новый получатель клиента из строки: ФИО, адрес, телефон (код страны — отдельно), страна — из конца номера строки. */
+/** Новый получатель клиента из строки: ФИО, адрес, телефон (код страны — отдельно), страна — из конца номера строки, по-английски из справочника. */
 function newRecipientData(
   customerId: string,
   r: { name: string; address: string | null; phone: string | null },
-  country: { code: string; nameRu: string; phoneCode: string | null } | null,
+  country: { code: string; nameEn: string; phoneCode: string | null } | null,
   authorId: string,
 ) {
   const phoneDigits = digits(r.phone);
@@ -394,7 +394,7 @@ function newRecipientData(
     phone: phoneDigits ? (withDial ? phoneDigits.slice(dialDigits.length) : phoneDigits) : null,
     phoneDialCode: withDial ? dial : null,
     countryCode: country?.code ?? null,
-    country: country?.nameRu ?? null,
+    country: country?.nameEn ?? null,
     authorId,
   };
 }
@@ -429,7 +429,7 @@ async function saveRow(
   }
   const country =
     !p.recipientMatch && p.countryCode
-      ? await prisma.country.findUnique({ where: { code: p.countryCode }, select: { code: true, nameRu: true, phoneCode: true } })
+      ? await prisma.country.findUnique({ where: { code: p.countryCode }, select: { code: true, nameEn: true, phoneCode: true } })
       : null;
   const author = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!author) return { ok: false, error: "Пользователь не найден — войдите заново" };

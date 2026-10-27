@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { matchCountry } from "@/lib/geo-names";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { requireAdmin } from "@/lib/server-helpers";
 import { parseOrdersFromText, type ParsedOrderDraft } from "@/lib/ai-order-parser";
@@ -164,11 +165,15 @@ export async function createRecipientQuick(
   });
   if (!customer) return { ok: false, error: "Клиент не найден" };
 
+  // Страна — только из справочника, по-английски (решение владельца 2026-10-27); не нашлась — не ставится
+  const countries = data.country ? await prisma.country.findMany({ select: { code: true, nameRu: true, nameEn: true, aliases: true } }) : [];
+  const country = matchCountry(data.country, countries);
   const recipient = await prisma.recipient.create({
     data: {
       customerId: data.customerId,
       name: data.name,
-      country: data.country || null,
+      countryCode: country?.code ?? null,
+      country: country?.nameEn ?? null,
     },
     select: { id: true, customerId: true, name: true, country: true },
   });

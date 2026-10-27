@@ -4,7 +4,8 @@ import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
-type FormState = { error?: Record<string, string[]> };
+// values — что было введено: после ошибки форма показывает те же значения, а не пустые поля
+type FormState = { error?: Record<string, string[]>; values?: Record<string, string> };
 type ActionFn = (formData: FormData) => Promise<FormState | void>;
 
 type CountryOption = {
@@ -93,10 +94,14 @@ export default function RecipientForm({
   returnTo,
 }: Props) {
   const [state, formAction, isPending] = useActionState<FormState, FormData>(
-    async (_state, formData) => (await action(formData)) ?? {},
+    async (_state, formData) => ({
+      ...((await action(formData)) ?? {}),
+      values: Object.fromEntries([...formData.entries()].map(([key, value]) => [key, String(value)])),
+    }),
     {}
   );
 
+  const value = (name: string, saved: string) => state?.values?.[name] ?? saved;
   const [country, setCountry] = useState(recipient?.country ?? "");
   const [countryCode, setCountryCode] = useState(recipient?.countryCode ?? "");
   const [phoneDialCode, setPhoneDialCode] = useState(recipient?.phoneDialCode ?? "");
@@ -138,9 +143,11 @@ export default function RecipientForm({
         <div className="field-grid">
           <div className="field field--full">
             <label className="field-label">Клиент-владелец <span className="required">*</span></label>
+            {/* key: список заново с выбранным клиентом — после ошибки форма не сбрасывает выбор */}
             <select
+              key={state?.values?.customerId ?? "saved"}
               name="customerId"
-              defaultValue={recipient?.customerId ?? ""}
+              defaultValue={value("customerId", recipient?.customerId ?? "")}
               className={`field-input ${errors?.customerId ? "field-input--error" : ""}`}
             >
               <option value="" disabled>Выберите клиента…</option>
@@ -159,7 +166,7 @@ export default function RecipientForm({
               <input
                 type="text"
                 name="lastName"
-                defaultValue={recipient?.lastName ?? ""}
+                defaultValue={value("lastName", recipient?.lastName ?? "")}
                 className={`field-input ${errors?.lastName ? "field-input--error" : ""}`}
                 placeholder="Иванов"
               />
@@ -171,7 +178,7 @@ export default function RecipientForm({
               <input
                 type="text"
                 name="firstName"
-                defaultValue={recipient?.firstName ?? ""}
+                defaultValue={value("firstName", recipient?.firstName ?? "")}
                 className={`field-input ${errors?.firstName ? "field-input--error" : ""}`}
                 placeholder="Иван"
               />
@@ -183,7 +190,7 @@ export default function RecipientForm({
               <input
                 type="text"
                 name="middleName"
-                defaultValue={recipient?.middleName ?? ""}
+                defaultValue={value("middleName", recipient?.middleName ?? "")}
                 className="field-input"
                 placeholder="Иванович"
               />
@@ -205,8 +212,8 @@ export default function RecipientForm({
               />
               <datalist id="country-options">
                 {countries.map((c) => (
-                  <option key={c.code} value={c.nameRu}>
-                    {c.code} — {c.nameEn}
+                  <option key={c.code} value={c.nameEn}>
+                    {c.code} — {c.nameRu}
                   </option>
                 ))}
               </datalist>
@@ -234,7 +241,7 @@ export default function RecipientForm({
               <input
                 type="text"
                 name="city"
-                defaultValue={recipient?.city ?? ""}
+                defaultValue={value("city", recipient?.city ?? "")}
                 className={`field-input ${errors?.city ? "field-input--error" : ""}`}
                 placeholder="Мадрид"
               />
@@ -249,7 +256,7 @@ export default function RecipientForm({
               <input
                 type="text"
                 name="postalCode"
-                defaultValue={recipient?.postalCode ?? ""}
+                defaultValue={value("postalCode", recipient?.postalCode ?? "")}
                 className={`field-input ${errors?.postalCode ? "field-input--error" : ""}`}
                 placeholder={postalExample || "100037"}
                 pattern={postalRegex ?? undefined}
@@ -262,7 +269,7 @@ export default function RecipientForm({
             <label className="field-label">Адрес <span className="required">*</span></label>
             <textarea
               name="address"
-              defaultValue={recipient?.address ?? ""}
+              defaultValue={value("address", recipient?.address ?? "")}
               className="field-input field-textarea"
               rows={3}
             />
@@ -287,7 +294,7 @@ export default function RecipientForm({
               <input
                 type="tel"
                 name="phone"
-                defaultValue={recipient?.phone ?? ""}
+                defaultValue={value("phone", recipient?.phone ?? "")}
                 className={`field-input phone-number ${errors?.phone ? "field-input--error" : ""}`}
                 placeholder="999 000-00-00"
                 inputMode="tel"
@@ -307,7 +314,7 @@ export default function RecipientForm({
             <input
               type="text"
               name="passportSeries"
-              defaultValue={recipient?.passportSeries ?? ""}
+              defaultValue={value("passportSeries", recipient?.passportSeries ?? "")}
               className="field-input"
               placeholder="AA"
             />
@@ -318,7 +325,7 @@ export default function RecipientForm({
             <input
               type="text"
               name="passportNumber"
-              defaultValue={recipient?.passportNumber ?? ""}
+              defaultValue={value("passportNumber", recipient?.passportNumber ?? "")}
               className="field-input"
               placeholder="1234567"
             />
@@ -329,7 +336,7 @@ export default function RecipientForm({
             <input
               type="date"
               name="passportIssuedAt"
-              defaultValue={toDateInput(recipient?.passportIssuedAt)}
+              defaultValue={value("passportIssuedAt", toDateInput(recipient?.passportIssuedAt))}
               className={`field-input ${errors?.passportIssuedAt ? "field-input--error" : ""}`}
             />
             {errors?.passportIssuedAt && <p className="field-error">{errors.passportIssuedAt[0]}</p>}
@@ -340,7 +347,7 @@ export default function RecipientForm({
             <input
               type="date"
               name="passportExpiry"
-              defaultValue={toDateInput(recipient?.passportExpiry)}
+              defaultValue={value("passportExpiry", toDateInput(recipient?.passportExpiry))}
               className={`field-input ${errors?.passportExpiry ? "field-input--error" : ""}`}
             />
             {errors?.passportExpiry && <p className="field-error">{errors.passportExpiry[0]}</p>}
@@ -351,7 +358,7 @@ export default function RecipientForm({
             <input
               type="text"
               name="passportIssuedBy"
-              defaultValue={recipient?.passportIssuedBy ?? ""}
+              defaultValue={value("passportIssuedBy", recipient?.passportIssuedBy ?? "")}
               className={`field-input ${errors?.passportIssuedBy ? "field-input--error" : ""}`}
               placeholder="Орган, выдавший паспорт"
             />
@@ -363,7 +370,7 @@ export default function RecipientForm({
             <input
               type="text"
               name="pinfl"
-              defaultValue={recipient?.pinfl ?? ""}
+              defaultValue={value("pinfl", recipient?.pinfl ?? "")}
               className={`field-input ${errors?.pinfl ? "field-input--error" : ""}`}
               placeholder="12345678901234"
               inputMode="numeric"
