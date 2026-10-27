@@ -455,9 +455,9 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
 
         .form-header { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
         .form-pages { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-        /* Подвал всегда на виду: на длинном списке прилипает к низу экрана, над нижней панелью */
+        /* Подвал всегда внизу окна, вплотную к нижней панели: на длинном списке прилипает к ней, на коротком стоит внизу */
         .form-footer {
-          position: sticky; bottom: var(--shell-bottom, 0px); z-index: 4; margin: 0 -4px; padding: 5px 4px;
+          position: sticky; bottom: var(--shell-bottom, 0px); z-index: 4; margin: auto -4px 0; padding: 5px 4px;
           font-size: 12px; color: var(--color-muted); background: var(--color-bg); border-top: 1px solid var(--color-border);
         }
 
