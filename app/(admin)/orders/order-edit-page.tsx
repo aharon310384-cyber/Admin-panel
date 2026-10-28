@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import OrderForm from "@/components/orders/order-form";
 import { serviceHints } from "@/lib/tariffs";
+import { catalogItemOptions } from "@/lib/products";
 import { updateOrder, deleteOrder } from "@/actions/orders";
 import DeleteOrderButton from "./[id]/edit/delete-order-button";
 import Form from "@/components/form/form";
@@ -38,11 +39,7 @@ export async function OrderEditPage({ params }: OrderEditPageProps) {
       select: { id: true, customerId: true, name: true },
       orderBy: { name: "asc" },
     }),
-    prisma.productName.findMany({
-      where: { deletedAt: null },
-      select: { id: true, code: true, nameRu: true, category: true, hsCode: true },
-      orderBy: { nameRu: "asc" },
-    }),
+    catalogItemOptions(),
     prisma.deliveryMethod.findMany({
       where: { active: true },
       select: { code: true, nameRu: true },

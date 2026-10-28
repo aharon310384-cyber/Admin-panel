@@ -3,40 +3,42 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { deleteProductName, updateProductName } from "@/actions/product-names";
+import { productGroupOptions } from "@/lib/products";
 import ProductNameForm from "../../product-name-form";
 import DeleteProductNameButton from "./delete-product-name-button";
 import Form from "@/components/form/form";
 
-export const metadata: Metadata = { title: "Редактирование наименования товара" };
+type Props = { params: Promise<{ id: string }> };
 
-export default async function EditProductNamePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const record = await prisma.productName.findFirst({ where: { id, deletedAt: null }, select: { isGroup: true } });
+  return { title: record?.isGroup ? "Редактирование группы наименований" : "Редактирование наименования товара" };
+}
+
+export default async function EditProductNamePage({ params }: Props) {
   const { id } = await params;
   const session = await auth();
   if (session?.user.role !== "ADMIN") redirect("/product-names");
 
-  const [productName, sections] = await Promise.all([
-    prisma.productName.findFirst({
-      where: { id, deletedAt: null },
-    }),
-    prisma.productName.findMany({
-      where: { deletedAt: null, parentId: null },
-      select: { id: true, code: true, nameRu: true },
-      orderBy: { code: "asc" },
-    }),
-  ]);
+  const productName = await prisma.productName.findFirst({
+    where: { id, deletedAt: null },
+  });
 
   if (!productName) notFound();
 
+  // группу нельзя положить в саму себя и в свои подгруппы
+  const groups = await productGroupOptions(productName.isGroup ? id : undefined);
   const action = updateProductName.bind(null, id);
 
   return (
     <Form
       formKey="product-name-edit"
-      title={`Редактирование наименования товара: ${productName.code}`}
+      title={
+        productName.isGroup
+          ? `Редактирование группы: ${productName.nameRu}`
+          : `Редактирование наименования товара: ${productName.code}`
+      }
       guid={productName.id}
       commands={
         <span data-command="remove" data-label="Удалить">
@@ -44,7 +46,7 @@ export default async function EditProductNamePage({
         </span>
       }
     >
-      <ProductNameForm action={action} productName={productName} sections={sections} />
+      <ProductNameForm action={action} productName={productName} groups={groups} />
     </Form>
   );
 }

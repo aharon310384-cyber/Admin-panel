@@ -402,7 +402,7 @@ export default function OrderBulkImport({
                       autoComplete="off"
                     />
                     {matched ? (
-                      <span className="bi-hint bi-hint--ok">Из справочника · {matched.category ?? "без секции"}{matched.hsCode ? ` · HS ${matched.hsCode}` : ""}</span>
+                      <span className="bi-hint bi-hint--ok">Из справочника · {matched.category ?? "без группы"}{matched.hsCode ? ` · HS ${matched.hsCode}` : ""}</span>
                     ) : r.productNameText.trim() ? (
                       <span className="bi-hint bi-hint--muted">Свободный ввод (нет в справочнике)</span>
                     ) : null}

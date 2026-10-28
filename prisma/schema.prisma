@@ -235,16 +235,20 @@ model Country {
   @@index([nameRu])
 }
 
+/// Справочник наименований — как «Номенклатура» в 1С: группы (папки) и товары внутри них.
+/// Группа — только для порядка в справочнике: в заказ не выбирается, ИИ её не видит, HS-кода у неё нет.
+/// Инструкция — docs/product/инструкция-наименования.md.
 model ProductName {
   id        String    @id @default(cuid())
   code      String    @unique
   nameRu    String
   nameEn    String?
   nameCn    String?
-  category  String?   // секция (текст) — дублирует parent.nameRu для быстрого поиска/показа
-  hsCode        String?   // ТН ВЭД / HS6 — Фаза 2 (таможня ЕС €3/позиция)
+  isGroup   Boolean   @default(false) // группа (папка); задаётся при создании и не меняется
+  category  String?   // не используется: группа товара — по parentId (оставлена, чтобы db push не удалял данные)
+  hsCode        String?   // ТН ВЭД / HS6 — Фаза 2 (таможня ЕС €3/позиция); только у товаров
   hsDescription String?   // официальное описание EU CN 2026 для hsCode (сверка с базой ЕС)
-  parentId      String?   // ссылка на секцию (у секций null, у позиций — id секции)
+  parentId      String?   // группа, в которой лежит запись (пусто — верхний уровень)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -438,7 +442,7 @@ model Order {
   // товар
   productNameId          String?
   productNameText        String?  // снимок/свободный ввод
-  category               String?
+  category               String?  // группа товара из справочника — снимок при сохранении
   hsCode                 String?  // Фаза 2
   declaredValueUsd       Decimal? // объявленная стоимость = unitPrice × quantity
   trackNumber            String?  // входящий трек-номер (китайская служба), НЕ уникален

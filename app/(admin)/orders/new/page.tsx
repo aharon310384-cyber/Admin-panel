@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { deliveryTypesByCountry, serviceHints } from "@/lib/tariffs";
+import { catalogItemOptions } from "@/lib/products";
 import OrderBulkImport from "@/components/orders/order-bulk-import";
 import Form from "@/components/form/form";
 
@@ -18,11 +19,7 @@ export default async function NewOrderPage() {
       select: { id: true, customerId: true, name: true, country: true, countryCode: true },
       orderBy: { name: "asc" },
     }),
-    prisma.productName.findMany({
-      where: { deletedAt: null },
-      select: { id: true, code: true, nameRu: true, category: true, hsCode: true },
-      orderBy: { nameRu: "asc" },
-    }),
+    catalogItemOptions(),
     prisma.country.findMany({
       select: { code: true, nameRu: true },
       orderBy: { nameRu: "asc" },
