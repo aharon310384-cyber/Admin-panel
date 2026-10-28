@@ -1,26 +1,39 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
 import { createProductName } from "@/actions/product-names";
+import { productGroupOptions } from "@/lib/products";
 import ProductNameForm from "../product-name-form";
 import Form from "@/components/form/form";
 
-export const metadata: Metadata = { title: "Новое наименование товара" };
+type Props = { searchParams: Promise<{ type?: string; parent?: string }> };
 
-export default async function NewProductNamePage() {
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const { type } = await searchParams;
+  return { title: type === "group" ? "Новая группа наименований" : "Новое наименование товара" };
+}
+
+export default async function NewProductNamePage({ searchParams }: Props) {
   const session = await auth();
   if (session?.user.role !== "ADMIN") redirect("/product-names");
 
-  const sections = await prisma.productName.findMany({
-    where: { deletedAt: null, parentId: null },
-    select: { id: true, code: true, nameRu: true },
-    orderBy: { code: "asc" },
-  });
+  const { type, parent } = await searchParams;
+  const isGroup = type === "group";
+  const groups = await productGroupOptions();
+  // новая запись — в группе, которая открыта в списке
+  const defaultParentId = groups.some((group) => group.id === parent) ? parent : undefined;
 
   return (
-    <Form formKey="product-name-new" title="Новое наименование товара">
-      <ProductNameForm action={createProductName} sections={sections} />
+    <Form
+      formKey={isGroup ? "product-group-new" : "product-name-new"}
+      title={isGroup ? "Новая группа наименований" : "Новое наименование товара"}
+    >
+      <ProductNameForm
+        action={createProductName}
+        isGroup={isGroup}
+        groups={groups}
+        defaultParentId={defaultParentId}
+      />
     </Form>
   );
 }

@@ -8,6 +8,7 @@ import { nextDocumentNumber } from "@/lib/document-numbers";
 import { requireAdmin } from "@/lib/server-helpers";
 import { parseOrdersFromText, type ParsedOrderDraft } from "@/lib/ai-order-parser";
 import { getFinanceSettings, RATE_USD_MISSING } from "@/lib/finance";
+import { CATALOG_ITEMS, findCatalogItemByName } from "@/lib/products";
 import { recordVersion } from "@/lib/versions";
 
 export type ParseOrdersResponse =
@@ -18,9 +19,9 @@ export type ParseOrdersResponse =
 export async function parseOrderText(text: string): Promise<ParseOrdersResponse> {
   await requireAdmin();
 
-  // Справочник наименований — модель нормализует товары к каноничным названиям.
+  // Справочник наименований — модель нормализует товары к каноничным названиям (только товары, без групп).
   const catalog = await prisma.productName.findMany({
-    where: { deletedAt: null },
+    where: CATALOG_ITEMS,
     select: { nameRu: true },
     orderBy: { nameRu: "asc" },
     take: 400,
@@ -99,10 +100,7 @@ export async function createOrdersBulk(
     const declaredValueUsd = unit * draft.quantity;
 
     // Связка со справочником по точному совпадению наименования (RU)
-    const match = await prisma.productName.findFirst({
-      where: { deletedAt: null, nameRu: draft.productNameText },
-      select: { id: true, nameRu: true, category: true, hsCode: true },
-    });
+    const match = await findCatalogItemByName(draft.productNameText);
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.create({

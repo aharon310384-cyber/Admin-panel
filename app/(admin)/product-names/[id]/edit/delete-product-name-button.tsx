@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Loader2, Trash2 } from "lucide-react";
 
 type Props = {
   productNameId: string;
-  deleteAction: (id: string) => Promise<void>;
+  deleteAction: (id: string) => Promise<{ error?: string } | void>;
 };
 
 export default function DeleteProductNameButton({ productNameId, deleteAction }: Props) {
@@ -14,7 +15,12 @@ export default function DeleteProductNameButton({ productNameId, deleteAction }:
 
   const handleDelete = async () => {
     setLoading(true);
-    await deleteAction(productNameId);
+    const result = await deleteAction(productNameId);
+    if (result?.error) {
+      toast.error(result.error);
+      setConfirm(false);
+      setLoading(false);
+    }
   };
 
   if (confirm) {
