@@ -7,6 +7,7 @@ import {
   CircleDollarSign,
   Globe,
   IdCard,
+  ListChecks,
   Package,
   PackageCheck,
   Receipt,
@@ -105,6 +106,7 @@ export const SECTIONS: Section[] = [
     items: [
       { href: "/orders", label: "Заказы", icon: ClipboardList },
       { href: "/receiving", label: "АРМ приём заказа", icon: PackageCheck },
+      { href: "/tasks", label: "Задачи", icon: ListChecks },
       { href: "/parcels", label: "Посылки", icon: Package },
       { href: "/product-names", label: "Наименования товаров", icon: Tags },
       { href: "/import/excel", label: "Загрузка из Excel", icon: FileSpreadsheet },

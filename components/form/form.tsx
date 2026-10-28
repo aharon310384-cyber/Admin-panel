@@ -83,7 +83,7 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
   const card = cardTarget(formKey, guid);
   const target = card ?? current;
   const related = target ? DOC_LINKS[target.entity].related(target.id) : null;
-  const history = target ? DOC_LINKS[target.entity].history(target.id) : null;
+  const history = target ? DOC_LINKS[target.entity].history?.(target.id) ?? null : null;
   const openCurrent = !card && current ? DOC_LINKS[current.entity].open(current.id) : null;
   const parts: FormPart[] = ["commands", ...(header ? (["header"] as const) : []), "pages", ...(footer ? (["footer"] as const) : [])];
   const shown = (part: FormPart) => !hidden.includes(part);

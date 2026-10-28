@@ -6,7 +6,7 @@ import { relatedTree, type RelatedDoc } from "@/lib/related-documents";
 
 export const metadata: Metadata = { title: "Связанные документы" };
 
-const DOCS: RelatedDoc[] = ["order", "parcel"];
+const DOCS: RelatedDoc[] = ["order", "parcel", "task"];
 
 export default async function RelatedDocumentsPage({ params }: { params: Promise<{ doc: string; id: string }> }) {
   const { doc, id } = await params;
