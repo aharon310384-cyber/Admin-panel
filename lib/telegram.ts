@@ -11,6 +11,8 @@ import crypto from "node:crypto";
  */
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+// Адрес Bot API; TELEGRAM_API_URL — только для проверки с заглушкой
+const API = process.env.TELEGRAM_API_URL || "https://api.telegram.org";
 
 export function isTelegramConfigured(): boolean {
   return Boolean(BOT_TOKEN);
@@ -136,7 +138,7 @@ export async function sendTelegramMessage(
 
   try {
     const res = await fetch(
-      `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+      `${API}/bot${BOT_TOKEN}/sendMessage`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,6 +160,21 @@ export async function sendTelegramMessage(
     console.error("[telegram] sendMessage error:", err);
     return false;
   }
+}
+
+let botName: string | null = process.env.NEXT_PUBLIC_TELEGRAM_BOT_NAME?.replace(/^@/, "") || null;
+
+/** Имя бота (@username без @) — для ссылок t.me: из настроек сервера, а нет — спросить у Telegram (getMe). */
+export async function getTelegramBotName(): Promise<string | null> {
+  if (botName || !BOT_TOKEN) return botName;
+  try {
+    const res = await fetch(`${API}/bot${BOT_TOKEN}/getMe`, { signal: AbortSignal.timeout(5000) });
+    const data = (await res.json()) as { ok?: boolean; result?: { username?: string } };
+    botName = data.ok ? data.result?.username ?? null : null;
+  } catch (err) {
+    console.error("[telegram] getMe error:", err);
+  }
+  return botName;
 }
 
 const CABINET_URL = process.env.NEXT_PUBLIC_APP_URL;
