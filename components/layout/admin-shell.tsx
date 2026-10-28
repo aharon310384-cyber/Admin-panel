@@ -87,6 +87,8 @@ export default function AdminShell({
   const [tabs, setTabs] = useState<PageRef[]>([]);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const lastRecorded = useRef<string | null>(null);
+  // Окно, которое только что закрыли (× или Esc): пока идёт переход, оно не должно снова попасть во вкладки.
+  const closedRef = useRef<string | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const hasBottom = panels.bottom.length > 0;
@@ -126,9 +128,10 @@ export default function AdminShell({
   useEffect(() => {
     const href = search ? `${pathname}?${search}` : pathname;
     let cancelled = false;
+    if (closedRef.current !== pathname) closedRef.current = null;
     const capture = (): PageRef => {
       const page = { path: pathname, href, title: pageTitle(pathname) };
-      if (pathname !== HOME_PATH) updateTabs((prev) => {
+      if (pathname !== HOME_PATH && closedRef.current !== pathname) updateTabs((prev) => {
         const index = prev.findIndex((tab) => tab.path === pathname);
         if (index >= 0) return prev.map((tab, i) => (i === index ? page : tab));
         let next = [...prev, page];
@@ -164,6 +167,7 @@ export default function AdminShell({
   const closeTab = (path: string) => {
     const index = tabs.findIndex((tab) => tab.path === path);
     const next = tabs.filter((tab) => tab.path !== path);
+    if (path === pathname) closedRef.current = path;
     updateTabs(() => next);
     if (path === pathname) router.push((index >= 0 ? next[Math.max(0, index - 1)] : next[next.length - 1])?.href ?? HOME_PATH);
   };

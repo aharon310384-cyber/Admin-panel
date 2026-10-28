@@ -66,7 +66,11 @@ export function SectionsPanel({
       const target = e.target as Node;
       if (!ref.current?.contains(target) && !popupRef.current?.contains(target)) close();
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault(); // Esc закрыл меню — окно не закрывать
+      close();
+    };
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
     window.addEventListener("resize", close);
