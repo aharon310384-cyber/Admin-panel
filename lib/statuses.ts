@@ -1,4 +1,4 @@
-import type { OrderStatus, ParcelStatus } from "@prisma/client";
+import type { OrderStatus, ParcelStatus, ParcelTaskStatus } from "@prisma/client";
 
 /** RU-названия статусов Заказа. */
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -21,6 +21,17 @@ export const PARCEL_STATUS_LABELS: Record<ParcelStatus, string> = {
   DELIVERED: "Доставлена",
   RETURNED: "Возвращён",
   UTILIZED: "Утилизировано",
+};
+
+/** RU-названия статусов Задачи на формирование посылки. */
+export const TASK_STATUS_LABELS: Record<ParcelTaskStatus, string> = {
+  NEW: "Создана",
+  IN_PROGRESS: "В работе",
+  ASSEMBLED: "Собрана",
+  PACKED: "Упакована",
+  WEIGHED: "Взвешена",
+  COMPLETED: "Посылка сформирована",
+  CANCELED: "Отменена",
 };
 
 /**
@@ -63,11 +74,25 @@ export const PARCEL_STATUS_COLOR: Record<ParcelStatus, string> = {
   UTILIZED: "utilized", // Утилизировано — серый
 };
 
+/** Цвет статуса Задачи (для бейджей admin): те же ключи, что у посылки. */
+export const TASK_STATUS_COLOR: Record<ParcelTaskStatus, string> = {
+  NEW: "new",
+  IN_PROGRESS: "processing",
+  ASSEMBLED: "assembled",
+  PACKED: "processing",
+  WEIGHED: "ready",
+  COMPLETED: "completed",
+  CANCELED: "canceled",
+};
+
 export function orderStatusLabel(s: OrderStatus): string {
   return ORDER_STATUS_LABELS[s] ?? s;
 }
 export function parcelStatusLabel(s: ParcelStatus): string {
   return PARCEL_STATUS_LABELS[s] ?? s;
+}
+export function taskStatusLabel(s: ParcelTaskStatus): string {
+  return TASK_STATUS_LABELS[s] ?? s;
 }
 export function deliveryTypeLabel(d: string | null | undefined): string {
   return d ? DELIVERY_TYPE_LABELS[d] ?? d : "—";

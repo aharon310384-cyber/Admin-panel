@@ -1,11 +1,10 @@
 // «Связанные документы» — как в 1С: дерево документов вокруг заказа или посылки.
 // Цепочка — docs/product/документооборот.md, раздел 1. Ветки без документов не показываются.
-import type { ParcelTaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatNumber } from "@/lib/utils";
-import { orderStatusLabel, parcelStatusLabel } from "@/lib/statuses";
+import { orderStatusLabel, parcelStatusLabel, taskStatusLabel } from "@/lib/statuses";
 
-export type RelatedDoc = "order" | "parcel";
+export type RelatedDoc = "order" | "parcel" | "task";
 
 export type RelatedNode = {
   key: string;
@@ -20,16 +19,6 @@ export type RelatedNode = {
 };
 
 export type RelatedTree = { title: string; roots: RelatedNode[] };
-
-const TASK_STATUS_LABELS: Record<ParcelTaskStatus, string> = {
-  NEW: "Создана",
-  IN_PROGRESS: "В работе",
-  ASSEMBLED: "Собрана",
-  PACKED: "Упакована",
-  WEIGHED: "Взвешена",
-  COMPLETED: "Посылка сформирована",
-  CANCELED: "Отменена",
-};
 
 type Base = { id: string; number: string | null; createdAt: Date; deletedAt?: Date | null };
 
@@ -91,7 +80,12 @@ async function taskBranch(taskId: string, current: string | null): Promise<Relat
     const parcel = await parcelBranch(task.parcel.id, current);
     if (parcel) children.push(parcel);
   }
-  return node("Задача на формирование посылки", task, { note: TASK_STATUS_LABELS[task.status] }, children);
+  return node(
+    "Задача на формирование посылки",
+    task,
+    { note: taskStatusLabel(task.status), href: `/tasks/${task.id}`, current: current === `Задача:${task.id}` },
+    children
+  );
 }
 
 // Посылка: изменения статуса, короб → реестр → AWB → счета агентов → выплаты, оплаты клиента, долг.
@@ -158,8 +152,22 @@ async function parcelBranch(parcelId: string, current: string | null): Promise<R
 }
 
 // Дерево для окна «Связанные документы». Из заказа — заказ и всё, что из него выросло.
-// Из посылки — заказы задачи (основания) и задача с посылкой.
+// Из посылки и из задачи — заказы задачи (основания) и задача с посылкой.
 export async function relatedTree(doc: RelatedDoc, id: string): Promise<RelatedTree | null> {
+  if (doc === "task") {
+    const task = await prisma.parcelTask.findUnique({
+      where: { id },
+      select: { number: true, orders: { select: { id: true }, orderBy: { createdAt: "asc" } } },
+    });
+    if (!task) return null;
+    const current = `Задача:${id}`;
+    const orders = (await Promise.all(task.orders.map((order) => orderBranch(order.id, current, false)))).filter(
+      (branch): branch is RelatedNode => branch !== null
+    );
+    const tail = await taskBranch(id, current);
+    return { title: `Задача ${task.number}`, roots: tail ? [...orders, tail] : orders };
+  }
+
   if (doc === "order") {
     const order = await prisma.order.findUnique({ where: { id }, select: { number: true, trackNumber: true } });
     const root = order && (await orderBranch(id, `Заказ:${id}`, true));

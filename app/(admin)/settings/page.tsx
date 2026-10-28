@@ -6,6 +6,8 @@ import { getUserInterface } from "@/lib/interface-settings";
 import ChangePasswordForm from "./change-password-form";
 import Form from "@/components/form/form";
 import TrackingSettings from "@/components/settings/tracking-settings";
+import OwnerNotifications from "@/components/settings/owner-notifications";
+import { isTelegramConfigured } from "@/lib/telegram";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 
@@ -18,10 +20,11 @@ export default async function SettingsPage() {
   const { USER_ROLE_LABELS } = await import("@/types");
 
   const shipped = { parcel: { status: "SHIPPED" as const, deletedAt: null } };
-  const [tracking, tracked, problems] = await Promise.all([
+  const [tracking, tracked, problems, owner] = await Promise.all([
     prisma.trackingSettings.findFirst(),
     prisma.parcelTracking.count({ where: { ...shipped, registeredAt: { not: null } } }),
     prisma.parcelTracking.count({ where: { ...shipped, problem: true } }),
+    prisma.ownerNotificationSettings.findFirst(),
   ]);
 
   return (
@@ -97,6 +100,26 @@ export default async function SettingsPage() {
                 lastSync={tracking?.lastSync ?? null}
                 tracked={tracked}
                 problems={problems}
+              />
+            </div>
+
+            <div className="card">
+              <h2 className="card-title">Оповещения владельцу</h2>
+              <OwnerNotifications
+                isAdmin={session?.user.role === "ADMIN"}
+                view={{
+                  telegramEnabled: owner?.telegramEnabled ?? false,
+                  wecomEnabled: owner?.wecomEnabled ?? false,
+                  // ссылка WeCom — секрет: в браузер только последние 4 знака
+                  wecomTail: owner?.wecomWebhook ? owner.wecomWebhook.slice(-4) : null,
+                  ownerName: owner?.ownerChatName ?? null,
+                  ownerLinked: Boolean(owner?.ownerChatId),
+                  ownerLinkedAt: owner?.ownerLinkedAt ? formatDateTime(owner.ownerLinkedAt) : null,
+                  ownerLinkedAtIso: owner?.ownerLinkedAt?.toISOString() ?? null,
+                  botConfigured: isTelegramConfigured(),
+                  lastSentAt: owner?.lastSentAt ? formatDateTime(owner.lastSentAt) : null,
+                  lastError: owner?.lastError ?? null,
+                }}
               />
             </div>
           </div>

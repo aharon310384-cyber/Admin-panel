@@ -154,6 +154,7 @@ model Company {
   shippingTariffs ShippingTariff[]
   serviceTariffs  ServiceTariff[]
   rateChanges     ExchangeRateChange[]
+  ownerNotices    OwnerNotificationSettings[]
 }
 
 // ─────────────────────────── СОТРУДНИКИ ───────────────────────────
@@ -1144,6 +1145,28 @@ model ExcelImportSettings {
   columns   Json     @default("{}")
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+// Служебные оповещения владельцу (не клиентам) — Telegram и WeCom (docs/product/задание-оповещения.md).
+// Ссылка бота WeCom и чат владельца — секреты: в браузер не отдаются (видно последние 4 знака и имя чата).
+model OwnerNotificationSettings {
+  id              String    @id @default(cuid())
+  companyId       String?   // чья настройка: компания склада (её бренд — в админке); пусто — до выбора компании
+  company         Company?  @relation(fields: [companyId], references: [id])
+  telegramEnabled Boolean   @default(false)
+  wecomEnabled    Boolean   @default(false)
+  wecomWebhook    String?   // https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…
+  ownerChatId     String?   // чат владельца в Telegram — привязан кнопкой «Привязать мой Telegram»
+  ownerChatName   String?   // @имя или имя в Telegram — показать, кто привязан
+  ownerLinkedAt   DateTime?
+  linkCodeHash    String?   // одноразовый код привязки (sha256): живёт 10 минут, срабатывает один раз
+  linkCodeExpires DateTime?
+  lastSentAt      DateTime? // последнее оповещение
+  lastError       String?   // ошибка канала при последнем оповещении
+  updatedAt       DateTime  @updatedAt
+  updatedBy       String?
+
+  @@index([companyId])
 }
 
 model TrackingSettings {

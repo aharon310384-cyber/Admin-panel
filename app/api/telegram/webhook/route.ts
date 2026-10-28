@@ -6,9 +6,11 @@ import {
 } from "@/lib/telegram";
 import { linkCustomerByPhone } from "@/lib/client-link";
 import { getTelegramTexts } from "@/lib/company";
+import { bindOwnerChat, OWNER_START } from "@/lib/owner-notify";
 
 /**
  * Webhook Telegram-бота.
+ * - /start owner-<код> → привязать этот чат для служебных оповещений владельцу (код из настроек админки)
  * - /start → просим поделиться номером (request_contact)
  * - контакт → привязываем клиента по телефону и даём кнопку входа в кабинет
  *
@@ -16,7 +18,7 @@ import { getTelegramTexts } from "@/lib/company";
  * X-Telegram-Bot-Api-Secret-Token (устанавливается при setWebhook).
  */
 
-type TgUser = { id: number; username?: string };
+type TgUser = { id: number; username?: string; first_name?: string; last_name?: string };
 type TgContact = { phone_number: string; user_id?: number };
 type TgMessage = {
   text?: string;
@@ -68,6 +70,21 @@ export async function POST(req: Request) {
     } else {
       await sendTelegramMessage(chatId, MANAGER_HINT);
     }
+    return NextResponse.json({ ok: true });
+  }
+
+  // Привязка чата владельца: ссылка из «Настройки» → «Оповещения владельцу». Чужой без верного кода — ничего не получает.
+  const ownerCode = msg.text?.match(new RegExp(`^/start\\s+${OWNER_START}(\\S+)`))?.[1];
+  if (ownerCode) {
+    const from = msg.from;
+    const name = from?.username ? `@${from.username}` : [from?.first_name, from?.last_name].filter(Boolean).join(" ") || null;
+    const bound = await bindOwnerChat(ownerCode, { id: String(chatId), name });
+    await sendTelegramMessage(
+      chatId,
+      bound
+        ? "✅ Этот чат привязан: сюда будут приходить служебные оповещения из админки."
+        : "Ссылка устарела или уже использована. Нажмите «Привязать мой Telegram» в настройках админки ещё раз."
+    );
     return NextResponse.json({ ok: true });
   }
 

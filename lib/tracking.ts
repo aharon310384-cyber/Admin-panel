@@ -5,6 +5,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ensureBaseline, recordVersion } from "@/lib/versions";
 import { notifyParcelStatusChange } from "@/lib/notify";
+import { notifyOwner } from "@/lib/owner-notify";
+import { trackingStatusLabel } from "@/lib/tracking-labels";
 import {
   ALREADY_REGISTERED,
   BATCH,
@@ -330,6 +332,40 @@ async function fetchTargets(key: string, targets: Target[], counters: Counters, 
   }
 }
 
+const PROBLEM_WHERE = { problem: true, parcel: { status: "SHIPPED", deletedAt: null } } satisfies Prisma.ParcelTrackingWhereInput;
+const OWNER_LIST_MAX = 15;
+
+/**
+ * Оповещение владельцу по итогу проверки — одним сообщением и только о посылках, которые стали «требуют внимания»
+ * с прошлой проверки (иначе раз в 2 часа приходило бы одно и то же).
+ */
+async function notifyNewProblems(before: Set<string>, total: number) {
+  const fresh = (
+    await prisma.parcelTracking.findMany({
+      where: PROBLEM_WHERE,
+      select: {
+        parcelId: true, status: true, subStatus: true, error: true, registeredAt: true,
+        parcel: { select: { number: true, trackingNumber: true, parcelTask: { select: { number: true } } } },
+      },
+      orderBy: { updatedAt: "desc" },
+    })
+  ).filter((t) => !before.has(t.parcelId));
+  if (!fresh.length) return;
+  const lines = fresh.slice(0, OWNER_LIST_MAX).map((t) => {
+    const what = t.registeredAt ? trackingStatusLabel(t.status, t.subStatus) : t.error || "номер не принят";
+    return `• ${[t.parcel.number, t.parcel.parcelTask?.number, t.parcel.trackingNumber].filter(Boolean).join(" · ")} — ${what}`;
+  });
+  if (fresh.length > OWNER_LIST_MAX) lines.push(`…и ещё ${fresh.length - OWNER_LIST_MAX}`);
+  const app = process.env.NEXT_PUBLIC_APP_URL;
+  await notifyOwner(
+    [
+      `⚠️ Отслеживание: ${fresh.length === 1 ? "посылка требует" : `посылок требуют — ${fresh.length},`} внимания`,
+      ...lines,
+      `Всего требуют внимания: ${total}.${app ? ` Список: ${app}/parcels?tracking=problem` : ""}`,
+    ].join("\n"),
+  );
+}
+
 /**
  * Проверить посылки в 17TRACK. Без parcelIds — все «Отправленные» с трек-номером (по расписанию и из настроек),
  * итог пишется в настройки. С parcelIds — эти посылки в любом статусе и любой давности (кнопка в карточке).
@@ -338,6 +374,10 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
   const all = !parcelIds;
   const key = await getTrackingKey();
   if (!key) return { ok: false, message: "Ключ 17TRACK не задан — «Настройки» → «Отслеживание посылок»" };
+  // что уже «требует внимания» — владельцу сообщаем только о новом (проверка всех посылок)
+  const before = all
+    ? new Set((await prisma.parcelTracking.findMany({ where: PROBLEM_WHERE, select: { parcelId: true } })).map((t) => t.parcelId))
+    : null;
 
   const parcels = await prisma.parcel.findMany({
     where: {
@@ -392,7 +432,8 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
     failure = error.message;
   }
 
-  const problems = await prisma.parcelTracking.count({ where: { problem: true, parcel: { status: "SHIPPED", deletedAt: null } } });
+  const problems = await prisma.parcelTracking.count({ where: PROBLEM_WHERE });
+  if (before) await notifyNewProblems(before, problems);
   const parts = [
     `поставлено на слежение ${counters.registered}`,
     `обновлено ${counters.updated}`,
