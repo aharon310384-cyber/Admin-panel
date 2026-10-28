@@ -126,7 +126,11 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
     const onClick = (e: MouseEvent) => {
       if (dataRef.current && !dataRef.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault(); // Esc закрыл меню — окно не закрывать
+      setOpen(false);
+    };
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
     return () => {

@@ -8,6 +8,7 @@
 // и «Изменить» (F2), «Связанные документы» (Ctrl+Shift+S), «История изменений» работают по ней.
 // Списку с полями поиска (search) окно ставит строку поиска справа на панели, как в 1С: Ctrl+F — в строку,
 // Alt+F — «Расширенный поиск», Ctrl+Alt+F — найти по значению ячейки, по которой щёлкнули, Ctrl+Q — отменить.
+// Esc — закрыть окно, как «×» (как в 1С).
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -22,6 +23,9 @@ import FormSearch, { useListSearch } from "@/components/form/form-search";
 import { SEARCH_PARAMS, type ColumnLayout, type ColumnWidths, type FormPart, type MoreCommandId } from "@/lib/form";
 import { DOC_LINKS, cardTarget, isDocEntity, type DocTarget } from "@/lib/related";
 import type { ListSearchField } from "@/lib/list-search";
+
+// Поля ввода: в них Esc сначала только выводит из поля.
+const EDITABLE = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea, select, [contenteditable="true"]';
 
 // На обёртке (span вокруг кнопки с подтверждением) нажимается сама кнопка внутри.
 function pressable(el: HTMLElement) {
@@ -68,10 +72,12 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
   const widthsRef = useRef<ColumnWidths | undefined>(settings?.widths);
   const columnsRef = useRef<ColumnLayout | undefined>(settings?.columns);
   const saveRef = useRef(forms?.saveForm);
+  const closeRef = useRef(forms?.closeCurrent);
   useEffect(() => {
     widthsRef.current = settings?.widths;
     columnsRef.current = settings?.columns;
     saveRef.current = forms?.saveForm;
+    closeRef.current = forms?.closeCurrent;
   });
   // Документ окна: в карточке — сама запись, в списке — текущая строка.
   const card = cardTarget(formKey, guid);
@@ -230,6 +236,22 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Esc — закрыть окно, как «×». Открытое меню или диалог Esc закрывает сам (клавиша помечена обработанной) — окно остаётся.
+  // Курсор в поле ввода — первый Esc только выходит из поля: недописанная форма не закроется случайно.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.repeat || event.isComposing) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.matches(EDITABLE)) {
+        active.blur();
+        return;
+      }
+      closeRef.current?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 2500);
@@ -350,7 +372,7 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
             <Link2 size={15} />
           </button>
           {forms?.closeCurrent && (
-            <button type="button" className="form-tool" onClick={forms.closeCurrent} title="Закрыть окно" aria-label="Закрыть окно">
+            <button type="button" className="form-tool" onClick={forms.closeCurrent} title="Закрыть окно (Esc)" aria-label="Закрыть окно">
               <X size={16} />
             </button>
           )}
@@ -455,9 +477,9 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
 
         .form-header { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
         .form-pages { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-        /* Подвал всегда на виду: на длинном списке прилипает к низу экрана, над нижней панелью */
+        /* Подвал всегда внизу окна, вплотную к нижней панели: на длинном списке прилипает к ней, на коротком стоит внизу */
         .form-footer {
-          position: sticky; bottom: var(--shell-bottom, 0px); z-index: 4; margin: 0 -4px; padding: 5px 4px;
+          position: sticky; bottom: var(--shell-bottom, 0px); z-index: 4; margin: auto -4px 0; padding: 5px 4px;
           font-size: 12px; color: var(--color-muted); background: var(--color-bg); border-top: 1px solid var(--color-border);
         }
 

@@ -46,13 +46,26 @@ function tag(table: HTMLTableElement, tableIndex: number): string[] {
   return keys;
 }
 
+// Порядок столбцов: сохранённый, а новый столбец (его нет в сохранённом порядке) — на своём месте:
+// перед соседом справа, как в стандартном порядке (новая «Страна» в списке клиентов встаёт перед «Городом»).
+export function orderedKeys(keys: string[], order: string[]): string[] {
+  const wanted = order.filter((key) => keys.includes(key));
+  keys.forEach((key, i) => {
+    if (wanted.includes(key)) return;
+    const next = keys.slice(i + 1).find((k) => wanted.includes(k));
+    const prev = keys.slice(0, i).reverse().find((k) => wanted.includes(k));
+    wanted.splice(next ? wanted.indexOf(next) : prev ? wanted.indexOf(prev) + 1 : wanted.length, 0, key);
+  });
+  return wanted;
+}
+
 // Порядок и видимость столбцов. Без настройки — исходный порядок, все видны (так же сбрасывается).
 export function applyColumns(root: HTMLElement, layout: ColumnLayout | undefined) {
   const order = layout?.order ?? [];
   const hidden = new Set(layout?.hidden ?? []);
   tablesOf(root).forEach((table, tableIndex) => {
     const keys = tag(table, tableIndex);
-    const wanted = [...order.filter((key) => keys.includes(key)), ...keys.filter((key) => !order.includes(key))];
+    const wanted = orderedKeys(keys, order);
     for (const row of [...table.rows]) {
       if (row.dataset.colsTagged === undefined) continue;
       const cells = new Map([...row.cells].map((cell) => [cell.dataset.col ?? "", cell]));

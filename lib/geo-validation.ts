@@ -1,4 +1,5 @@
 import "server-only";
+import { toIso2 } from "@/lib/geo-names";
 
 /** Возвращает количество цифр в номере (без учёта пробелов, скобок, дефисов и т.п.). */
 export function countPhoneDigits(value: string): number {
@@ -19,15 +20,6 @@ export function isPhoneLengthValid(
   return digits >= min && digits <= max;
 }
 
-// Псевдо-коды справочника → реальный ISO2 страны (для геосервиса).
-const CODE_TO_ISO2: Record<string, string> = {
-  NY: "US",
-  VT: "US",
-};
-
-function toIso2(code: string): string {
-  return (CODE_TO_ISO2[code] ?? code).toLowerCase();
-}
 
 export type CityCheckResult = "ok" | "mismatch" | "unknown";
 

@@ -25,7 +25,8 @@ import {
 // Следим за посылками «Отправлена» с трек-номером: ставим номер на слежение (тратит квоту), дальше забираем состояние.
 // «Доставлена» в 17TRACK — посылка становится «Доставлена» сама: история статусов, версия, сообщение клиенту в Telegram.
 // Возврат, «не удалось вручить», запрос таможни, долго нет данных — отметка «проблема», статус меняет человек.
-// Запуск: по расписанию (cron → /api/tracking/sync), «Проверить сейчас» в настройках, «Обновить» в карточке посылки.
+// Запуск: по расписанию (cron → /api/tracking/sync), «Проверить сейчас» в настройках, «Обновить» в карточке посылки,
+// сразу при отправке посылки, смене трек-номера и загрузке строки из Excel.
 // Язык событий и запасной перевозчик — в настройках (TrackingSettings). Запасной перевозчик: номер с его приставкой
 // 17TRACK сам не определил или за N часов ничего не нашёл — переставляем на него (один раз).
 // Данные получателя (страна, индекс, 4 цифры телефона, дата отправки) отдаём, только если перевозчик их просит.
@@ -54,6 +55,11 @@ type Fallback = { carrier: number; name: string; prefixes: string[]; afterHours:
 type Options = { lang: string; fallback: Fallback | null };
 /** Номер, который пора переставить на запасного перевозчика. */
 type Switch = { target: Target; carrierOld: number | null };
+
+/** Отправлена недавно — встаёт на слежение сама; более старые — кнопкой в карточке, чтобы не тратить квоту на историю. */
+export function shippedRecently(shippedAt: Date): boolean {
+  return shippedAt.getTime() >= Date.now() - RECENT_DAYS * DAY;
+}
 
 /** Номер для слежения: без пробелов, заглавными. */
 export function normalizeTrackNumber(value: string): string {
@@ -349,7 +355,6 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
     },
   });
 
-  const since = Date.now() - RECENT_DAYS * DAY;
   const toRegister: Target[] = [];
   const toFetch: Target[] = [];
   let tooOld = 0;
@@ -362,7 +367,7 @@ export async function syncTracking({ parcelIds }: { parcelIds?: string[] } = {})
       continue;
     }
     const shippedAt = parcel.statusHistory[0]?.createdAt ?? parcel.updatedAt;
-    if (all && shippedAt.getTime() < since) {
+    if (all && !shippedRecently(shippedAt)) {
       tooOld++;
       continue;
     }

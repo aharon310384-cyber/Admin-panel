@@ -8,17 +8,15 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, Check, Folder, Minus, PanelTop, PanelsTopLeft, Table2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FORM_PART_HINTS, FORM_PART_LABELS, HIDEABLE_PARTS, type ColumnLayout, type ColumnWidths, type FormPart } from "@/lib/form";
-import type { TableInfo } from "@/components/form/columns";
+import { orderedKeys, type TableInfo } from "@/components/form/columns";
 
 export type FormSettingsResult = { hidden: FormPart[]; columns: ColumnLayout | null; widths: ColumnWidths | null };
 
 type Selected = { kind: "part"; part: FormPart } | { kind: "table"; index: number } | { kind: "column"; key: string };
 
-// Столбцы таблицы в нужном порядке: сначала из сохранённого порядка, потом остальные — как на странице.
+// Столбцы таблицы в нужном порядке — как в окне (components/form/columns.ts).
 function ordered(table: TableInfo, order: string[]) {
-  const keys = table.columns.map((column) => column.key);
-  const sorted = [...order.filter((key) => keys.includes(key)), ...keys.filter((key) => !order.includes(key))];
-  return sorted.map((key) => table.columns.find((column) => column.key === key)!);
+  return orderedKeys(table.columns.map((column) => column.key), order).map((key) => table.columns.find((column) => column.key === key)!);
 }
 
 export default function FormSettingsDialog({

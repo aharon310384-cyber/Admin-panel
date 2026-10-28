@@ -29,7 +29,9 @@ export function adminThemeCss(brand: Brand): string {
   const primary = brandColor(brand.primaryColor);
   if (!primary) return "";
   const text = isLight(primary) ? "#1f1a14" : "#fffaf3";
-  return `:root { --color-accent: ${primary}; --color-accent-hover: color-mix(in srgb, ${primary} 80%, black); --color-accent-fg: ${text}; }`;
+  const light = `color-mix(in srgb, ${primary} 78%, white)`;
+  const dark = `color-mix(in srgb, ${primary} 82%, black)`;
+  return `:root { --color-accent: ${primary}; --color-accent-hover: color-mix(in srgb, ${primary} 80%, black); --color-accent-fg: ${text}; --accent-soft: color-mix(in srgb, ${primary} 35%, white); --brand-mark-light: ${light}; --brand-mark: ${primary}; --brand-mark-dark: ${dark}; }`;
 }
 
 /** Цвета кабинета из компании клиентов: основной и второй с более тёмным и более светлым оттенками. */

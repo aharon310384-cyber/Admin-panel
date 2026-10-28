@@ -15,7 +15,9 @@ function mix(hex: string, other: 0 | 255, share: number): string {
   return `#${channels.map((value) => Math.round(value * share + other * (1 - share)).toString(16).padStart(2, "0")).join("")}`;
 }
 
-export async function tabIconResponse(where: { adminBrand: true } | { cabinetBrand: true }, fallback: { name: string; color: string }) {
+type Gradient = [light: string, base: string, dark: string];
+
+export async function tabIconResponse(where: { adminBrand: true } | { cabinetBrand: true }, fallback: { name: string; gradient: Gradient }) {
   const company = await prisma.company.findFirst({
     where,
     select: { name: true, icon: true, iconType: true, primaryColor: true },
@@ -25,10 +27,11 @@ export async function tabIconResponse(where: { adminBrand: true } | { cabinetBra
   if (company?.icon && company.iconType) {
     return new NextResponse(Buffer.from(company.icon), { headers: { ...headers, "Content-Type": company.iconType } });
   }
-  const color = brandColor(company?.primaryColor) ?? fallback.color;
+  const color = brandColor(company?.primaryColor);
+  const [light, base, dark]: Gradient = color ? [mix(color, 255, 0.82), color, mix(color, 0, 0.82)] : fallback.gradient;
   const letters = escapeXml(brandInitials(company?.name ?? fallback.name));
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${mix(color, 255, 0.82)}"/><stop offset="0.48" stop-color="${color}"/><stop offset="1" stop-color="${mix(color, 0, 0.82)}"/></linearGradient></defs>
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${light}"/><stop offset="0.48" stop-color="${base}"/><stop offset="1" stop-color="${dark}"/></linearGradient></defs>
 <rect width="64" height="64" rx="14" fill="url(#g)"/>
 <text x="32" y="43" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#fff">${letters}</text>
 </svg>`;
