@@ -44,7 +44,6 @@
     "Downloads",
     "prisma/seed.ts",
     "prisma/order-route.ts",
-    "prisma/import-product-names.ts",
     "prisma/backfill-country-code.ts",
     "prisma/seed-countries.ts",
     "prisma/test-create-order.ts",
