@@ -6,7 +6,7 @@ import { getFinanceSettings } from "@/lib/finance";
 import { findShippingTariff, serviceHints } from "@/lib/tariffs";
 import { formatUsd, formatNumber, formatDateTime } from "@/lib/utils";
 import { parcelStatusLabel, orderStatusLabel, deliveryTypeLabel, PARCEL_STATUS_COLOR } from "@/lib/statuses";
-import { computeEuCustomsDuty, hasIncompleteHsCodes } from "@/lib/eu-customs";
+import { computeEuCustomsDuty, hasIncompleteHsCodes, parcelDutyRates } from "@/lib/eu-customs";
 import ParcelControls from "@/components/parcels/parcel-controls";
 import TrackingBlock, { type TrackingView } from "@/components/parcels/tracking-block";
 import InternalComments from "@/components/parcels/internal-comments";
@@ -68,8 +68,9 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
   const dims = [parcel.lengthCm, parcel.widthCm, parcel.heightCm].map((d) => (d != null ? Number(d) : 0));
   const hasDims = dims.every((d) => d > 0);
 
-  // Таможенная пошлина ЕС — считаем «вживую» для наглядного блока
+  // Таможенная пошлина ЕС — считаем «вживую» для наглядного блока, по курсам посылки (нет — из «Финансы»)
   const finance = await getFinanceSettings();
+  const dutyRates = parcelDutyRates(parcel, finance);
   let destinationIsEu = false;
   if (parcel.recipient?.countryCode) {
     const country = await prisma.country.findUnique({
@@ -83,8 +84,8 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
     enabled: finance.euDutyEnabled,
     destinationIsEu,
     declaredValueUsd,
-    exchangeRateCnyPerEur: finance.exchangeRateCnyPerEur,
-    exchangeRateCnyPerUsd: finance.exchangeRateCnyPerUsd,
+    exchangeRateCnyPerEur: dutyRates.eur,
+    exchangeRateCnyPerUsd: dutyRates.usd,
     orders: parcel.orders,
     manualLineCount: parcel.customsDutyManualLines,
   });
@@ -282,7 +283,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                   </tr>
                 </tbody>
               </table>
-              <p className="hint">Курс: {rate} ¥/$ · пошлина ЕС по курсу {finance.exchangeRateCnyPerEur != null ? `${finance.exchangeRateCnyPerEur} ¥/€` : "— курс ¥ за € не задан"}</p>
+              <p className="hint">Курс: {rate} ¥/$ · пошлина ЕС по курсу {dutyRates.eur != null ? `${dutyRates.eur} ¥/€` : "— курс ¥ за € не задан"}</p>
               {dutyPaidBySender ? (
                 <p className="hint">Таможенная пошлина ЕС €{billedDutyEur.toFixed(2)} ({billedDutyLines} поз.) оплачивается отправителем — не включена в счёт.</p>
               ) : null}
