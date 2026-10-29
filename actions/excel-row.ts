@@ -635,6 +635,7 @@ async function saveRow(
       actualWeightKg: p.weightKg,
       billableWeightKg: p.weightKg,
       exchangeRateCnyPerUsd: p.rate,
+      exchangeRateCnyPerEur: p.rateEur,
       shippingCostUsd: p.shippingUsd,
       discountPercent: p.discountPercent,
       declaredValueUsd: p.goodsValueUsd,

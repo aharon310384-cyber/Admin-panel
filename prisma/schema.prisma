@@ -521,6 +521,7 @@ model Parcel {
   heightCm           Decimal? // габарит В
   // расчёт
   exchangeRateCnyPerUsd Decimal  // курс ¥ за $, фиксируется при расчёте посылки и потом не меняется
+  exchangeRateCnyPerEur Decimal? // курс ¥ за € для пошлины ЕС — из строки Excel или «Финансы» при расчёте, потом не меняется; пусто — из «Финансы»
   shippingCostUsd       Decimal? // Отправка = billableWeightKg × ставка
   discountPercent       Decimal? // скидка % от итога
   declaredValueUsd      Decimal? // стоимость товаров внутри посылки, $ (из Excel — колонка «стоимость товаров»)
