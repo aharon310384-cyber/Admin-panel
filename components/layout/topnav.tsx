@@ -260,7 +260,7 @@ export default function TopNav({ userName, userRole, favorites, onPinFavorite, o
           position: sticky;
           top: 0;
           z-index: 30;
-          background: var(--color-surface);
+          background: var(--surface-strong);
           backdrop-filter: blur(16px) saturate(1.4);
           border-bottom: 1px solid var(--color-border);
         }
