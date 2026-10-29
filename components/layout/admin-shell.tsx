@@ -329,6 +329,21 @@ export default function AdminShell({
         .admin-main:has(.form-footer) { display: flex; flex-direction: column; }
         .admin-content:has(> .form > .form-footer) { flex: 1; display: flex; flex-direction: column; padding-bottom: 0 !important; }
         .admin-content > .form:has(> .form-footer) { flex: 1; }
+        /* Окно-список, как в 1С: окно во всю высоту между панелями, прокручиваются только строки таблицы, а её шапка
+           стоит на месте. Список — окно, у которого страница начинается с карточки-таблицы (у карточек документов
+           таблицы идут под заголовками разделов, такие окна прокручиваются целиком). */
+        @media (min-width: 901px) {
+          .admin-layout:has(.form-pages > .card:first-child > .table-wrap:first-child) { height: 100dvh; }
+          .admin-layout:has(.form-pages > .card:first-child > .table-wrap:first-child) :is(.shell-body, .admin-main) { min-height: 0; }
+          .admin-main:has(.form-pages > .card:first-child > .table-wrap:first-child) { display: flex; flex-direction: column; }
+          .admin-content:has(> .form > .form-pages > .card:first-child > .table-wrap:first-child) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+          .admin-content > .form:has(> .form-pages > .card:first-child > .table-wrap:first-child) { flex: 1; min-height: 0; }
+          .form-pages:has(> .card:first-child > .table-wrap:first-child) { flex: 0 1 auto; min-height: 0; }
+          .form-pages:has(> .card:first-child > .table-wrap:first-child) > * { flex-shrink: 0; }
+          .form-pages > .card:first-child:has(> .table-wrap:first-child) { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+          .form-pages > .card:first-child > .table-wrap:first-child { flex: 0 1 auto; min-height: 0; max-height: none; }
+          .form-pages > .card:first-child > .table-wrap:first-child ~ * { flex-shrink: 0; }
+        }
 
         .shell-zone { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); }
         /* Под верхней и нижней панелями прокручивается окно — фон плотный, чтобы текст не просвечивал */
