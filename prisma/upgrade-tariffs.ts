@@ -10,6 +10,8 @@
 // «не действует»; недостающие создаются. Услуги без компании получают компанию и описание, недостающие создаются.
 // Если тарифы уже перенесены по первому, устаревшему списку (2026-10-19, из lib/postmanfox-tariffs.ts),
 // их строки исправляются по прайс-листу; строку, которую уже поменяли в админке, скрипт не трогает.
+// Тарифы, добавленные позже (since), создаются и у компании, у которой тарифы уже есть, — если такого направления
+// с этим видом доставки у неё ещё нет (выключенный в админке тариф не создаётся заново).
 // Повторный запуск ничего не меняет.
 import { PrismaClient, type PaymentTiming, type ServicePricingType } from "@prisma/client";
 
@@ -29,10 +31,12 @@ type ShippingSeed = {
   deliveryType: "AIR" | "SEA" | "TRUCK";
   pricePerKgUsd: number;
   handlingFeeUsd: number;
-  minDays: number;
-  maxDays: number;
+  minDays?: number;
+  maxDays?: number;
   paymentTiming: PaymentTiming;
   cargoType?: string;
+  sortOrder?: number; // место среди уже заведённых тарифов (по умолчанию — по порядку списка)
+  since?: string; // добавлен позже: создаётся и там, где тарифы уже перенесены
 };
 
 const SHIPPING: ShippingSeed[] = [
@@ -41,6 +45,8 @@ const SHIPPING: ShippingSeed[] = [
   { key: "UA_SEA", section: MAIN, direction: "Украина (море)", countryCodes: ["UA"], deliveryType: "SEA", pricePerKgUsd: 7.5, handlingFeeUsd: 2, minDays: 50, maxDays: 65, paymentTiming: "FLEXIBLE" },
   { key: "BY", section: MAIN, direction: "Беларусь (авто)", countryCodes: ["BY"], deliveryType: "TRUCK", pricePerKgUsd: 15, handlingFeeUsd: 3, minDays: 15, maxDays: 25, paymentTiming: "BEFORE" },
   { key: "MD", section: MAIN, direction: "Молдова (авиа)", cargoType: "до 5 кг", countryCodes: ["MD"], deliveryType: "AIR", pricePerKgUsd: 18, handlingFeeUsd: 10, minDays: 15, maxDays: 20, paymentTiming: "FLEXIBLE" },
+  // Решение владельца 2026-10-29 (docs/product/задание-тарифы-excel.md): 15 $/кг + 2 $ оформление
+  { key: "UZ", section: MAIN, direction: "Узбекистан (авиа)", countryCodes: ["UZ"], deliveryType: "AIR", pricePerKgUsd: 15, handlingFeeUsd: 2, paymentTiming: "BEFORE", sortOrder: 55, since: "2026-10-29" },
   { key: "KR_JP", section: POST, direction: "Южная Корея, Япония", countryCodes: ["KR", "JP"], deliveryType: "AIR", pricePerKgUsd: 11, handlingFeeUsd: 12, minDays: 10, maxDays: 15, paymentTiming: "BEFORE" },
   {
     key: "ASIA_OCEANIA",
@@ -173,9 +179,10 @@ const SERVICES: ServiceSeed[] = [
   { code: "LOCAL_DELIVERY", name: "Доставка до склада", description: null, pricingType: "MANUAL", value: null, inPriceList: false, sortOrder: 100 },
 ];
 
-const shippingData = ({ key, cargoType, ...rest }: ShippingSeed, companyId: string, index: number) => {
+const shippingData = ({ key, cargoType, sortOrder, since, ...rest }: ShippingSeed, companyId: string, index: number) => {
   void key;
-  return { ...rest, companyId, cargoType: cargoType ?? null, onRequest: false, deliveryTarget: DOOR, sortOrder: (index + 1) * 10 };
+  void since;
+  return { ...rest, companyId, cargoType: cargoType ?? null, onRequest: false, deliveryTarget: DOOR, sortOrder: sortOrder ?? (index + 1) * 10 };
 };
 
 /** Первый перенос: тарифов у компании ещё нет. */
@@ -249,6 +256,20 @@ async function correctFirstList(companyId: string) {
   if (corrected || deactivated) console.log(`Тарифы по прайс-листу: исправлено ${corrected}, не действует ${deactivated}`);
 }
 
+/** Тарифы, добавленные в список позже: создать, если такого направления с этим видом доставки у компании нет. */
+async function addNewShipping(companyId: string) {
+  const rows = await prisma.shippingTariff.findMany({ where: { companyId }, select: { direction: true, deliveryType: true, cargoType: true } });
+  let added = 0;
+  for (const [index, seed] of SHIPPING.entries()) {
+    if (!seed.since) continue;
+    const exists = rows.some((row) => row.direction === seed.direction && row.deliveryType === seed.deliveryType && (row.cargoType ?? null) === (seed.cargoType ?? null));
+    if (exists) continue;
+    await prisma.shippingTariff.create({ data: { ...shippingData(seed, companyId, index), active: true } });
+    added += 1;
+  }
+  if (added) console.log(`Тарифы доставки: добавлено новых ${added}`);
+}
+
 async function migrateServices(companyId: string) {
   let migrated = 0;
   let corrected = 0;
@@ -289,6 +310,7 @@ async function main() {
   } else {
     await correctFirstList(company.id);
   }
+  await addNewShipping(company.id);
   await migrateServices(company.id);
 }
 

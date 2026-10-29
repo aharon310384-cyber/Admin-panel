@@ -5,6 +5,7 @@ import { cellNumber } from "@/lib/excel-row";
 
 export const EXCEL_FIELDS = [
   { key: "taskNumber", label: "Номер строки (задача)", required: true },
+  { key: "tariffPlan", label: "Тарифный план (вид доставки)" },
   { key: "info", label: "Большая ячейка (треки)", required: true },
   { key: "productNames", label: "Наименования" },
   { key: "quantity", label: "Количество" },
@@ -35,6 +36,32 @@ export type ExcelField = (typeof EXCEL_FIELDS)[number]["key"];
 export type ExcelColumns = Partial<Record<ExcelField, string>>;
 
 const FIELD_KEYS = new Set<string>(EXCEL_FIELDS.map((f) => f.key));
+
+/** Вид доставки по коду тарифного плана строки (RU → TRUCK); код не из списка — fallback (авиа). */
+export type ExcelDelivery = { codes: Record<string, string>; fallback: string | null };
+
+export const planCode = (value: string | null | undefined) => (value ?? "").trim().toUpperCase();
+
+/** Настройка из базы или формы: коды — латиница и цифры, виды доставки — только из справочника. */
+export function cleanDelivery(rawCodes: unknown, rawFallback: unknown, known: string[]): ExcelDelivery {
+  const codes: Record<string, string> = {};
+  if (rawCodes && typeof rawCodes === "object" && !Array.isArray(rawCodes)) {
+    for (const [code, type] of Object.entries(rawCodes as Record<string, unknown>)) {
+      const key = planCode(code);
+      if (/^[A-Z0-9]{1,10}$/.test(key) && typeof type === "string" && known.includes(type)) codes[key] = type;
+    }
+  }
+  const fallback = typeof rawFallback === "string" && known.includes(rawFallback) ? rawFallback : null;
+  return { codes, fallback };
+}
+
+/** Вид доставки строки: по коду, иначе «остальные»; пустой столбец — не выбран (выбрать вручную). */
+export function deliveryFor(plan: string | null | undefined, delivery: ExcelDelivery): { type: string | null; by: "code" | "default" | null } {
+  const code = planCode(plan);
+  if (!code) return { type: null, by: null };
+  if (delivery.codes[code]) return { type: delivery.codes[code], by: "code" };
+  return delivery.fallback ? { type: delivery.fallback, by: "default" } : { type: null, by: null };
+}
 
 /** Буква колонки → номер с нуля: A → 0, Z → 25, AA → 26. Не буква — null. */
 export function columnIndex(letter: string): number | null {

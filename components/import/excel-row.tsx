@@ -6,11 +6,13 @@ import { ClipboardPaste, Columns3, Copy, Loader2, Save } from "lucide-react";
 import {
   previewExcelRow,
   saveExcelColumns,
+  saveExcelDelivery,
   saveExcelRow,
+  type ExcelRowChoice,
   type ExcelRowPreview,
   type ExcelRowSaveResult,
 } from "@/actions/excel-row";
-import { EXCEL_FIELDS, alignRow, type ExcelColumns } from "@/lib/excel-columns";
+import { EXCEL_FIELDS, alignRow, type ExcelColumns, type ExcelDelivery } from "@/lib/excel-columns";
 import { splitExcelRow } from "@/lib/excel-row";
 import { parcelStatusLabel } from "@/lib/statuses";
 import ExcelFile from "@/components/import/excel-file";
@@ -29,8 +31,27 @@ const taskOf = (value: string | null | undefined) => value?.trim().match(/^[A-Za
  * fromExcel — номер строки из кнопки «Отправить» в Excel (?row=OG4283AE): строку админка берёт из скопированного (Ctrl+C),
  * потому что в ссылку Excel вся строка не помещается (не больше 255 символов).
  */
-export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns: ExcelColumns; fromExcel: string | null }) {
+type DeliveryRow = { code: string; type: string };
+
+export default function ExcelRow({
+  initialColumns,
+  initialDelivery,
+  deliveryMethods,
+  fromExcel,
+}: {
+  initialColumns: ExcelColumns;
+  initialDelivery: ExcelDelivery;
+  deliveryMethods: { code: string; name: string }[];
+  fromExcel: string | null;
+}) {
   const [columns, setColumns] = useState<Record<string, string>>({ ...initialColumns });
+  // «Тарифный план → вид доставки»: строки кодов и вид для остальных кодов
+  const [deliveryRows, setDeliveryRows] = useState<DeliveryRow[]>(
+    Object.entries(initialDelivery.codes).map(([code, type]) => ({ code, type })),
+  );
+  const [deliveryFallback, setDeliveryFallback] = useState(initialDelivery.fallback ?? "");
+  const [deliveryMessage, setDeliveryMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [choice, setChoice] = useState<ExcelRowChoice>({});
   const [columnsOpen, setColumnsOpen] = useState(!initialColumns.taskNumber || !initialColumns.info);
   const [columnsMessage, setColumnsMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [text, setText] = useState("");
@@ -61,11 +82,18 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
       if (result.ok) setColumnsOpen(false);
     });
 
+  const saveDelivery = () =>
+    run(async () => {
+      const result = await saveExcelDelivery(deliveryRows, deliveryFallback || null);
+      setDeliveryMessage({ ok: result.ok, text: result.message });
+    });
+
   const check = (value = text) =>
     run(async () => {
       setError(null);
       setNotice(null);
       setSaved(null);
+      setChoice({});
       const result = await previewExcelRow(value);
       if (result.ok) setPreview(result.preview);
       else {
@@ -116,10 +144,22 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
     }
   };
 
+  /** Другой вид доставки или цена в окне проверки — пересчитать (ИИ заново не спрашиваем). */
+  const choose = (next: ExcelRowChoice) =>
+    run(async () => {
+      if (!preview) return;
+      const merged = { ...choice, ...next };
+      setChoice(merged);
+      setSaved(null);
+      const result = await previewExcelRow(text, preview.found, merged);
+      if (result.ok) setPreview(result.preview);
+      else setError({ text: result.error, detail: result.detail });
+    });
+
   const save = () =>
     run(async () => {
       if (!preview) return;
-      const result = await saveExcelRow(text, preview.found);
+      const result = await saveExcelRow(text, preview.found, choice);
       if (result.ok) {
         setSaved(result);
         setError(null);
@@ -156,6 +196,43 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
             <div className="xr-actions">
               <button type="button" className="xr-btn xr-btn--primary" onClick={saveColumns} disabled={pending}>Сохранить колонки</button>
               {columnsMessage && <span className={columnsMessage.ok ? "xr-ok" : "xr-bad"}>{columnsMessage.text}</span>}
+            </div>
+
+            <h3 className="xr-subtitle">Вид доставки по тарифному плану</h3>
+            <p className="xr-hint">
+              Код из колонки «Тарифный план» строки (RU, PL, SEA…) → вид доставки посылки; по виду и стране получателя подбирается тариф.
+              Пустой тарифный план — вид выбирается вручную в окне проверки.
+            </p>
+            <div className="xr-delivery">
+              {deliveryRows.map((row, i) => (
+                <div key={i} className="xr-delivery-row">
+                  <input
+                    className="xr-input xr-letter"
+                    value={row.code}
+                    onChange={(e) => setDeliveryRows((rows) => rows.map((r, j) => (j === i ? { ...r, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) } : r)))}
+                    aria-label="Код тарифного плана"
+                  />
+                  <span className="xr-muted">→</span>
+                  <select className="xr-input" value={row.type} onChange={(e) => setDeliveryRows((rows) => rows.map((r, j) => (j === i ? { ...r, type: e.target.value } : r)))} aria-label={`Вид доставки для ${row.code || "кода"}`}>
+                    <option value="">выберите…</option>
+                    {deliveryMethods.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+                  </select>
+                  <button type="button" className="xr-btn" onClick={() => setDeliveryRows((rows) => rows.filter((_, j) => j !== i))} aria-label="Убрать код">×</button>
+                </div>
+              ))}
+              <div className="xr-delivery-row">
+                <span className="xr-delivery-rest">Остальные коды</span>
+                <span className="xr-muted">→</span>
+                <select className="xr-input" value={deliveryFallback} onChange={(e) => setDeliveryFallback(e.target.value)} aria-label="Вид доставки: остальные коды">
+                  <option value="">выбирать вручную</option>
+                  {deliveryMethods.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="xr-actions">
+              <button type="button" className="xr-btn" onClick={() => setDeliveryRows((rows) => [...rows, { code: "", type: "" }])}>+ Код</button>
+              <button type="button" className="xr-btn xr-btn--primary" onClick={saveDelivery} disabled={pending}>Сохранить виды доставки</button>
+              {deliveryMessage && <span className={deliveryMessage.ok ? "xr-ok" : "xr-bad"}>{deliveryMessage.text}</span>}
             </div>
           </>
         ) : (
@@ -310,9 +387,52 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
               {preview.internalComment && (<><dt>Внутренний комментарий задачи</dt><dd>{preview.internalComment}</dd></>)}
             </dl>
             <dl className="xr-dl">
+              <dt>Вид доставки</dt>
+              <dd>
+                <select
+                  className={`xr-input${preview.deliveryType ? "" : " xr-input--bad"}`}
+                  value={choice.deliveryType ?? preview.deliveryType ?? ""}
+                  onChange={(e) => choose({ deliveryType: e.target.value || null })}
+                  disabled={pending}
+                  aria-label="Вид доставки"
+                >
+                  {!preview.deliveryType && <option value="">выберите…</option>}
+                  {preview.deliveryOptions.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+                </select>{" "}
+                <span className="xr-muted">
+                  {preview.tariffPlan
+                    ? `тарифный план ${preview.tariffPlan}${preview.deliveryAuto.by === "default" ? " (остальные коды)" : ""}`
+                    : "тарифный план пустой"}
+                </span>
+              </dd>
+              <dt>Тариф</dt>
+              <dd>
+                {preview.tariff
+                  ? <>{preview.tariff.direction} <span className="xr-muted">· {preview.tariff.perKgUsd} $/кг + {preview.tariff.feeUsd} $</span></>
+                  : preview.deliveryType ? <span className="xr-bad">⚠ нет тарифа</span> : "—"}
+              </dd>
               <dt>Вес</dt><dd>{preview.weightKg != null ? `${preview.weightKg} кг` : "—"}</dd>
               <dt>Стоимость товаров</dt><dd>{money(preview.goodsValueUsd, "$")}</dd>
-              <dt>Отправка</dt><dd>{money(preview.shippingUsd, "$")}</dd>
+              <dt>Отправка</dt>
+              <dd>
+                {money(preview.shippingUsd, "$")}{" "}
+                {preview.priceCheck === "match" && <span className="xr-ok">✓ совпадает с тарифом</span>}
+                {preview.priceCheck === "no-file" && <span className="xr-muted">по тарифу (в файле пусто)</span>}
+                {preview.priceCheck === "no-tariff" && <span className="xr-muted">из файла</span>}
+                {preview.priceCheck === "mismatch" && (
+                  <span className="xr-price">
+                    <span className="xr-bad">⚠ в файле {money(preview.fileShippingUsd, "$")}, по тарифу {money(preview.systemShippingUsd, "$")}</span>
+                    <label className="xr-check">
+                      <input type="radio" name="xr-price" checked={(choice.price ?? preview.priceSource) === "system"} onChange={() => choose({ price: "system" })} disabled={pending} />
+                      цена системы {money(preview.systemShippingUsd, "$")}
+                    </label>
+                    <label className="xr-check">
+                      <input type="radio" name="xr-price" checked={(choice.price ?? preview.priceSource) === "file"} onChange={() => choose({ price: "file" })} disabled={pending} />
+                      цена файла {money(preview.fileShippingUsd, "$")}
+                    </label>
+                  </span>
+                )}
+              </dd>
               {preview.services.map((s) => (
                 <span key={s.code} style={{ display: "contents" }}>
                   <dt>{s.name}</dt><dd>{s.code === "LOCAL_DELIVERY" ? money(s.cny, "¥") : money(s.usd, "$")}</dd>
@@ -397,6 +517,12 @@ export default function ExcelRow({ initialColumns, fromExcel }: { initialColumns
         .xr-internal { padding: 8px 10px; border: 1px dashed var(--color-border-strong); border-radius: 4px; }
         .xr-internal-title { font-weight: 700; color: var(--color-text) !important; }
         .xr-save { margin-top: 12px; }
+        .xr-subtitle { margin: 14px 0 4px; font-size: 13px; font-weight: 600; }
+        .xr-delivery { display: flex; flex-direction: column; gap: 6px; }
+        .xr-delivery-row { display: flex; align-items: center; gap: 8px; }
+        .xr-delivery-rest { width: 52px; font-size: 12px; color: var(--color-muted); line-height: 1.2; }
+        .xr-input--bad { border-color: var(--color-danger); }
+        .xr-price { display: inline-flex; flex-direction: column; gap: 2px; }
         .xr-new { margin: 0 0 8px; padding: 8px 10px; background: var(--color-muted-bg); border-radius: 4px; line-height: 1.5; }
         .xr-formula { margin-top: 12px; padding: 8px 10px; background: var(--color-muted-bg); border-radius: 4px; line-height: 1.5; color: var(--color-text-secondary); }
         .xr-code { padding: 4px 8px; background: #fff; border: 1px solid var(--color-border); border-radius: 4px; font-size: 12px; word-break: break-all; }

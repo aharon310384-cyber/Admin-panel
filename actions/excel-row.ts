@@ -1,13 +1,26 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { ParcelStatus, ParcelTaskStatus, Prisma } from "@prisma/client";
+import type { ParcelStatus, ParcelTaskStatus, PaymentTiming, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
 import { getFinanceSettings } from "@/lib/finance";
 import { findExcelTracks } from "@/lib/ai-order-parser";
 import { splitExcelRow } from "@/lib/excel-row";
-import { alignRow, cellOf, cleanColumns, isPaidMark, numberOf, productItems, sentDateOf, type ExcelColumns } from "@/lib/excel-columns";
+import {
+  alignRow,
+  cellOf,
+  cleanColumns,
+  cleanDelivery,
+  deliveryFor,
+  isPaidMark,
+  numberOf,
+  productItems,
+  sentDateOf,
+  type ExcelColumns,
+  type ExcelDelivery,
+} from "@/lib/excel-columns";
+import { findShippingTariff } from "@/lib/tariffs";
 import { foundInText, latinCode, missedTracks, sameName } from "@/lib/excel-check";
 import { splitLegacyTaskNumber } from "@/lib/parcel-number";
 import { nextDocumentNumber } from "@/lib/document-numbers";
@@ -25,6 +38,10 @@ export type ExcelRowTrack = { track: string | null; inText: boolean | null; item
 export type ExcelRowService = { code: string; name: string; usd: number; cny: number };
 /** Какой товар (по порядку в колонке наименований) к какому треку — ответ ИИ, его же передаём при сохранении. */
 export type ExcelRowTracks = { tracks: string[]; itemTracks: (string | null)[] };
+/** Выбор в окне проверки: вид доставки (пустой тарифный план или другой вид) и чья цена отправки — системы или файла. */
+export type ExcelRowChoice = { deliveryType?: string | null; price?: "system" | "file" };
+/** Сверка цены отправки файла с тарифом системы. */
+export type ExcelPriceCheck = "match" | "mismatch" | "no-tariff" | "no-weight" | "no-file";
 
 export type ExcelRowPreview = {
   taskNumber: string;
@@ -42,6 +59,18 @@ export type ExcelRowPreview = {
   weightKg: number | null;
   goodsValueUsd: number | null;
   services: ExcelRowService[];
+  /** тарифный план строки (столбец C: RU, PL, SEA…) и вид доставки по нему; deliveryType — итоговый (с выбором в окне) */
+  tariffPlan: string | null;
+  deliveryAuto: { type: string | null; by: "code" | "default" | null };
+  deliveryType: string | null;
+  deliveryOptions: { code: string; name: string }[];
+  /** тариф по стране получателя и виду доставки («Логистика → Тарифы») и цена отправки по нему */
+  tariff: { direction: string; perKgUsd: number; feeUsd: number; paymentTiming: PaymentTiming } | null;
+  systemShippingUsd: number | null;
+  fileShippingUsd: number | null;
+  priceCheck: ExcelPriceCheck | null;
+  priceSource: "system" | "file";
+  /** отправка, которая будет сохранена: по тарифу или из файла */
   shippingUsd: number | null;
   /** к оплате: итого ¥ строки (или по формуле листа) и он же в долларах по курсу строки */
   totalUsd: number | null;
@@ -76,6 +105,7 @@ export type ExcelRowSaveResult =
       parcelNumber: string;
       recipientCreated: string | null;
       tracking: boolean; // посылка ставится на слежение (17TRACK) сразу после сохранения
+      priceNote: string | null; // цена по тарифу вместо цены файла, нет тарифа и т.п. — для списка загрузки файлом
     }
   | { ok: false; error: string };
 export type ExcelColumnsResult = { ok: boolean; message: string };
@@ -96,6 +126,44 @@ const positive = (n: number | null) => (n != null && n > 0 ? n : null);
 async function loadColumns(): Promise<ExcelColumns> {
   const settings = await prisma.excelImportSettings.findFirst({ select: { columns: true } });
   return cleanColumns(settings?.columns);
+}
+
+/** Виды доставки справочника и настройка «тарифный план → вид доставки». */
+async function loadDelivery(): Promise<{ methods: { code: string; name: string }[]; delivery: ExcelDelivery }> {
+  const [settings, methods] = await Promise.all([
+    prisma.excelImportSettings.findFirst({ select: { deliveryTypes: true, deliveryDefault: true } }),
+    prisma.deliveryMethod.findMany({ where: { active: true }, select: { code: true, nameRu: true }, orderBy: { sortOrder: "asc" } }),
+  ]);
+  const list = methods.map((m) => ({ code: m.code, name: m.nameRu }));
+  return { methods: list, delivery: cleanDelivery(settings?.deliveryTypes, settings?.deliveryDefault, list.map((m) => m.code)) };
+}
+
+/** Настройка «тарифный план → вид доставки» и виды доставки для неё. */
+export async function getExcelDelivery() {
+  await requireAdmin();
+  return loadDelivery();
+}
+
+/** Сохранить «тарифный план → вид доставки»: коды — латиница и цифры, виды — из справочника; fallback — для остальных кодов. */
+export async function saveExcelDelivery(rows: { code: string; type: string }[], fallback: string | null): Promise<ExcelColumnsResult> {
+  const session = await requireAdmin();
+  const { methods } = await loadDelivery();
+  const known = methods.map((m) => m.code);
+  const codes: Record<string, string> = {};
+  for (const row of rows) {
+    const code = row.code.trim().toUpperCase();
+    if (!code) continue;
+    if (!/^[A-Z0-9]{1,10}$/.test(code)) return { ok: false, message: `Код «${row.code}» — только латинские буквы и цифры` };
+    if (codes[code]) return { ok: false, message: `Код ${code} указан дважды` };
+    if (!known.includes(row.type)) return { ok: false, message: `Для кода ${code} выберите вид доставки` };
+    codes[code] = row.type;
+  }
+  const data = { deliveryTypes: codes, deliveryDefault: fallback && known.includes(fallback) ? fallback : null, updatedBy: session.user.id };
+  const existing = await prisma.excelImportSettings.findFirst({ select: { id: true } });
+  if (existing) await prisma.excelImportSettings.update({ where: { id: existing.id }, data });
+  else await prisma.excelImportSettings.create({ data });
+  revalidatePath("/import/excel");
+  return { ok: true, message: "Виды доставки сохранены" };
 }
 
 /** Колонки листа (буквы Excel). */
@@ -191,8 +259,11 @@ async function findRecipient(customerId: string, r: RowBasics["recipient"]) {
   );
 }
 
-/** Строка → то, что будет сохранено. found — ответ ИИ из предпросмотра (при сохранении ИИ не спрашиваем ещё раз). */
-async function buildPreview(text: string, found?: ExcelRowTracks): Promise<ExcelRowPreviewResult> {
+/**
+ * Строка → то, что будет сохранено. found — ответ ИИ из предпросмотра (при сохранении ИИ не спрашиваем ещё раз);
+ * choice — выбор в окне проверки: вид доставки и цена отправки (системы или файла).
+ */
+async function buildPreview(text: string, found?: ExcelRowTracks, choice?: ExcelRowChoice): Promise<ExcelRowPreviewResult> {
   const basics = await readBasics(text);
   if ("error" in basics) return { ok: false, error: basics.error };
   const { cells, columns } = basics;
@@ -310,7 +381,66 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
   if (expectedCny != null && totalCny != null && Math.abs(expectedCny - totalCny) > 0.05) {
     warnings.push(`Итого ¥ ${totalCny} не сходится с расчётом по строке (${expectedCny}) — проверьте строку.`);
   }
-  const finalCny = totalCny ?? expectedCny;
+  const rowCny = totalCny ?? expectedCny;
+
+  // Вид доставки — по тарифному плану строки (настройка загрузки), пустой — выбрать в окне. Решение владельца 2026-10-29.
+  const { methods, delivery } = await loadDelivery();
+  const tariffPlan = cellOf(cells, columns, "tariffPlan");
+  const deliveryAuto = deliveryFor(tariffPlan, delivery);
+  const chosen = choice?.deliveryType && methods.some((m) => m.code === choice.deliveryType) ? choice.deliveryType : null;
+  const deliveryType = chosen ?? deliveryAuto.type;
+  const deliveryName = methods.find((m) => m.code === deliveryType)?.name ?? deliveryType;
+  if (!deliveryType) {
+    blockers.push(
+      !columns.tariffPlan
+        ? "Колонка «Тарифный план» не указана в «Колонки листа» — выберите вид доставки."
+        : tariffPlan
+          ? `Код «${tariffPlan}» в тарифном плане не знаком, а вида доставки для остальных кодов нет — выберите вид доставки.`
+          : "Тарифный план в строке пустой — выберите вид доставки.",
+    );
+  }
+
+  // Тариф — по стране получателя и виду доставки; цена по тарифу = вес × $/кг + оформление (правило 4 задания).
+  const weightKg = positive(num("weightKg"));
+  const tariffRow = deliveryType ? await findShippingTariff(basics.countryCode, deliveryType) : null;
+  const tariff = tariffRow
+    ? { direction: tariffRow.direction, perKgUsd: Number(tariffRow.pricePerKgUsd), feeUsd: Number(tariffRow.handlingFeeUsd), paymentTiming: tariffRow.paymentTiming }
+    : null;
+  const systemShippingUsd = tariff && weightKg ? round2(weightKg * tariff.perKgUsd + tariff.feeUsd) : null;
+  const fileShippingUsd = shippingUsd;
+  const priceCheck: ExcelPriceCheck | null = !deliveryType
+    ? null
+    : !tariff
+      ? "no-tariff"
+      : systemShippingUsd == null
+        ? "no-weight"
+        : fileShippingUsd == null
+          ? "no-file"
+          : Math.abs(fileShippingUsd - systemShippingUsd) <= 0.01
+            ? "match"
+            : "mismatch";
+  // По умолчанию — цена системы; цену файла владелец выбирает в окне проверки.
+  const priceSource: "system" | "file" = systemShippingUsd != null && !(choice?.price === "file" && fileShippingUsd != null) ? "system" : "file";
+  const finalShipping = priceSource === "system" ? systemShippingUsd : fileShippingUsd;
+  const formula = systemShippingUsd != null && tariff ? `${weightKg} кг × ${tariff.perKgUsd} + ${tariff.feeUsd}` : "";
+  if (priceCheck === "no-tariff") {
+    warnings.push(`Нет тарифа для страны ${basics.countryCode} и вида «${deliveryName}» — цена отправки из файла («Логистика → Тарифы»).`);
+  } else if (priceCheck === "no-weight") {
+    warnings.push("В строке нет веса — цену по тарифу не посчитать, цена отправки из файла.");
+  } else if (priceCheck === "no-file") {
+    warnings.push(`В файле нет стоимости отправки — по тарифу «${tariff!.direction}»: ${formula} = ${systemShippingUsd} $.`);
+  } else if (priceCheck === "mismatch") {
+    warnings.push(
+      `В файле ${fileShippingUsd} $, по тарифу ${systemShippingUsd} $ («${tariff!.direction}»: ${formula}) — ` +
+        (priceSource === "system" ? "взята цена системы." : "взята цена файла."),
+    );
+  }
+  // Отправка не та, что в файле, — итоги по формуле листа: (отправка + услуги) × курс + локальная доставка + пошлина − скидка.
+  let finalCny = rowCny;
+  if (finalShipping != null && finalShipping !== fileShippingUsd) {
+    const sum = (finalShipping + servicesUsd) * rate + (localDeliveryCny ?? 0);
+    finalCny = round2(sum + (dutyCny ?? 0) - (sum * (discountPercent ?? 0)) / 100);
+  }
   if (carrierCostCny == null) warnings.push("Стоимость отправки для нас не заполнена.");
   if (sentDateCell && !sentDate) warnings.push(`Дата «${sentDateCell}» неполная — посылка не считается отправленной, время документов — момент сохранения.`);
   if (quantityCell && items.length > 1 && quantityCell !== items.length) {
@@ -341,10 +471,19 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
       recipientNew,
       tracks,
       found: { tracks: trackList, itemTracks: trackOfItem },
-      weightKg: positive(num("weightKg")),
+      weightKg,
       goodsValueUsd: positive(num("goodsValueUsd")),
       services,
-      shippingUsd,
+      tariffPlan,
+      deliveryAuto,
+      deliveryType,
+      deliveryOptions: methods,
+      tariff,
+      systemShippingUsd,
+      fileShippingUsd,
+      priceCheck,
+      priceSource,
+      shippingUsd: finalShipping,
       totalUsd: finalCny != null ? round2(finalCny / rate) : null,
       rate,
       rateFromRow: Boolean(rowRate),
@@ -370,10 +509,13 @@ async function buildPreview(text: string, found?: ExcelRowTracks): Promise<Excel
   };
 }
 
-/** Разобрать строку и показать, что будет сохранено. В базу ничего не пишется. */
-export async function previewExcelRow(text: string): Promise<ExcelRowPreviewResult> {
+/**
+ * Разобрать строку и показать, что будет сохранено. В базу ничего не пишется.
+ * found и choice — при смене вида доставки или цены в окне: ИИ заново не спрашиваем.
+ */
+export async function previewExcelRow(text: string, found?: ExcelRowTracks, choice?: ExcelRowChoice): Promise<ExcelRowPreviewResult> {
   await requireAdmin();
-  return buildPreview(text);
+  return buildPreview(text, found, choice);
 }
 
 /** Новый получатель клиента из строки: ФИО, адрес, телефон (код страны — отдельно), страна — из конца номера строки, по-английски из справочника. */
@@ -400,14 +542,15 @@ function newRecipientData(
 }
 
 /** Сохранить строку: заказы → задача → посылка. Время: заказы — T, задача — T + 10 с, посылка — T + 20 с (T — дата отправки или сейчас). */
-export async function saveExcelRow(text: string, found: ExcelRowTracks): Promise<ExcelRowSaveResult> {
+export async function saveExcelRow(text: string, found: ExcelRowTracks, choice?: ExcelRowChoice): Promise<ExcelRowSaveResult> {
   const session = await requireAdmin();
-  return saveRow(text, session.user.id, { found, createRecipient: true });
+  return saveRow(text, session.user.id, { found, choice, createRecipient: true });
 }
 
 /**
  * Загрузка файлом: одна строка целиком — разбор (ИИ ищет треки) и сразу сохранение.
- * createRecipient — нет получателя у клиента → создать его из строки.
+ * createRecipient — нет получателя у клиента → создать его из строки. Вид доставки — по тарифному плану строки
+ * (пустой — строка не загружается, её загружают по одной с выбором вида), цена отправки — по тарифу, если он есть.
  */
 export async function importExcelRow(text: string, opts: { createRecipient: boolean }): Promise<ExcelRowSaveResult> {
   const session = await requireAdmin();
@@ -417,9 +560,9 @@ export async function importExcelRow(text: string, opts: { createRecipient: bool
 async function saveRow(
   text: string,
   userId: string,
-  opts: { found?: ExcelRowTracks; createRecipient: boolean },
+  opts: { found?: ExcelRowTracks; choice?: ExcelRowChoice; createRecipient: boolean },
 ): Promise<ExcelRowSaveResult> {
-  const built = await buildPreview(text, opts.found);
+  const built = await buildPreview(text, opts.found, opts.choice);
   if (!built.ok) return built;
   const p = built.preview;
   if (p.blockers.length) return { ok: false, error: p.blockers.join(" ") };
@@ -483,6 +626,8 @@ async function saveRow(
       customerId: client.id,
       recipientId,
       status,
+      deliveryType: p.deliveryType,
+      ...(p.tariff ? { paymentTiming: p.tariff.paymentTiming } : {}),
       actualWeightKg: p.weightKg,
       billableWeightKg: p.weightKg,
       exchangeRateCnyPerUsd: p.rate,
@@ -533,6 +678,7 @@ async function saveRow(
         recipientId,
         productNameText: o.name,
         trackNumber: o.track,
+        deliveryType: p.deliveryType,
         quantity: o.quantity,
         customerComment: o.comment,
         detailedCheckRequested: has("DETAILED_CHECK"),
@@ -573,5 +719,13 @@ async function saveRow(
     parcelNumber: result.parcel.number,
     recipientCreated: p.recipientMatch ? null : p.recipient.name,
     tracking,
+    priceNote:
+      p.priceCheck === "mismatch"
+        ? p.priceSource === "system"
+          ? `цена по тарифу ${p.systemShippingUsd} $ (в файле ${p.fileShippingUsd} $)`
+          : `цена файла ${p.fileShippingUsd} $ (по тарифу ${p.systemShippingUsd} $)`
+        : p.priceCheck === "no-tariff"
+          ? "нет тарифа — цена из файла"
+          : null,
   };
 }
