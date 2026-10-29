@@ -18,7 +18,8 @@ export default function SortableHeader({
   label,
   align = "left",
 }: SortableHeaderProps) {
-  const Icon = active ? (direction === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  // Стрелка — как в 1С: показывает, где значения больше. ↓ — по возрастанию (старые даты сверху), ↑ — по убыванию.
+  const Icon = active ? (direction === "asc" ? ArrowDown : ArrowUp) : ArrowUpDown;
 
   return (
     <Link
