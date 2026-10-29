@@ -90,7 +90,9 @@ export default function AdminShell({
   // Окно, которое только что закрыли (× или Esc): пока идёт переход, оно не должно снова попасть во вкладки.
   const closedRef = useRef<string | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const hasTop = panels.top.length > 0;
   const hasBottom = panels.bottom.length > 0;
 
   // Подвал окна и боковые панели стоят вплотную к нижней панели, как в 1С: высота панели зависит от числа строк,
@@ -108,6 +110,29 @@ export default function AdminShell({
       layout.style.removeProperty("--shell-bottom");
     };
   }, [hasBottom]);
+
+  // Верхние панели стоят на месте под верхним меню, при прокрутке едет только рабочая область, как в 1С.
+  // Боковым панелям нужна высота меню вместе с верхними панелями — меряем по той же причине, что и нижнюю.
+  useLayoutEffect(() => {
+    const layout = layoutRef.current;
+    const zone = topRef.current;
+    const menu = layout?.querySelector<HTMLElement>(".topnav");
+    if (!layout || !menu) return;
+    const measure = () => {
+      const head = menu.getBoundingClientRect().height;
+      layout.style.setProperty("--shell-head", `${head}px`);
+      layout.style.setProperty("--shell-top", `${head + (zone?.getBoundingClientRect().height ?? 0)}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (zone) observer.observe(zone);
+    observer.observe(menu);
+    return () => {
+      observer.disconnect();
+      layout.style.removeProperty("--shell-head");
+      layout.style.removeProperty("--shell-top");
+    };
+  }, [hasTop]);
 
   useEffect(() => setFavorites(savedFavorites), [savedFavorites]);
   useEffect(() => setHistory(savedHistory), [savedHistory]);
@@ -275,7 +300,11 @@ export default function AdminShell({
     <div ref={layoutRef} className={cn("admin-layout", hasBottom && "admin-layout--bottom")}>
       <TopNav userName={userName} userRole={userRole} favorites={favorites} onPinFavorite={changePin} onRemoveFavorite={changeFavorite} />
 
-      {panels.top.length > 0 && <div className="shell-zone shell-zone--top">{rows("top")}</div>}
+      {hasTop && (
+        <div ref={topRef} className="shell-zone shell-zone--top">
+          {rows("top")}
+        </div>
+      )}
 
       <div className="shell-body">
         {panels.left.length > 0 && columns("left")}
@@ -302,8 +331,9 @@ export default function AdminShell({
         .admin-content > .form:has(> .form-footer) { flex: 1; }
 
         .shell-zone { background: var(--color-surface); backdrop-filter: blur(16px) saturate(1.4); }
-        .shell-zone--top { border-bottom: 1px solid var(--color-border); position: relative; z-index: 25; }
-        .shell-zone--bottom { border-top: 1px solid var(--color-border); position: sticky; bottom: 0; z-index: 25; }
+        /* Под верхней и нижней панелями прокручивается окно — фон плотный, чтобы текст не просвечивал */
+        .shell-zone--top { border-bottom: 1px solid var(--color-border); position: sticky; top: var(--shell-head, var(--topnav-h)); z-index: 25; background: var(--surface-strong); }
+        .shell-zone--bottom { border-top: 1px solid var(--color-border); position: sticky; bottom: 0; z-index: 25; background: var(--surface-strong); }
         .shell-zone-inner { padding: 0 12px; }
         .shell-zone-inner + .shell-zone-inner { border-top: 1px solid var(--color-border); }
         .shell-row { display: flex; align-items: stretch; min-width: 0; }
@@ -311,7 +341,8 @@ export default function AdminShell({
         .shell-cell + .shell-cell { border-left: 1px solid var(--color-border); margin-left: 8px; padding-left: 8px; }
         .shell-zone--side { flex-shrink: 0; }
         .shell-side-inner {
-          position: sticky; top: var(--topnav-h); max-height: calc(100dvh - var(--topnav-h) - var(--shell-bottom, 0px)); overflow-y: auto;
+          position: sticky; top: var(--shell-top, var(--topnav-h));
+          max-height: calc(100dvh - var(--shell-top, var(--topnav-h)) - var(--shell-bottom, 0px)); overflow-y: auto;
           padding: 6px; display: flex; flex-direction: row; align-items: flex-start;
         }
         .shell-col { width: 184px; display: flex; flex-direction: column; gap: 8px; }
