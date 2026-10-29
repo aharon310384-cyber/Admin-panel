@@ -350,11 +350,15 @@ async function buildPreview(text: string, found?: ExcelRowTracks, choice?: Excel
     services.push({ code: s.code, name: tariff.name, usd, cny: s.cny ?? round2(usd * rate) });
   }
 
-  // Пошлина ЕС: €3 за вид товара × курс евро строки (нет — из «Финансы»). Решение владельца 2026-10-19.
+  // Пошлина ЕС: в колонке — сумма в евро, €3 = 1 вид товара (формула листа O × P верна — владелец 2026-10-29),
+  // × курс евро строки (нет — из «Финансы»). Число видов для карточки посылки = сумма ÷ €3.
   const rowRateEur = positive(num("rateEur"));
   const rateEur = rowRateEur ?? finance.exchangeRateCnyPerEur;
-  const euItemKinds = positive(num("euItemKinds"));
-  const dutyEur = euItemKinds ? euItemKinds * EU_DUTY_PER_ITEM_EUR : null;
+  const dutyEur = positive(num("euItemKinds"));
+  const euItemKinds = dutyEur != null ? Math.max(1, Math.round(dutyEur / EU_DUTY_PER_ITEM_EUR)) : null;
+  if (dutyEur != null && Math.abs(dutyEur / EU_DUTY_PER_ITEM_EUR - Math.round(dutyEur / EU_DUTY_PER_ITEM_EUR)) > 1e-6) {
+    warnings.push(`Пошлина ЕС €${dutyEur} не делится на €${EU_DUTY_PER_ITEM_EUR} (1 вид) — сумма взята из строки, видов поставлено ${euItemKinds}, проверьте.`);
+  }
   if (dutyEur != null && !rateEur) {
     return { ok: false, error: "Курса ¥ за € нет ни в строке, ни в «Финансы → Курс» — пошлину ЕС не посчитать, задайте курс." };
   }
