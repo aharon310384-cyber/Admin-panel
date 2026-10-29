@@ -136,7 +136,7 @@ export default function ExcelFile({ columns }: { columns: ExcelColumns }) {
           result = r.ok
             ? {
                 ok: true,
-                text: `${r.created ? "загружена" : "обновлена"} · ${r.parcelNumber}${r.recipientCreated ? ` · новый получатель ${r.recipientCreated}` : ""}${r.tracking ? " · на слежение" : ""}`,
+                text: `${r.created ? "загружена" : "обновлена"} · ${r.parcelNumber}${r.recipientCreated ? ` · новый получатель ${r.recipientCreated}` : ""}${r.priceNote ? ` · ${r.priceNote}` : ""}${r.tracking ? " · на слежение" : ""}`,
               }
             : { ok: false, text: r.error };
         } catch {

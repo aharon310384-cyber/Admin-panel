@@ -1143,6 +1143,9 @@ model ParcelFinance {
 model ExcelImportSettings {
   id        String   @id @default(cuid())
   columns   Json     @default("{}")
+  // Вид доставки по столбцу «тарифный план» строки: {"RU":"TRUCK","SEA":"SEA"}; остальные коды — deliveryDefault
+  deliveryTypes   Json    @default("{}")
+  deliveryDefault String?
   updatedAt DateTime @updatedAt
   updatedBy String?
 }
