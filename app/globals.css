@@ -101,7 +101,8 @@ summary {
   position: sticky;
   top: 0;
   z-index: 3;
-  background: color-mix(in srgb, var(--color-surface) 86%, var(--color-bg));
+  /* плотный фон: строки уходят под шапку при прокрутке и не должны просвечивать */
+  background: color-mix(in srgb, var(--surface-strong) 86%, var(--color-bg));
   backdrop-filter: blur(14px) saturate(1.3);
 }
 

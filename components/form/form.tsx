@@ -342,71 +342,73 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
 
   return (
     <section ref={ref} className="form" data-form={formKey}>
-      <div className="form-titlebar">
-        <div className="form-nav">
-          <button type="button" onClick={() => router.back()} title="Назад" aria-label="Назад">
-            <ArrowLeft size={15} />
-          </button>
-          <button type="button" onClick={() => router.forward()} title="Вперёд" aria-label="Вперёд">
-            <ArrowRight size={15} />
-          </button>
-        </div>
-        <h1 className="form-title">
-          <FavoriteStar />
-          {title}
-        </h1>
-        {titleExtra && <div className="form-title-extra">{titleExtra}</div>}
-        <div className="form-tools">
-          {notice && (
-            <span className="form-notice" role="status">
-              {notice}
-            </span>
-          )}
-          <button
-            type="button"
-            className="form-tool"
-            onClick={() => copy(window.location.href, "Ссылка скопирована")}
-            title="Скопировать ссылку на это окно"
-            aria-label="Скопировать ссылку"
-          >
-            <Link2 size={15} />
-          </button>
-          {forms?.closeCurrent && (
-            <button type="button" className="form-tool" onClick={forms.closeCurrent} title="Закрыть окно (Esc)" aria-label="Закрыть окно">
-              <X size={16} />
+      <div className="form-top">
+        <div className="form-titlebar">
+          <div className="form-nav">
+            <button type="button" onClick={() => router.back()} title="Назад" aria-label="Назад">
+              <ArrowLeft size={15} />
             </button>
-          )}
+            <button type="button" onClick={() => router.forward()} title="Вперёд" aria-label="Вперёд">
+              <ArrowRight size={15} />
+            </button>
+          </div>
+          <h1 className="form-title">
+            <FavoriteStar />
+            {title}
+          </h1>
+          {titleExtra && <div className="form-title-extra">{titleExtra}</div>}
+          <div className="form-tools">
+            {notice && (
+              <span className="form-notice" role="status">
+                {notice}
+              </span>
+            )}
+            <button
+              type="button"
+              className="form-tool"
+              onClick={() => copy(window.location.href, "Ссылка скопирована")}
+              title="Скопировать ссылку на это окно"
+              aria-label="Скопировать ссылку"
+            >
+              <Link2 size={15} />
+            </button>
+            {forms?.closeCurrent && (
+              <button type="button" className="form-tool" onClick={forms.closeCurrent} title="Закрыть окно (Esc)" aria-label="Закрыть окно">
+                <X size={16} />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      <div ref={barRef} className="form-commands" data-form-part="commands">
-        {commands}
-        {related ? (
-          <Link href={related} className="cmd" data-command="related" data-shortcut="Ctrl+Shift+S">
-            <ListTree size={15} />
-            Связанные документы
-          </Link>
-        ) : (
-          hasDocRows && (
-            <button type="button" className="cmd" data-command="related" data-shortcut="Ctrl+Shift+S" disabled title="Выберите строку списка">
+        <div ref={barRef} className="form-commands" data-form-part="commands">
+          {commands}
+          {related ? (
+            <Link href={related} className="cmd" data-command="related" data-shortcut="Ctrl+Shift+S">
               <ListTree size={15} />
               Связанные документы
-            </button>
-          )
-        )}
-        {listSearch.enabled && <FormSearch search={listSearch} />}
-        <MoreMenu
-          bar={bar}
-          enabled={enabled}
-          onCommand={run}
-          recentSearches={listSearch.history.map((item) => ({ label: item.label, onSelect: () => listSearch.apply(item) }))}
-        />
-      </div>
-      {header && shown("header") && (
-        <div className="form-header" data-form-part="header">
-          {header}
+            </Link>
+          ) : (
+            hasDocRows && (
+              <button type="button" className="cmd" data-command="related" data-shortcut="Ctrl+Shift+S" disabled title="Выберите строку списка">
+                <ListTree size={15} />
+                Связанные документы
+              </button>
+            )
+          )}
+          {listSearch.enabled && <FormSearch search={listSearch} />}
+          <MoreMenu
+            bar={bar}
+            enabled={enabled}
+            onCommand={run}
+            recentSearches={listSearch.history.map((item) => ({ label: item.label, onSelect: () => listSearch.apply(item) }))}
+          />
         </div>
-      )}
+        {header && shown("header") && (
+          <div className="form-header" data-form-part="header">
+            {header}
+          </div>
+        )}
+      </div>
       {shown("pages") && (
         <div className="form-pages" data-form-part="pages">
           {children}
@@ -434,6 +436,11 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
 
       <style>{`
         .form { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+        /* Заголовок окна, командная панель и шапка стоят на месте при прокрутке, как в 1С (как подвал внизу) */
+        .form-top {
+          position: sticky; top: var(--shell-top, var(--topnav-h, 0px)); z-index: 5;
+          display: flex; flex-direction: column; gap: 8px; margin: 0 -4px; padding: 0 4px; background: var(--color-bg);
+        }
 
         .form-titlebar { display: flex; align-items: center; gap: 8px; min-width: 0; }
         .form-nav { display: inline-flex; flex-shrink: 0; }
@@ -501,6 +508,7 @@ export default function Form({ formKey, title, titleExtra, commands, links, guid
         .more-sep { height: 1px; margin: 4px 0; background: var(--color-border); }
 
         @media (max-width: 640px) {
+          .form-top { position: static; }
           .form-title { font-size: 17px; white-space: normal; }
           .form-titlebar { flex-wrap: wrap; }
         }
