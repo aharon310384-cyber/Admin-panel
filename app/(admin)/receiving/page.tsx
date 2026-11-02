@@ -25,6 +25,9 @@ export default async function ReceivingPage({
     take: 200,
   });
 
+  // Коробка — входящий трек; заказ без трека — своя коробка.
+  const boxes = new Set(orders.map((o) => o.trackNumber?.trim().toUpperCase() || o.id)).size;
+
   const rows = orders.map((o) => ({
     id: o.id,
     productNameText: o.productNameText,
@@ -51,7 +54,7 @@ export default async function ReceivingPage({
             />
           </form>
         }
-        footer={<>Заказы, ожидающие приёма на склад — {rows.length}</>}
+        footer={<>Ждут приёма на склад: товаров {rows.length}, коробок {boxes}. Коробка — входящий трек: принимается целиком одним весом, документ «Приём заказа»</>}
       >
         <div className="card">
           <ReceivingArm rows={rows} />
