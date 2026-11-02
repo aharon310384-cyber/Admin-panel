@@ -89,6 +89,13 @@ export default async function OrdersPage({
     prisma.order.count({ where }),
   ]);
 
+  // Сколько товаров (заказов) в каждом треке страницы — метка «N товара» у трека, где их больше одного.
+  const tracks = [...new Set(orders.map((o) => o.trackNumber).filter((t): t is string => Boolean(t)))];
+  const trackCounts = tracks.length
+    ? await prisma.order.groupBy({ by: ["trackNumber"], where: { deletedAt: null, trackNumber: { in: tracks } }, _count: { _all: true } })
+    : [];
+  const countOf = new Map(trackCounts.map((t) => [t.trackNumber, t._count._all]));
+
   const sortHref = (field: SortField) => {
     const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
     return buildListHref("/orders", searchParamsOf(search), { sort: `${field}_${nextDir}` });
@@ -106,6 +113,7 @@ export default async function OrdersPage({
     recipientName: o.recipient?.name ?? null,
     productNameText: o.productNameText,
     trackNumber: o.trackNumber,
+    trackCount: o.trackNumber ? countOf.get(o.trackNumber) ?? 1 : 1,
     customerComment: o.customerComment,
     quantity: o.quantity,
     unitPriceUsd: o.unitPriceUsd != null ? Number(o.unitPriceUsd) : null,
