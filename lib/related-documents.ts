@@ -2,9 +2,9 @@
 // Цепочка — docs/product/документооборот.md, раздел 1. Ветки без документов не показываются.
 import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatNumber } from "@/lib/utils";
-import { orderStatusLabel, parcelStatusLabel, taskStatusLabel } from "@/lib/statuses";
+import { buyoutStatusLabel, orderStatusLabel, parcelStatusLabel, taskStatusLabel } from "@/lib/statuses";
 
-export type RelatedDoc = "order" | "parcel" | "task";
+export type RelatedDoc = "order" | "parcel" | "task" | "buyout";
 
 export type RelatedNode = {
   key: string;
@@ -60,6 +60,34 @@ async function orderBranch(orderId: string, current: string | null, withTask: bo
       note: [order.trackNumber, orderStatusLabel(order.status)].filter(Boolean).join(" · "),
       href: `/orders/${order.id}/edit`,
       current: current === `Заказ:${order.id}`,
+    },
+    children
+  );
+}
+
+// Выкуп — основание заказа (docs/product/задание-выкуп.md): над заказом из выкупа — выкуп, рядом его деньги
+// (оплата с баланса и возврат — «Изменение долга клиента»). Заказ не из выкупа возвращается как есть.
+async function withBuyout(orderNode: RelatedNode | null, orderId: string, current: string | null): Promise<RelatedNode | null> {
+  if (!orderNode) return null;
+  const buyout = await prisma.buyout.findUnique({ where: { orderId }, select: { id: true } });
+  return buyout ? buyoutBranch(buyout.id, current, orderNode) : orderNode;
+}
+
+async function buyoutBranch(buyoutId: string, current: string | null, orderNode: RelatedNode | null): Promise<RelatedNode | null> {
+  const buyout = await prisma.buyout.findUnique({
+    where: { id: buyoutId },
+    include: { ledgerEntries: { orderBy: { createdAt: "asc" } } },
+  });
+  if (!buyout) return null;
+  const children: RelatedNode[] = buyout.ledgerEntries.map((entry) => node("Изменение долга клиента", entry, { note: money(entry.amount) }));
+  if (orderNode) children.push(orderNode);
+  return node(
+    "Выкуп",
+    buyout,
+    {
+      note: [buyout.totalCny != null ? `¥${formatNumber(Number(buyout.totalCny))}` : null, buyoutStatusLabel(buyout.status)].filter(Boolean).join(" · "),
+      href: `/buyouts/${buyout.id}`,
+      current: current === `Выкуп:${buyout.id}`,
     },
     children
   );
@@ -154,6 +182,15 @@ async function parcelBranch(parcelId: string, current: string | null): Promise<R
 // Дерево для окна «Связанные документы». Из заказа — заказ и всё, что из него выросло.
 // Из посылки и из задачи — заказы задачи (основания) и задача с посылкой.
 export async function relatedTree(doc: RelatedDoc, id: string): Promise<RelatedTree | null> {
+  if (doc === "buyout") {
+    const buyout = await prisma.buyout.findUnique({ where: { id }, select: { number: true, productName: true, orderId: true } });
+    if (!buyout) return null;
+    const current = `Выкуп:${id}`;
+    const order = buyout.orderId ? await orderBranch(buyout.orderId, current, true) : null;
+    const root = await buyoutBranch(id, current, order);
+    return root ? { title: `Выкуп ${buyout.number} (${buyout.productName})`, roots: [root] } : null;
+  }
+
   if (doc === "task") {
     const task = await prisma.parcelTask.findUnique({
       where: { id },
@@ -161,7 +198,7 @@ export async function relatedTree(doc: RelatedDoc, id: string): Promise<RelatedT
     });
     if (!task) return null;
     const current = `Задача:${id}`;
-    const orders = (await Promise.all(task.orders.map((order) => orderBranch(order.id, current, false)))).filter(
+    const orders = (await Promise.all(task.orders.map(async (order) => withBuyout(await orderBranch(order.id, current, false), order.id, current)))).filter(
       (branch): branch is RelatedNode => branch !== null
     );
     const tail = await taskBranch(id, current);
@@ -170,7 +207,7 @@ export async function relatedTree(doc: RelatedDoc, id: string): Promise<RelatedT
 
   if (doc === "order") {
     const order = await prisma.order.findUnique({ where: { id }, select: { number: true, trackNumber: true } });
-    const root = order && (await orderBranch(id, `Заказ:${id}`, true));
+    const root = order && (await withBuyout(await orderBranch(id, `Заказ:${id}`, true), id, `Заказ:${id}`));
     if (!order || !root) return null;
     return { title: `Заказ ${order.number ?? ""}${order.trackNumber ? ` (${order.trackNumber})` : ""}`, roots: [root] };
   }
@@ -181,7 +218,7 @@ export async function relatedTree(doc: RelatedDoc, id: string): Promise<RelatedT
   });
   if (!parcel) return null;
   const current = `Посылка:${parcel.id}`;
-  const orders = (await Promise.all(parcel.orders.map((order) => orderBranch(order.id, current, false)))).filter(
+  const orders = (await Promise.all(parcel.orders.map(async (order) => withBuyout(await orderBranch(order.id, current, false), order.id, current)))).filter(
     (branch): branch is RelatedNode => branch !== null
   );
   const tail = parcel.parcelTaskId ? await taskBranch(parcel.parcelTaskId, current) : await parcelBranch(parcel.id, current);

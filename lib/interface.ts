@@ -21,6 +21,9 @@ import {
   Warehouse,
   Workflow,
   BadgeDollarSign,
+  ShoppingCart,
+  HandCoins,
+  SlidersHorizontal,
   type LucideIcon,
   FileSpreadsheet,
 } from "lucide-react";
@@ -113,6 +116,15 @@ export const SECTIONS: Section[] = [
     ],
   },
   {
+    code: "buyouts",
+    label: "Выкуп",
+    icon: ShoppingCart,
+    items: [
+      { href: "/buyouts", label: "Выкупы", icon: ShoppingCart },
+      { href: "/buyouts/settings", label: "Настройки выкупа", icon: SlidersHorizontal },
+    ],
+  },
+  {
     code: "logistics",
     label: "Логистика",
     icon: Truck,
@@ -129,6 +141,7 @@ export const SECTIONS: Section[] = [
     items: [
       { href: "/finance", label: "Курс", icon: CircleDollarSign },
       { href: "/payments", label: "Расчёт и оплата", icon: Receipt },
+      { href: "/top-ups", label: "Заявки на пополнение", icon: HandCoins },
     ],
   },
   {

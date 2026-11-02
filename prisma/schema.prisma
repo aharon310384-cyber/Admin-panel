@@ -113,9 +113,12 @@ enum TopUpRequestStatus {
 
 // Основание изменения долга клиента
 enum LedgerReason {
-  PARCEL_CHARGE // начисление за посылку
-  PAYMENT       // оплата (распределение)
-  ADJUSTMENT    // ручная корректировка
+  PARCEL_CHARGE  // начисление за посылку
+  PAYMENT        // оплата (распределение)
+  ADJUSTMENT     // ручная корректировка
+  TOP_UP         // пополнение баланса (зачислен приход ДС по заявке на пополнение)
+  BUYOUT_PAYMENT // оплата выкупа с баланса
+  BUYOUT_REFUND  // возврат за выкуп на баланс (отказ, возврат товара)
 }
 
 // ─────────────────────────── КОМПАНИИ ───────────────────────────
@@ -155,6 +158,8 @@ model Company {
   serviceTariffs  ServiceTariff[]
   rateChanges     ExchangeRateChange[]
   ownerNotices    OwnerNotificationSettings[]
+  buyouts         Buyout[]
+  buyoutSettings  BuyoutSettings[]
 }
 
 // ─────────────────────────── СОТРУДНИКИ ───────────────────────────
@@ -193,6 +198,8 @@ model User {
   payments           Payment[]
   paymentAllocations PaymentAllocation[]
   ledgerEntries      ClientLedger[]
+  buyoutsCreated      Buyout[]              @relation("BuyoutAuthor")
+  buyoutStatusChanges BuyoutStatusHistory[]
 
   interfaceSettings UserInterfaceSettings?
   objectVersions    ObjectVersion[]
@@ -388,6 +395,7 @@ model Customer {
   topUpRequests   TopUpRequest[]
   payments        Payment[]
   ledgerEntries   ClientLedger[]
+  buyouts         Buyout[]
 
   @@index([code])
   @@index([phone])
@@ -488,6 +496,7 @@ model Order {
   statusHistory   OrderStatusHistory[]
   localDeliveries LocalDelivery[]
   assemblyItems   AssemblyItem[]
+  buyout          Buyout?              // заказ создан из выкупа (Buyout.orderId)
 
   @@index([customerId])
   @@index([recipientId])
@@ -942,22 +951,27 @@ model AgentPayout {
 
 // ── Деньги клиента
 
-/// Заявка на пополнение баланса клиента (PB)
+/// Заявка на пополнение баланса клиента (PB). Клиент создаёт её в кабинете (сумма, способ, номер платежа, скриншот),
+/// сотрудник проверяет и нажимает «Зачислить» — появляются приход ДС и запись TOP_UP в ClientLedger (lib/balance.ts).
 model TopUpRequest {
-  id          String             @id @default(cuid())
-  number      String             @unique
-  customerId  String
-  amount      Decimal
-  currency    Currency           @default(CNY)
-  status      TopUpRequestStatus @default(PENDING)
-  note        String?
-  createdById String
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  deletedAt   DateTime?
+  id            String             @id @default(cuid())
+  number        String             @unique
+  customerId    String
+  amount        Decimal
+  currency      Currency           @default(CNY)
+  status        TopUpRequestStatus @default(PENDING)
+  note          String?            // комментарий клиента
+  method        String?            // способ оплаты — из списка в настройках выкупа (WeChat Pay, Alipay…)
+  reference     String?            // номер платежа, как его указал клиент
+  screenshotUrl String?            // скриншот оплаты (/uploads/…)
+  cancelReason  String?            // почему отклонена
+  createdById   String?            // сотрудник; пусто — клиент из кабинета
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  deletedAt     DateTime?
 
   customer  Customer  @relation(fields: [customerId], references: [id])
-  createdBy User      @relation(fields: [createdById], references: [id])
+  createdBy User?     @relation(fields: [createdById], references: [id])
   payments  Payment[]
 
   @@index([customerId])
@@ -973,6 +987,7 @@ model Payment {
   amount         Decimal
   currency       Currency  @default(CNY)
   method         String?   // Alipay, WeChat, банк, наличные…
+  reference      String?   // номер платежа (заглавными, без пробелов): один номер не зачисляется дважды (lib/balance.ts)
   receivedAt     DateTime  @default(now())
   note           String?
   createdById    String
@@ -984,10 +999,12 @@ model Payment {
   topUpRequest TopUpRequest?       @relation(fields: [topUpRequestId], references: [id])
   createdBy    User                @relation(fields: [createdById], references: [id])
   allocations  PaymentAllocation[]
+  ledgerEntries ClientLedger[]
 
   @@index([customerId])
   @@index([topUpRequestId])
   @@index([receivedAt])
+  @@index([reference])
 }
 
 /// Распределение оплат по посылкам (RP): какая часть прихода закрывает какую посылку.
@@ -1025,7 +1042,8 @@ model PaymentAllocationItem {
 }
 
 /// Изменение долга клиента (DK): amount > 0 — долг вырос, amount < 0 — уменьшился.
-/// Долг клиента = сумма строк.
+/// Долг клиента = сумма строк; баланс клиента (его деньги у нас) = минус долг (lib/balance.ts).
+/// Записи не правятся и не удаляются: ошибку исправляет обратная запись (сторно).
 model ClientLedger {
   id                  String       @id @default(cuid())
   number              String       @unique
@@ -1035,8 +1053,10 @@ model ClientLedger {
   reason              LedgerReason
   parcelId            String?
   paymentAllocationId String?
+  paymentId           String?      // приход ДС, зачисленный на баланс (TOP_UP)
+  buyoutId            String?      // выкуп: оплата с баланса и возврат (BUYOUT_PAYMENT, BUYOUT_REFUND)
   note                String?
-  createdById         String
+  createdById         String?      // сотрудник; пусто — клиент из кабинета (оплата выкупа)
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   deletedAt           DateTime?
@@ -1044,11 +1064,133 @@ model ClientLedger {
   customer          Customer           @relation(fields: [customerId], references: [id])
   parcel            Parcel?            @relation(fields: [parcelId], references: [id])
   paymentAllocation PaymentAllocation? @relation(fields: [paymentAllocationId], references: [id])
-  createdBy         User               @relation(fields: [createdById], references: [id])
+  payment           Payment?           @relation(fields: [paymentId], references: [id])
+  buyout            Buyout?            @relation(fields: [buyoutId], references: [id])
+  createdBy         User?              @relation(fields: [createdById], references: [id])
 
   @@index([customerId])
   @@index([parcelId])
   @@index([paymentAllocationId])
+  @@index([paymentId])
+  @@index([buyoutId])
+}
+
+// ─────────────────────────── ВЫКУП ───────────────────────────
+// Выкуп товара за клиента, ступень 1 (docs/product/задание-выкуп.md, инструкция — docs/product/инструкция-выкуп.md).
+// Клиент присылает ссылку или контакт продавца → менеджер ставит цену → клиент платит с баланса → сотрудник
+// покупает → вписывает трек продавца → программа создаёт заказ ZK-… → обычный путь склада.
+
+enum BuyoutKind {
+  LINK    // по ссылке: Taobao / Tmall, 1688, Weidian и любая другая
+  CONTACT // по контакту (WeChat): скриншот, QR-код или контакт продавца
+}
+
+enum BuyoutStatus {
+  NEW          // Новая
+  PRICED       // Цена назначена — ждём оплату клиента
+  PAID         // Оплачена с баланса
+  PURCHASED    // Выкуплена у продавца
+  SHIPPED      // Отправлена продавцом: есть трек, создан заказ
+  AT_WAREHOUSE // На складе: заказ принят
+  REJECTED     // Отказ (с причиной)
+  CANCELED     // Отменена клиентом
+  RETURNED     // Возврат
+}
+
+enum BuyoutReturnKind {
+  SELLER // брак или не тот товар — за счёт продавца, клиенту всё назад
+  CLIENT // клиент передумал — за счёт клиента: доставка продавцу и комиссия
+}
+
+/// Выкуп (VK-…): заявка клиента купить товар в Китае за него. Деньги — в юанях.
+model Buyout {
+  id                String            @id @default(cuid())
+  number            String            @unique // VK-000001: префикс — в настройках выкупа (lib/document-numbers.ts)
+  companyId         String?           // чья компания (компания клиентов — её бренд в кабинете)
+  customerId        String
+  kind              BuyoutKind        @default(LINK)
+  status            BuyoutStatus      @default(NEW)
+  // что купить
+  url               String?           // ссылка на товар
+  sellerContact     String?           // контакт продавца для «по контакту»: WeChat ID, телефон, название магазина
+  attachments       Json?             // вложения клиента: [{ url, name }] — скриншот, QR-код, фото
+  productName       String
+  variant           String?           // вариант: размер, цвет
+  quantity          Int               @default(1)
+  customerComment   String?
+  internalComment   String?           // видят только сотрудники
+  photoUrl          String?           // фото товара — переходит в заказ
+  // деньги, ¥
+  unitPriceCny      Decimal?          // цена товара за штуку
+  goodsCny          Decimal?          // товар = цена × количество
+  chinaDeliveryCny  Decimal?          // доставка по Китаю до склада
+  commissionPercent Decimal?          // процент комиссии на момент расчёта (из настроек)
+  commissionCny     Decimal?          // комиссия: % от товара, не меньше минимума; менеджер может поправить
+  commissionManual  Boolean           @default(false) // комиссию поправил менеджер
+  totalCny          Decimal?          // итого клиенту = товар + доставка по Китаю + комиссия
+  paidToSellerCny   Decimal?          // фактически заплачено продавцу (наша разница — totalCny минус это)
+  // ход выкупа
+  sellerTrack       String?           // трек-номер продавца (китайская служба) — входящий трек заказа
+  orderId           String?           @unique // заказ ZK-…, созданный из выкупа
+  rejectReason      String?
+  returnKind        BuyoutReturnKind?
+  returnCostCny     Decimal?          // при возврате за счёт клиента: доставка продавцу
+  refundCny         Decimal?          // возвращено на баланс
+  pricedAt          DateTime?
+  paidAt            DateTime?
+  purchasedAt       DateTime?
+  shippedAt         DateTime?
+  createdById       String?           // сотрудник; пусто — клиент из кабинета
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+
+  company       Company?              @relation(fields: [companyId], references: [id])
+  customer      Customer              @relation(fields: [customerId], references: [id])
+  order         Order?                @relation(fields: [orderId], references: [id])
+  createdBy     User?                 @relation("BuyoutAuthor", fields: [createdById], references: [id])
+  statusHistory BuyoutStatusHistory[]
+  ledgerEntries ClientLedger[]
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([sellerTrack])
+}
+
+model BuyoutStatusHistory {
+  id          String       @id @default(cuid())
+  buyoutId    String
+  status      BuyoutStatus
+  changedById String?      // сотрудник; пусто — клиент из кабинета или программа
+  byClient    Boolean      @default(false)
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  buyout    Buyout @relation(fields: [buyoutId], references: [id], onDelete: Cascade)
+  changedBy User?  @relation(fields: [changedById], references: [id])
+
+  @@index([buyoutId])
+}
+
+/// Настройки выкупа и пополнения баланса — свои у каждой компании (компания клиентов). «Выкуп → Настройки выкупа».
+/// Чисел в коде нет: не задан процент комиссии — цену не посчитать, программа просит его задать.
+model BuyoutSettings {
+  id                   String   @id @default(cuid())
+  companyId            String?  @unique
+  commissionPercent    Decimal? // комиссия, % от суммы товара
+  commissionMinCny     Decimal? // минимальная комиссия, ¥
+  numberPrefix         String?  // префикс номера выкупа (латиница); пусто — VK
+  rejectReasons        String[] @default([]) // причины отказа для кнопки «Отказать»
+  rulesText            String?  // условия сервиса: показываются клиенту в форме заявки
+  topUpMethods         String[] @default([]) // способы пополнения баланса
+  topUpInstructions    String?  // куда платить: реквизиты — клиенту на странице баланса
+  topUpConfirmAboveCny Decimal? // зачисление больше этой суммы — с повторным вводом пароля; пусто — пароль всегда
+  updatedAt            DateTime @updatedAt
+  updatedBy            String?
+
+  company Company? @relation(fields: [companyId], references: [id])
 }
 
 // ─────────────────────────── ИСТОРИЯ ИЗМЕНЕНИЙ ───────────────────────────

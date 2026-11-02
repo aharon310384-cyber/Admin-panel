@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BadgeDollarSign, ChevronRight, User, Users } from "lucide-react";
+import { BadgeDollarSign, ChevronRight, ShoppingCart, User, Users } from "lucide-react";
 import { getClientCabinetContext } from "@/lib/client-cabinet";
 
 export const metadata: Metadata = { title: "Ещё" };
 
 const ITEMS = [
+  { href: "/cabinet/buyouts", label: "Выкуп", desc: "Купим в Китае за вас", icon: ShoppingCart },
   { href: "/cabinet/recipients", label: "Получатели", desc: "Адреса доставки", icon: Users },
   { href: "/cabinet/tariffs", label: "Тарифы", desc: "Стоимость доставки", icon: BadgeDollarSign },
   { href: "/cabinet/profile", label: "Профиль", desc: "Контакты и настройки", icon: User },

@@ -13,6 +13,7 @@ import InternalComments from "@/components/parcels/internal-comments";
 import { getTrackingKey, type TrackingEvent } from "@/lib/tracking";
 import { trackingStatusLabel, trackingUrl } from "@/lib/tracking-labels";
 import Form from "@/components/form/form";
+import ParcelPurchaseRows from "@/components/buyouts/parcel-purchase-rows";
 
 const DUTY_REASON_LABEL: Record<string, string> = {
   "not-enabled": "мера отключена в настройках финансов",
@@ -276,6 +277,7 @@ export default async function ParcelDetailPage({ params }: { params: Promise<{ i
                       <td className="r muted">¥{billedDutyCny.toFixed(2)}</td>
                     </tr>
                   ) : null}
+                  <ParcelPurchaseRows orderIds={parcel.orders.map((o) => o.id)} rate={rate} />
                   <tr className="total">
                     <td>ИТОГО</td>
                     <td className="r">{formatUsd(Number(parcel.totalUsd))}</td>

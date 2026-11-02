@@ -10,6 +10,7 @@ import {
   LogOut,
   Package,
   Plus,
+  ShoppingCart,
   User,
   Users,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const PRIMARY: Item[] = [
 
 // Под разделительной линией
 const SECONDARY: Item[] = [
+  { href: "/cabinet/buyouts", label: "Выкуп", icon: ShoppingCart },
   { href: "/cabinet/recipients", label: "Получатели", icon: Users },
 ];
 

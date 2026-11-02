@@ -59,3 +59,6 @@ Thumbs.db
 data/*.bak*
 *.db.bak*
 *.db-journal
+
+# Вложения выкупа и пополнения (скриншоты, QR) — не в public, отдаются /api/buyouts/files
+data/uploads/
