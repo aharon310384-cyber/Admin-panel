@@ -36,3 +36,12 @@ export function buildListHref(
   const params = query.toString();
   return params ? `${pathname}?${params}` : pathname;
 }
+
+/**
+ * Журнал документов по дате от старых к новым, как в 1С: если строк больше предела, видны последние —
+ * новые внизу, а не первые. Запрос идёт от новых к старым (queryDir), строки потом переворачиваются (tail).
+ */
+export function journalOrder(field: string, direction: SortDirection) {
+  const tail = field === "createdAt" && direction === "asc";
+  return { tail, queryDir: tail ? ("desc" as const) : direction };
+}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { deliveryTypeLabel } from "@/lib/statuses";
-import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
+import { parseSortParam, buildListHref, journalOrder, type SortDirection } from "@/lib/list-params";
 import { trackingStatusLabel } from "@/lib/tracking-labels";
 import { clientFields, readListSearch, searchConditions, searchParamsOf, type ServerSearchField } from "@/lib/list-search";
 import Form from "@/components/form/form";
@@ -76,6 +76,7 @@ export default async function ParcelsPage({
   const params = await searchParams;
   const search = readListSearch(params);
   const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+  const { tail, queryDir } = journalOrder(sortField, sortDir);
   const onlyProblems = params.tracking === "problem";
   // «Требуют внимания»: отправленные, по которым 17TRACK сообщил о проблеме
   const problemWhere: Prisma.ParcelWhereInput = { status: "SHIPPED", tracking: { problem: true } };
@@ -96,12 +97,14 @@ export default async function ParcelsPage({
         tracking: { select: { status: true, subStatus: true, problem: true, registeredAt: true, error: true, event: true, location: true, eventAt: true } },
         _count: { select: { orders: true } },
       },
-      orderBy: parcelOrderBy(sortField, sortDir),
+      orderBy: parcelOrderBy(sortField, queryDir),
       take: LIMIT,
     }),
     prisma.parcel.count({ where }),
     prisma.parcel.count({ where: { deletedAt: null, ...problemWhere } }),
   ]);
+
+  if (tail) parcels.reverse();
 
   const filter = { tracking: onlyProblems ? "problem" : undefined, ...searchParamsOf(search) };
   const sortHrefs = Object.fromEntries(
@@ -158,7 +161,7 @@ export default async function ParcelsPage({
       search={{ fields: clientFields(SEARCH_FIELDS) }}
       footer={
         <>
-          {total > parcels.length ? `Показаны ${parcels.length} из ${total} — уточните поиск (Ctrl+F)` : `${total} посылок`}
+          {total > parcels.length ? `Показаны ${tail ? "последние " : ""}${parcels.length} из ${total} — уточните поиск (Ctrl+F)` : `${total} посылок`}
           {onlyProblems ? " требуют внимания" : ""} · отметьте посылки слева, чтобы поставить статус сразу нескольким
         </>
       }

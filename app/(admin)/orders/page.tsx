@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import OrdersSelectTable, { type OrderRow } from "@/components/orders/orders-select-table";
-import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
+import { parseSortParam, buildListHref, journalOrder, type SortDirection } from "@/lib/list-params";
 import Form from "@/components/form/form";
 import { clientFields, readListSearch, searchConditions, searchParamsOf, type ServerSearchField } from "@/lib/list-search";
 
@@ -76,6 +76,7 @@ export default async function OrdersPage({
 }) {
   const params = await searchParams;
   const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+  const { tail, queryDir } = journalOrder(sortField, sortDir);
   const search = readListSearch(params);
   const where: Prisma.OrderWhereInput = { deletedAt: null, AND: searchConditions(search, SEARCH_FIELDS) };
 
@@ -83,11 +84,12 @@ export default async function OrdersPage({
     prisma.order.findMany({
       where,
       include: { customer: true, recipient: true },
-      orderBy: orderOrderBy(sortField, sortDir),
+      orderBy: orderOrderBy(sortField, queryDir),
       take: LIMIT,
     }),
     prisma.order.count({ where }),
   ]);
+  if (tail) orders.reverse();
 
   const sortHref = (field: SortField) => {
     const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
@@ -130,7 +132,7 @@ export default async function OrdersPage({
       search={{ fields: clientFields(SEARCH_FIELDS) }}
       footer={
         <>
-          {total > orders.length ? `Показаны ${orders.length} из ${total} — уточните поиск (Ctrl+F)` : `${total} заказов`} · отметьте
+          {total > orders.length ? `Показаны ${tail ? "последние " : ""}${orders.length} из ${total} — уточните поиск (Ctrl+F)` : `${total} заказов`} · отметьте
           принятые → «Оформить на отправку»
         </>
       }

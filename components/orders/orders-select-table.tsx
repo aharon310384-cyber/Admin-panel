@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Send } from "lucide-react";
 import type { OrderStatus } from "@prisma/client";
+import ScrollToEnd from "@/components/ui/scroll-to-end";
 import SortableHeader from "@/components/ui/sortable-header";
+import { journalOrder } from "@/lib/list-params";
 import { formatUsd, formatNumber } from "@/lib/utils";
 import { orderStatusLabel, deliveryTypeLabel, ORDER_STATUS_COLOR } from "@/lib/statuses";
 
@@ -168,6 +170,7 @@ export default function OrdersSelectTable({
             </tbody>
           </table>
         </div>
+        <ScrollToEnd token={journalOrder(sortField, sortDir).tail ? orders.at(-1)?.id ?? null : null} />
       </div>
 
       {count > 0 && (

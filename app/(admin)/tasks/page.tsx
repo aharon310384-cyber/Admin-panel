@@ -4,11 +4,12 @@ import type { ParcelTaskStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import { TASK_STATUS_COLOR, TASK_STATUS_LABELS, taskStatusLabel } from "@/lib/statuses";
-import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
+import { parseSortParam, buildListHref, journalOrder, type SortDirection } from "@/lib/list-params";
 import { clientFields, readListSearch, searchConditions, searchParamsOf, type ServerSearchField } from "@/lib/list-search";
 import Form from "@/components/form/form";
 import ListFilters from "@/components/form/list-filters";
 import ClickableRow from "@/components/ui/clickable-row";
+import ScrollToEnd from "@/components/ui/scroll-to-end";
 import SortableHeader from "@/components/ui/sortable-header";
 
 export const metadata: Metadata = { title: "Задачи" };
@@ -67,6 +68,7 @@ type Params = {
 export default async function TasksPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   const [sortField, sortDir] = parseSortParam(params.sort, SORT_FIELDS, "createdAt", "desc");
+  const { tail, queryDir } = journalOrder(sortField, sortDir);
   const search = readListSearch(params);
   const status = STATUSES.find((s) => s === params.status) ?? null;
   const from = day(params.from);
@@ -91,13 +93,14 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         parcel: { select: { id: true, number: true } },
         _count: { select: { orders: { where: { deletedAt: null } } } },
       },
-      orderBy: taskOrderBy(sortField, sortDir),
+      orderBy: taskOrderBy(sortField, queryDir),
       take: LIMIT,
     }),
     prisma.parcelTask.count({ where }),
     prisma.customer.findMany({ where: { deletedAt: null, code: { not: null } }, select: { code: true, name: true }, orderBy: { code: "asc" } }),
     prisma.parcelTask.findMany({ where: { destinationCountry: { not: null } }, select: { destinationCountry: true }, distinct: ["destinationCountry"] }),
   ]);
+  if (tail) tasks.reverse();
   const countries = await prisma.country.findMany({
     where: { code: { in: countryCodes.map((c) => c.destinationCountry!).filter(Boolean) } },
     select: { code: true, nameEn: true },
@@ -136,7 +139,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         }
         footer={
           <>
-            {total > tasks.length ? `Показаны ${tasks.length} из ${total} — уточните поиск или отбор` : `${total} задач`} · только просмотр: задачи
+            {total > tasks.length ? `Показаны ${tail ? "последние " : ""}${tasks.length} из ${total} — уточните поиск или отбор` : `${total} задач`} · только просмотр: задачи
             создаются загрузкой из Excel и оформлением заказов
           </>
         }
@@ -179,6 +182,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
               </tbody>
             </table>
           </div>
+          <ScrollToEnd token={tail ? tasks.at(-1)?.id ?? null : null} />
         </div>
       </Form>
 

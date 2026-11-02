@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ParcelStatus } from "@prisma/client";
+import ScrollToEnd from "@/components/ui/scroll-to-end";
 import SortableHeader from "@/components/ui/sortable-header";
+import { journalOrder } from "@/lib/list-params";
 import { setParcelsStatus } from "@/actions/parcel-form";
 import { formatNumber, formatUsd } from "@/lib/utils";
 import { PARCEL_STATUS_COLOR, PARCEL_STATUS_LABELS, parcelStatusLabel } from "@/lib/statuses";
@@ -144,6 +146,7 @@ export default function ParcelsTable({
             </tbody>
           </table>
         </div>
+        <ScrollToEnd token={journalOrder(sortField, sortDir).tail ? rows.at(-1)?.id ?? null : null} />
       </div>
 
       {(selected.size > 0 || result) && (
