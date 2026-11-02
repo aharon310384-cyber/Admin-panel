@@ -18,7 +18,8 @@ export const EXCEL_FIELDS = [
   { key: "totalUsd", label: "Итого, $" },
   { key: "rate", label: "Курс ¥ за $" },
   { key: "rateEur", label: "Курс ¥ за €" },
-  { key: "euItemKinds", label: "Виды товаров для Европы" },
+  // ключ старый (раньше в колонке ждали число видов) — так он записан в настройках загрузки
+  { key: "euItemKinds", label: "Пошлина ЕС, € (€3 = 1 вид)" },
   { key: "localDeliveryCny", label: "Локальная доставка, ¥" },
   { key: "discountPercent", label: "Скидка, %" },
   { key: "totalCny", label: "Итого, ¥" },

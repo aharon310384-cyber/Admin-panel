@@ -8,7 +8,7 @@ import { auth } from "@/auth";
 import { nextParcelTaskNumber } from "@/lib/parcel-number";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { notifyParcelStatusChange, notifyParcelPaid } from "@/lib/notify";
-import { computeEuCustomsDuty, type DutyOrderLine, type DutyResult } from "@/lib/eu-customs";
+import { computeEuCustomsDuty, parcelDutyRates, type DutyOrderLine, type DutyResult } from "@/lib/eu-customs";
 import { parcelStatusLabel, PARCEL_STATUS_LABELS } from "@/lib/statuses";
 import { ensureBaseline, ensureBaselines, recordVersion, recordVersions } from "@/lib/versions";
 import { trackAfterResponse } from "@/lib/tracking";
@@ -88,9 +88,15 @@ async function saveParcelServices(
 async function calcDutyFor(
   recipientId: string | null | undefined,
   orders: (DutyOrderLine & { declaredValueUsd?: unknown })[],
-  opts?: { manualLineCount?: number | null; passToClientOverride?: boolean | null },
-): Promise<{ duty: DutyResult; passToClient: boolean }> {
+  opts?: {
+    manualLineCount?: number | null;
+    passToClientOverride?: boolean | null;
+    /** курсы посылки — приоритетнее «Финансы» */
+    parcel?: { exchangeRateCnyPerUsd: unknown; exchangeRateCnyPerEur: unknown };
+  },
+): Promise<{ duty: DutyResult; passToClient: boolean; rateEur: number | null }> {
   const settings = await getFinanceSettings();
+  const rates = parcelDutyRates(opts?.parcel ?? null, settings);
   let destinationIsEu = false;
   if (recipientId) {
     const recipient = await prisma.recipient.findUnique({
@@ -110,15 +116,15 @@ async function calcDutyFor(
     enabled: settings.euDutyEnabled,
     destinationIsEu,
     declaredValueUsd,
-    exchangeRateCnyPerEur: settings.exchangeRateCnyPerEur,
-    exchangeRateCnyPerUsd: settings.exchangeRateCnyPerUsd,
+    exchangeRateCnyPerEur: rates.eur,
+    exchangeRateCnyPerUsd: rates.usd,
     orders,
     manualLineCount: opts?.manualLineCount ?? null,
   });
   // Переопределение на уровне посылки приоритетнее глобальной настройки
   const passToClient =
     opts?.passToClientOverride != null ? opts.passToClientOverride : settings.euDutyPassToClient;
-  return { duty, passToClient };
+  return { duty, passToClient, rateEur: rates.eur };
 }
 
 /**
@@ -164,7 +170,7 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
   const tariff = await findShippingTariff(recipient.countryCode, first.deliveryType);
   const shippingCostUsd = tariff ? round2(billable * Number(tariff.pricePerKgUsd) + Number(tariff.handlingFeeUsd)) : 0;
 
-  const { duty, passToClient } = await calcDutyFor(first.recipientId, orders);
+  const { duty, passToClient, rateEur } = await calcDutyFor(first.recipientId, orders);
   if (duty.reason === "no-rate") return { error: RATE_EUR_MISSING };
   const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
   // услуги, выбранные клиентом на строках заказов, переходят в посылку (OR по строкам)
@@ -192,6 +198,7 @@ export async function createParcelFromOrders(orderIds: string[]): Promise<{ erro
         actualWeightKg: billable,
         billableWeightKg: billable,
         exchangeRateCnyPerUsd: rate,
+        exchangeRateCnyPerEur: rateEur,
         paymentTiming: tariff?.paymentTiming ?? "BEFORE",
         shippingCostUsd,
         customsDutyEur: duty.applies ? duty.dutyEur : null,
@@ -251,9 +258,10 @@ export async function applyParcelServices(
   });
   if (!parcel) return { ok: false };
 
-  const { duty, passToClient } = await calcDutyFor(parcel.recipientId, parcel.orders, {
+  const { duty, passToClient, rateEur } = await calcDutyFor(parcel.recipientId, parcel.orders, {
     manualLineCount: opts.customsDutyManualLines ?? null,
     passToClientOverride: opts.customsDutyPassToClient ?? null,
+    parcel,
   });
   if (duty.reason === "no-rate") return { ok: false, warning: `${RATE_EUR_MISSING} Квитанция не пересчитана.` };
   const dutyInTotal = passToClient && duty.applies ? duty.dutyUsd : 0;
@@ -331,6 +339,7 @@ export async function applyParcelServices(
       heightCm,
       shippingCostUsd: shipping,
       discountPercent,
+      exchangeRateCnyPerEur: rateEur,
       customsDutyEur: duty.applies ? duty.dutyEur : null,
       customsDutyUsd: duty.applies ? duty.dutyUsd : null,
       customsDutyLineCount: duty.applies ? duty.lineCount : null,

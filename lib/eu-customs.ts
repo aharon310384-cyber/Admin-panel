@@ -67,6 +67,21 @@ export type DutyResult = {
   reason?: "not-enabled" | "not-eu" | "no-orders" | "out-of-window" | "over-cap" | "no-rate";
 };
 
+/**
+ * Курсы для пошлины ЕС посылки: зафиксированные в ней (строка Excel, оформление, пересчёт квитанции), нет — из «Финансы».
+ * Иначе карточка считает пошлину по сегодняшнему курсу и пишет «пошлина изменилась», хотя посылка посчитана верно.
+ */
+export function parcelDutyRates(
+  parcel: { exchangeRateCnyPerUsd: unknown; exchangeRateCnyPerEur: unknown } | null,
+  finance: { exchangeRateCnyPerUsd: number | null; exchangeRateCnyPerEur: number | null },
+): { usd: number | null; eur: number | null } {
+  const rate = (value: unknown) => (value != null && Number(value) > 0 ? Number(value) : null);
+  return {
+    usd: rate(parcel?.exchangeRateCnyPerUsd) ?? finance.exchangeRateCnyPerUsd,
+    eur: rate(parcel?.exchangeRateCnyPerEur) ?? finance.exchangeRateCnyPerEur,
+  };
+}
+
 /** Рассчитать таможенную пошлину ЕС для посылки. */
 export function computeEuCustomsDuty(input: DutyInput): DutyResult {
   const { enabled, destinationIsEu, declaredValueUsd, exchangeRateCnyPerEur, exchangeRateCnyPerUsd, orders } = input;

@@ -125,6 +125,7 @@ function parcelData(p: ParcelDoc): VersionData {
       field("billableWeightKg", "Расчётный вес, кг", num(p.billableWeightKg)),
       field("dimensions", "Габариты Д×Ш×В, см", dims.some((d) => d != null) ? dims.map(num).join(" × ") : EMPTY),
       field("exchangeRate", "Курс, ¥ за $", num(p.exchangeRateCnyPerUsd)),
+      field("exchangeRateEur", "Курс, ¥ за €", num(p.exchangeRateCnyPerEur)),
       field("shippingCostUsd", "Отправка, $", usd(p.shippingCostUsd)),
       field("discountPercent", "Скидка, %", num(p.discountPercent)),
       field("declaredValueUsd", "Стоимость товаров, $", usd(p.declaredValueUsd)),

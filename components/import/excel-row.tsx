@@ -21,6 +21,14 @@ import ExcelFile from "@/components/import/excel-file";
 // Колонки листа (буквы Excel) — настройка сверху. ИИ находит только треки; остальное — из колонок.
 
 const money = (n: number | null, sign: string) => (n == null ? "—" : `${sign}${n.toFixed(2)}`);
+/** 1 вид, 2 вида, 5 видов */
+function kinds(n: number | null) {
+  if (n == null) return "—";
+  const tens = n % 100;
+  const last = n % 10;
+  const word = tens >= 11 && tens <= 14 ? "видов" : last === 1 ? "вид" : last >= 2 && last <= 4 ? "вида" : "видов";
+  return `${n} ${word}`;
+}
 // Дата отправки из строки — день без часового пояса: год.месяц.день, как везде.
 const dateLabel = (iso: string | null) => (iso ? iso.slice(0, 10).replaceAll("-", ".") : null);
 
@@ -441,7 +449,7 @@ export default function ExcelRow({
               <dt>Итого, $</dt><dd>{money(preview.totalUsd, "$")}</dd>
               <dt>Курс</dt><dd>{preview.rate}{preview.rateFromRow ? "" : " (из настроек)"}</dd>
               {preview.dutyCny != null && (
-                <><dt>Пошлина ЕС</dt><dd>{preview.euItemKinds} вид. × €3 = €{preview.dutyEur} × {preview.rateEur} = {money(preview.dutyCny, "¥")}</dd></>
+                <><dt>Пошлина ЕС</dt><dd>€{preview.dutyEur} ({kinds(preview.euItemKinds)}) × {preview.rateEur} = {money(preview.dutyCny, "¥")}</dd></>
               )}
               {preview.discountPercent != null && (<><dt>Скидка</dt><dd>{preview.discountPercent}%</dd></>)}
               <dt>Итого, ¥</dt><dd><b>{money(preview.totalCny, "¥")}</b></dd>
