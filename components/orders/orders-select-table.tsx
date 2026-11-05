@@ -18,6 +18,7 @@ export type OrderRow = {
   recipientName: string | null;
   productNameText: string | null;
   trackNumber: string | null;
+  trackCount: number; // заказов с этим треком (товаров в коробке)
   customerComment: string | null;
   quantity: number;
   unitPriceUsd: number | null;
@@ -33,6 +34,12 @@ type SortField = string;
 type SortDir = "asc" | "desc";
 
 const dash = (v: string | null | undefined) => v?.trim() || "—";
+/** 2 товара, 5 товаров, 21 товар */
+function goods(n: number) {
+  const tens = n % 100;
+  const last = n % 10;
+  return `${n} ${tens >= 11 && tens <= 14 ? "товаров" : last === 1 ? "товар" : last >= 2 && last <= 4 ? "товара" : "товаров"}`;
+}
 
 /** Ключ группировки: одна посылка = один клиент + получатель + вид доставки. */
 const groupKeyOf = (o: OrderRow) =>
@@ -145,7 +152,19 @@ export default function OrdersSelectTable({
                       />
                     </td>
                     <td className="text-muted">{o.createdAtLabel}</td>
-                    <td className="mono text-muted">{dash(o.trackNumber)}</td>
+                    <td className="mono text-muted">
+                      {dash(o.trackNumber)}
+                      {o.trackNumber && o.trackCount > 1 && (
+                        <Link
+                          href={`/orders?sf=track&sv=${encodeURIComponent(o.trackNumber)}&sm=exact`}
+                          className="track-count"
+                          title="В этом треке несколько товаров — показать все"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {goods(o.trackCount)}
+                        </Link>
+                      )}
+                    </td>
                     <td className="mono text-muted">{dash(o.number)}</td>
                     <td><span className="code-pill">{dash(o.customerCode)}</span></td>
                     <td className="tabular">{o.actualWeightKg != null ? formatNumber(o.actualWeightKg) : "—"}</td>
@@ -199,6 +218,8 @@ export default function OrdersSelectTable({
         .row-checkbox:disabled { cursor: not-allowed; opacity: 0.4; }
         .strong { font-weight: 600; }
         .mono { font-family: var(--font-mono); font-size: 12px; }
+        .track-count { margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-family: var(--font-sans); font-size: 11px; font-weight: 600; color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 10%, transparent); text-decoration: none; white-space: nowrap; }
+        .track-count:hover { text-decoration: underline; }
         .tabular { font-variant-numeric: tabular-nums; }
         .text-muted { color: var(--color-muted); }
         .comment { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

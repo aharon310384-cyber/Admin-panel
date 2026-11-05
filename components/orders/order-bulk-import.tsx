@@ -34,6 +34,11 @@ const DELIVERY_OPTS: { value: DeliveryValue; label: string }[] = [
 ];
 
 const norm = (s: string) => s.trim().toLowerCase();
+/** Трек для сравнения: без пробелов по краям, без разницы в регистре. */
+const trackKey = (track: string | null) => (track ?? "").trim().toUpperCase();
+
+/** Начальные значения окна — «+ Товар в этот трек» из карточки заказа (`/orders/new?track=…`). */
+export type BulkInitial = { customerId?: string; recipientId?: string; deliveryType?: DeliveryValue; trackNumber?: string };
 
 function emptyRow(): Row {
   return {
@@ -55,6 +60,7 @@ export default function OrderBulkImport({
   countries = [],
   deliveryTypesByCountry = {},
   serviceHints = {},
+  initial,
 }: {
   customers: CustomerOpt[];
   recipients: RecipientOpt[];
@@ -62,14 +68,15 @@ export default function OrderBulkImport({
   countries?: CountryOpt[];
   deliveryTypesByCountry?: Record<string, string[]>; // по тарифам из базы: «US» → ["AIR"]
   serviceHints?: ServiceHints; // названия услуг из «Логистика → Тарифы»
+  initial?: BulkInitial;
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
-  const [customerId, setCustomerId] = useState("");
-  const [recipientId, setRecipientId] = useState("");
-  const [deliveryType, setDeliveryType] = useState<DeliveryValue>("");
+  const [customerId, setCustomerId] = useState(initial?.customerId ?? "");
+  const [recipientId, setRecipientId] = useState(initial?.recipientId ?? "");
+  const [deliveryType, setDeliveryType] = useState<DeliveryValue>(initial?.deliveryType ?? "");
   const [recipientList, setRecipientList] = useState<RecipientOpt[]>(recipients);
-  const [rows, setRows] = useState<Row[]>([emptyRow()]);
+  const [rows, setRows] = useState<Row[]>([{ ...emptyRow(), trackNumber: initial?.trackNumber ?? null }]);
   const [rate, setRate] = useState<number | null>(null);
   const [error, setError] = useState<{ message: string; detail?: string } | null>(null);
   const [pendingRecipient, setPendingRecipient] = useState<{ name: string; country: string } | null>(null);
@@ -231,6 +238,26 @@ export default function OrderBulkImport({
   const addRow = () => {
     setRows((prev) => [...prev, emptyRow()]);
   };
+  // Ещё товар в ту же коробку: новая строка сразу под этой, трек и услуги — как у неё (каждый товар — свой заказ).
+  const addToTrack = (i: number) => {
+    setRows((prev) => {
+      const base = prev[i];
+      const next: Row = {
+        ...emptyRow(),
+        trackNumber: base.trackNumber,
+        detailedCheckRequested: base.detailedCheckRequested,
+        keepOriginalPackaging: base.keepOriginalPackaging,
+      };
+      return [...prev.slice(0, i + 1), next, ...prev.slice(i + 1)];
+    });
+  };
+  // Первый заказ с тем же треком выше этой строки — подпись «тот же трек, что у заказа N».
+  const sameTrackAs = (i: number) => {
+    const key = trackKey(rows[i].trackNumber);
+    if (!key) return null;
+    const first = rows.findIndex((r) => trackKey(r.trackNumber) === key);
+    return first >= 0 && first < i ? first : null;
+  };
 
   const matchedName = (value: string) => {
     const t = norm(value);
@@ -382,13 +409,24 @@ export default function OrderBulkImport({
           {rows.map((r, i) => {
             const matched = matchedName(r.productNameText);
             const declared = (r.unitPriceUsd ?? 0) * (r.quantity || 0);
+            const same = sameTrackAs(i);
             return (
               <div className="bi-row" key={i}>
                 <div className="bi-row-head">
-                  <span className="bi-row-num">Заказ {i + 1}</span>
-                  <button type="button" className="bi-del" onClick={() => removeRow(i)} aria-label="Удалить заказ">
-                    <Trash2 size={14} />
-                  </button>
+                  <span className="bi-row-num">
+                    Заказ {i + 1}
+                    {same != null && <span className="bi-row-same">тот же трек, что у заказа {same + 1}</span>}
+                  </span>
+                  <span className="bi-row-tools">
+                    {r.trackNumber?.trim() && (
+                      <button type="button" className="bi-same" onClick={() => addToTrack(i)}>
+                        <Plus size={13} /> Ещё товар в этот трек
+                      </button>
+                    )}
+                    <button type="button" className="bi-del" onClick={() => removeRow(i)} aria-label="Удалить заказ">
+                      <Trash2 size={14} />
+                    </button>
+                  </span>
                 </div>
                 <div className="bi-row-grid">
                   <label className="bi-field bi-field--wide">
@@ -523,6 +561,10 @@ export default function OrderBulkImport({
         .bi-row { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px; background: color-mix(in oklch, var(--color-muted-bg) 35%, var(--color-surface)); }
         .bi-row-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .bi-row-num { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-accent); }
+        .bi-row-same { margin-left: 8px; font-size: 11.5px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--color-muted); }
+        .bi-row-tools { display: inline-flex; align-items: center; gap: 8px; }
+        .bi-same { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px; border: 1px dashed var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+        .bi-same:hover { border-color: var(--color-accent); color: var(--color-accent); }
         .bi-row-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
         .bi-del { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-muted); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
         .bi-del:hover { color: var(--color-danger); border-color: color-mix(in oklch, var(--color-danger) 40%, transparent); }
