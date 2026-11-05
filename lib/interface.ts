@@ -116,12 +116,12 @@ export const SECTIONS: Section[] = [
     ],
   },
   {
-    code: "buyouts",
-    label: "Выкуп",
+    code: "purchases",
+    label: "Покупки",
     icon: ShoppingCart,
     items: [
-      { href: "/buyouts", label: "Выкупы", icon: ShoppingCart },
-      { href: "/buyouts/settings", label: "Настройки выкупа", icon: SlidersHorizontal },
+      { href: "/purchases", label: "Покупки", icon: ShoppingCart },
+      { href: "/purchases/settings", label: "Настройки покупки", icon: SlidersHorizontal },
     ],
   },
   {

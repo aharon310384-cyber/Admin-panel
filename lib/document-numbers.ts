@@ -23,7 +23,7 @@ export const DOCUMENT_PREFIXES = {
   payment: "PD", // Приход ДС
   paymentAllocation: "RP", // Распределение оплат по посылкам
   clientLedger: "DK", // Изменение долга клиента
-  buyout: "VK", // Выкуп — префикс по умолчанию; свой задаётся в настройках выкупа (BuyoutSettings.numberPrefix)
+  purchase: "VK", // Покупка — префикс по умолчанию; свой задаётся в настройках покупки (PurchaseSettings.numberPrefix)
 } as const;
 
 export type DocumentType = keyof typeof DOCUMENT_PREFIXES;

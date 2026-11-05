@@ -9,6 +9,7 @@ import { clientParcelNumber } from "@/lib/parcel-number";
 import StatusPill, { statusLabel } from "@/components/cabinet/status-pill";
 import TrackNumber from "@/components/cabinet/track-number";
 import { formatUsd, formatDate } from "@/lib/utils";
+import PurchaseStartButtons from "./purchases/_components/start-buttons";
 
 // Шаблон «%s | <компания>» из layout кабинета не действует на страницу того же сегмента
 export async function generateMetadata(): Promise<Metadata> {
@@ -85,6 +86,8 @@ export default async function ClientCabinetOverviewPage() {
           {client.code}
         </span>
       </header>
+
+      <PurchaseStartButtons />
 
       <div className="ov-bento">
         <Link href="/cabinet/parcels" className="ov-card ov-hero">

@@ -13,7 +13,7 @@ import InternalComments from "@/components/parcels/internal-comments";
 import { getTrackingKey, type TrackingEvent } from "@/lib/tracking";
 import { trackingStatusLabel, trackingUrl } from "@/lib/tracking-labels";
 import Form from "@/components/form/form";
-import ParcelPurchaseRows from "@/components/buyouts/parcel-purchase-rows";
+import ParcelPurchaseRows from "@/components/purchases/parcel-purchase-rows";
 
 const DUTY_REASON_LABEL: Record<string, string> = {
   "not-enabled": "мера отключена в настройках финансов",

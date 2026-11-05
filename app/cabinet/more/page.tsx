@@ -6,7 +6,7 @@ import { getClientCabinetContext } from "@/lib/client-cabinet";
 export const metadata: Metadata = { title: "Ещё" };
 
 const ITEMS = [
-  { href: "/cabinet/buyouts", label: "Выкуп", desc: "Купим в Китае за вас", icon: ShoppingCart },
+  { href: "/cabinet/purchases", label: "Мои покупки", desc: "Купим в Китае и доставим", icon: ShoppingCart },
   { href: "/cabinet/recipients", label: "Получатели", desc: "Адреса доставки", icon: Users },
   { href: "/cabinet/tariffs", label: "Тарифы", desc: "Стоимость доставки", icon: BadgeDollarSign },
   { href: "/cabinet/profile", label: "Профиль", desc: "Контакты и настройки", icon: User },

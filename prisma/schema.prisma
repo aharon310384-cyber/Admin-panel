@@ -117,8 +117,9 @@ enum LedgerReason {
   PAYMENT        // оплата (распределение)
   ADJUSTMENT     // ручная корректировка
   TOP_UP         // пополнение баланса (зачислен приход ДС по заявке на пополнение)
-  BUYOUT_PAYMENT // оплата выкупа с баланса
-  BUYOUT_REFUND  // возврат за выкуп на баланс (отказ, возврат товара)
+  PURCHASE_PAYMENT // оплата покупки с баланса (первое списание и доплаты)
+  PURCHASE_REFUND  // возврат по покупке: отказ, отменённые строки, разница в цене
+  PURCHASE_RETURN  // возврат товара продавцу: сумма, которую решил вернуть менеджер
 }
 
 // ─────────────────────────── КОМПАНИИ ───────────────────────────
@@ -158,8 +159,8 @@ model Company {
   serviceTariffs  ServiceTariff[]
   rateChanges     ExchangeRateChange[]
   ownerNotices    OwnerNotificationSettings[]
-  buyouts         Buyout[]
-  buyoutSettings  BuyoutSettings[]
+  purchases        Purchase[]
+  purchaseSettings PurchaseSettings[]
 }
 
 // ─────────────────────────── СОТРУДНИКИ ───────────────────────────
@@ -198,8 +199,8 @@ model User {
   payments           Payment[]
   paymentAllocations PaymentAllocation[]
   ledgerEntries      ClientLedger[]
-  buyoutsCreated      Buyout[]              @relation("BuyoutAuthor")
-  buyoutStatusChanges BuyoutStatusHistory[]
+  purchasesCreated      Purchase[]              @relation("PurchaseAuthor")
+  purchaseStatusChanges PurchaseStatusHistory[]
 
   interfaceSettings UserInterfaceSettings?
   objectVersions    ObjectVersion[]
@@ -395,7 +396,7 @@ model Customer {
   topUpRequests   TopUpRequest[]
   payments        Payment[]
   ledgerEntries   ClientLedger[]
-  buyouts         Buyout[]
+  purchases       Purchase[]
 
   @@index([code])
   @@index([phone])
@@ -434,6 +435,7 @@ model Recipient {
   author         User?    @relation("RecipientAuthor", fields: [authorId], references: [id])
   orders         Order[]
   parcels        Parcel[]
+  purchases      Purchase[]
 
   @@index([customerId])
   @@index([authorId])
@@ -496,7 +498,7 @@ model Order {
   statusHistory   OrderStatusHistory[]
   localDeliveries LocalDelivery[]
   assemblyItems   AssemblyItem[]
-  buyout          Buyout?              // заказ создан из выкупа (Buyout.orderId)
+  purchaseLine    PurchaseLine?        // заказ создан из строки покупки (PurchaseLine.orderId)
 
   @@index([customerId])
   @@index([recipientId])
@@ -1054,7 +1056,7 @@ model ClientLedger {
   parcelId            String?
   paymentAllocationId String?
   paymentId           String?      // приход ДС, зачисленный на баланс (TOP_UP)
-  buyoutId            String?      // выкуп: оплата с баланса и возврат (BUYOUT_PAYMENT, BUYOUT_REFUND)
+  purchaseId          String?      // покупка: оплата с баланса и возвраты (PURCHASE_PAYMENT, PURCHASE_REFUND, PURCHASE_RETURN)
   note                String?
   createdById         String?      // сотрудник; пусто — клиент из кабинета (оплата выкупа)
   createdAt           DateTime     @default(now())
@@ -1065,125 +1067,193 @@ model ClientLedger {
   parcel            Parcel?            @relation(fields: [parcelId], references: [id])
   paymentAllocation PaymentAllocation? @relation(fields: [paymentAllocationId], references: [id])
   payment           Payment?           @relation(fields: [paymentId], references: [id])
-  buyout            Buyout?            @relation(fields: [buyoutId], references: [id])
+  purchase          Purchase?          @relation(fields: [purchaseId], references: [id])
   createdBy         User?              @relation(fields: [createdById], references: [id])
 
   @@index([customerId])
   @@index([parcelId])
   @@index([paymentAllocationId])
   @@index([paymentId])
-  @@index([buyoutId])
+  @@index([purchaseId])
 }
 
-// ─────────────────────────── ВЫКУП ───────────────────────────
-// Выкуп товара за клиента, ступень 1 (docs/product/задание-выкуп.md, инструкция — docs/product/инструкция-выкуп.md).
-// Клиент присылает ссылку или контакт продавца → менеджер ставит цену → клиент платит с баланса → сотрудник
-// покупает → вписывает трек продавца → программа создаёт заказ ZK-… → обычный путь склада.
+// ─────────────────────────── ПОКУПКА ───────────────────────────
+// Покупка под ключ (FOX2DOOR, ступень 1): docs/product/задание-выкуп.md, инструкция — docs/product/инструкция-покупка.md.
+// Три объекта, не путать: покупка — что купить (корзина, трека ещё может не быть); заказ ZK-… — поступление на склад
+// с китайским треком; посылка PS-… — международное отправление. Цепочка: покупка → заказы по трекам → задача → посылка.
 
-enum BuyoutKind {
+enum PurchaseMode {
+  TURNKEY     // под ключ: купить, принять, проверить, отправить
+  BUYOUT_ONLY // только выкуп: купить и принять на склад; по запросу, клиентам — если включено в настройках
+}
+
+enum PurchaseStatus {
+  NEW          // Новая
+  PRICED       // Цена назначена — ждём оплату клиента
+  PAID         // Оплачена
+  PURCHASED    // Выкуплена: куплены все строки
+  AT_WAREHOUSE // На складе: пришли все строки
+  SHIPPED      // Отправлена: заказы в посылке
+  REJECTED     // Отказ (с причиной)
+  CANCELED     // Отменена клиентом
+  RETURNED     // Возврат: все купленные строки возвращены
+}
+
+enum PurchaseLineKind {
   LINK    // по ссылке: Taobao / Tmall, 1688, Weidian и любая другая
   CONTACT // по контакту (WeChat): скриншот, QR-код или контакт продавца
 }
 
-enum BuyoutStatus {
-  NEW          // Новая
-  PRICED       // Цена назначена — ждём оплату клиента
-  PAID         // Оплачена с баланса
-  PURCHASED    // Выкуплена у продавца
-  SHIPPED      // Отправлена продавцом: есть трек, создан заказ
+enum PurchaseLineStatus {
+  WAITING      // Ждёт покупки
+  PURCHASED    // Выкуплена
+  SHIPPED      // Отправлена продавцом: есть трек и заказ
   AT_WAREHOUSE // На складе: заказ принят
-  REJECTED     // Отказ (с причиной)
-  CANCELED     // Отменена клиентом
-  RETURNED     // Возврат
+  REJECTED     // Отказ
+  RETURNED     // Возврат продавцу
 }
 
-enum BuyoutReturnKind {
-  SELLER // брак или не тот товар — за счёт продавца, клиенту всё назад
+enum PurchaseBuyer {
+  STAFF // сотрудник своим аккаунтом
+  AUTO  // автовыкуп (будущая ступень)
+}
+
+enum PurchaseReturnKind {
+  SELLER // брак или не тот товар — за счёт продавца
   CLIENT // клиент передумал — за счёт клиента: доставка продавцу и комиссия
 }
 
-/// Выкуп (VK-…): заявка клиента купить товар в Китае за него. Деньги — в юанях.
-model Buyout {
-  id                String            @id @default(cuid())
-  number            String            @unique // VK-000001: префикс — в настройках выкупа (lib/document-numbers.ts)
-  companyId         String?           // чья компания (компания клиентов — её бренд в кабинете)
-  customerId        String
-  kind              BuyoutKind        @default(LINK)
-  status            BuyoutStatus      @default(NEW)
-  // что купить
-  url               String?           // ссылка на товар
-  sellerContact     String?           // контакт продавца для «по контакту»: WeChat ID, телефон, название магазина
-  attachments       Json?             // вложения клиента: [{ url, name }] — скриншот, QR-код, фото
-  productName       String
-  variant           String?           // вариант: размер, цвет
-  quantity          Int               @default(1)
-  customerComment   String?
-  internalComment   String?           // видят только сотрудники
-  photoUrl          String?           // фото товара — переходит в заказ
-  // деньги, ¥
-  unitPriceCny      Decimal?          // цена товара за штуку
-  goodsCny          Decimal?          // товар = цена × количество
-  chinaDeliveryCny  Decimal?          // доставка по Китаю до склада
-  commissionPercent Decimal?          // процент комиссии на момент расчёта (из настроек)
-  commissionCny     Decimal?          // комиссия: % от товара, не меньше минимума; менеджер может поправить
-  commissionManual  Boolean           @default(false) // комиссию поправил менеджер
-  totalCny          Decimal?          // итого клиенту = товар + доставка по Китаю + комиссия
-  paidToSellerCny   Decimal?          // фактически заплачено продавцу (наша разница — totalCny минус это)
-  // ход выкупа
-  sellerTrack       String?           // трек-номер продавца (китайская служба) — входящий трек заказа
-  orderId           String?           @unique // заказ ZK-…, созданный из выкупа
-  rejectReason      String?
-  returnKind        BuyoutReturnKind?
-  returnCostCny     Decimal?          // при возврате за счёт клиента: доставка продавцу
-  refundCny         Decimal?          // возвращено на баланс
-  pricedAt          DateTime?
-  paidAt            DateTime?
-  purchasedAt       DateTime?
-  shippedAt         DateTime?
-  createdById       String?           // сотрудник; пусто — клиент из кабинета
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  deletedAt         DateTime?
+/// Покупка (VK-…): клиент просит купить товары в Китае и (под ключ) доставить. Деньги — в юанях.
+model Purchase {
+  id                      String         @id @default(cuid())
+  number                  String         @unique // VK-000001: префикс — в настройках покупки (lib/document-numbers.ts)
+  companyId               String?        // чья компания (компания клиентов — её бренд в кабинете)
+  customerId              String
+  mode                    PurchaseMode   @default(TURNKEY)
+  status                  PurchaseStatus @default(NEW)
+  // куда доставить (под ключ)
+  countryCode             String?        // страна получения (ISO)
+  recipientId             String?        // получатель из списка клиента — переходит в заказы
+  deliveryType            String?        // вид доставки (справочник DeliveryMethod) — переходит в заказы
+  estimatedWeightKg       Decimal?       // примерный вес покупки — для ориентировочной доставки
+  // услуги — те же, что у заказа; переходят в заказы
+  consolidationRequested  Boolean        @default(false)
+  compactPackRequested    Boolean        @default(false)
+  standardCheckRequested  Boolean        @default(false)
+  detailedCheckRequested  Boolean        @default(false)
+  reinforcedPackRequested Boolean        @default(false)
+  keepOriginalPackaging   Boolean        @default(true)
+  customerComment         String?
+  internalComment         String?        // видят только сотрудники
+  // к оплате сейчас, ¥ — по строкам без отказа
+  goodsCny                Decimal?       // товар
+  chinaDeliveryCny        Decimal?       // доставка по Китаю до склада
+  commissionPercent       Decimal?       // процент и минимум комиссии на момент цены (из настроек)
+  commissionMinCny        Decimal?
+  commissionCny           Decimal?       // комиссия: % от товара, не меньше минимума; менеджер может поправить
+  commissionManual        Boolean        @default(false)
+  totalCny                Decimal?       // итого за покупку = товар + доставка по Китаю + комиссия
+  // ориентировочно — не к оплате сейчас: доставку за границу клиент платит после взвешивания посылки
+  shippingEstimateCny     Decimal?       // международная доставка по тарифу и примерному весу; пусто — «рассчитает менеджер»
+  servicesEstimateCny     Decimal?       // услуги по тарифам (то, что считается по весу и числу товаров)
+  dutyEstimateCny         Decimal?       // возможная пошлина (ЕС: €3 за вид товара)
+  rejectReason            String?
+  // время шагов — записывает программа (стратегия FOX2DOOR, раздел 10)
+  pricedAt                DateTime?
+  paidAt                  DateTime?
+  purchasedAt             DateTime?
+  arrivedAt               DateTime?      // все строки на складе
+  shippedAt               DateTime?      // заказы в посылке
+  createdById             String?        // сотрудник; пусто — клиент из кабинета
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  deletedAt               DateTime?
 
-  company       Company?              @relation(fields: [companyId], references: [id])
-  customer      Customer              @relation(fields: [customerId], references: [id])
-  order         Order?                @relation(fields: [orderId], references: [id])
-  createdBy     User?                 @relation("BuyoutAuthor", fields: [createdById], references: [id])
-  statusHistory BuyoutStatusHistory[]
+  company       Company?                @relation(fields: [companyId], references: [id])
+  customer      Customer                @relation(fields: [customerId], references: [id])
+  recipient     Recipient?              @relation(fields: [recipientId], references: [id])
+  createdBy     User?                   @relation("PurchaseAuthor", fields: [createdById], references: [id])
+  lines         PurchaseLine[]
+  statusHistory PurchaseStatusHistory[]
   ledgerEntries ClientLedger[]
 
   @@index([companyId])
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
+}
+
+/// Строка покупки — один товар корзины (как табличная часть документа в 1С). У строки свой продавец, трек и статус:
+/// продавцы отправляют в разное время. Трек вписан — у строки свой заказ ZK-…; строки с одним треком — одна коробка.
+model PurchaseLine {
+  id               String             @id @default(cuid())
+  purchaseId       String
+  lineNo           Int                // № строки в покупке: 1, 2, 3…
+  kind             PurchaseLineKind   @default(LINK)
+  status           PurchaseLineStatus @default(WAITING)
+  url              String?            // ссылка на товар
+  sellerContact    String?            // контакт продавца: WeChat ID, телефон, магазин
+  attachments      Json?              // вложения клиента: [{ url, name }] — скриншот, QR-код
+  marketplace      String?            // площадка: TAOBAO, TMALL, 1688, WEIDIAN, WECHAT, OTHER… (lib/purchase-lines.ts)
+  seller           String?            // продавец / магазин
+  productName      String
+  variant          String?            // размер, цвет
+  quantity         Int                @default(1)
+  unitPriceCny     Decimal?           // цена за штуку (клиент может указать примерно, менеджер — точно)
+  chinaDeliveryCny Decimal?           // доставка по Китаю до склада от этого продавца
+  photoUrl         String?            // фото товара — переходит в заказ
+  // место под автовыкуп (ступень 2+): кто покупает, номер заказа у продавца, сколько заплачено
+  buyer            PurchaseBuyer      @default(STAFF)
+  sellerOrderNo    String?
+  paidToSellerCny  Decimal?           // фактически заплачено продавцу (наша разница)
+  // ход строки
+  sellerTrack      String?            // трек продавца — входящий трек заказа
+  orderId          String?            @unique // заказ ZK-…, созданный из строки
+  rejectReason     String?
+  returnKind       PurchaseReturnKind?
+  returnCostCny    Decimal?           // возврат за счёт клиента: доставка продавцу
+  refundCny        Decimal?           // по возврату вернули на баланс
+  purchasedAt      DateTime?
+  shippedAt        DateTime?
+  arrivedAt        DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  order    Order?   @relation(fields: [orderId], references: [id])
+
+  @@unique([purchaseId, lineNo])
   @@index([sellerTrack])
+  @@index([status])
 }
 
-model BuyoutStatusHistory {
-  id          String       @id @default(cuid())
-  buyoutId    String
-  status      BuyoutStatus
-  changedById String?      // сотрудник; пусто — клиент из кабинета или программа
-  byClient    Boolean      @default(false)
+model PurchaseStatusHistory {
+  id          String         @id @default(cuid())
+  purchaseId  String
+  status      PurchaseStatus // статус покупки после события
+  lineNo      Int?           // событие строки: «строка 2 — выкуплена»
+  changedById String?        // сотрудник; пусто — клиент из кабинета или программа
+  byClient    Boolean        @default(false)
   note        String?
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime       @default(now())
 
-  buyout    Buyout @relation(fields: [buyoutId], references: [id], onDelete: Cascade)
-  changedBy User?  @relation(fields: [changedById], references: [id])
+  purchase  Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  changedBy User?    @relation(fields: [changedById], references: [id])
 
-  @@index([buyoutId])
+  @@index([purchaseId])
 }
 
-/// Настройки выкупа и пополнения баланса — свои у каждой компании (компания клиентов). «Выкуп → Настройки выкупа».
+/// Настройки покупки и пополнения баланса — свои у каждой компании (компания клиентов). «Покупки → Настройки покупки».
 /// Чисел в коде нет: не задан процент комиссии — цену не посчитать, программа просит его задать.
-model BuyoutSettings {
+model PurchaseSettings {
   id                   String   @id @default(cuid())
   companyId            String?  @unique
+  clientBuyoutOnly     Boolean  @default(false) // клиент может выбрать «Только выкуп»; выключено — только менеджер
   commissionPercent    Decimal? // комиссия, % от суммы товара
   commissionMinCny     Decimal? // минимальная комиссия, ¥
-  numberPrefix         String?  // префикс номера выкупа (латиница); пусто — VK
+  numberPrefix         String?  // префикс номера покупки (латиница); пусто — VK
   rejectReasons        String[] @default([]) // причины отказа для кнопки «Отказать»
-  rulesText            String?  // условия сервиса: показываются клиенту в форме заявки
+  rulesText            String?  // условия сервиса: показываются клиенту в форме «Хочу купить»
   topUpMethods         String[] @default([]) // способы пополнения баланса
   topUpInstructions    String?  // куда платить: реквизиты — клиенту на странице баланса
   topUpConfirmAboveCny Decimal? // зачисление больше этой суммы — с повторным вводом пароля; пусто — пароль всегда

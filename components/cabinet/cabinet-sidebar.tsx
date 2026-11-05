@@ -29,7 +29,7 @@ const PRIMARY: Item[] = [
 
 // Под разделительной линией
 const SECONDARY: Item[] = [
-  { href: "/cabinet/buyouts", label: "Выкуп", icon: ShoppingCart },
+  { href: "/cabinet/purchases", label: "Мои покупки", icon: ShoppingCart },
   { href: "/cabinet/recipients", label: "Получатели", icon: Users },
 ];
 

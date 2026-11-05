@@ -2,9 +2,9 @@
 // Цепочка — docs/product/документооборот.md, раздел 1. Ветки без документов не показываются.
 import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatNumber } from "@/lib/utils";
-import { buyoutStatusLabel, orderStatusLabel, parcelStatusLabel, taskStatusLabel } from "@/lib/statuses";
+import { orderStatusLabel, parcelStatusLabel, purchaseStatusLabel, taskStatusLabel } from "@/lib/statuses";
 
-export type RelatedDoc = "order" | "parcel" | "task" | "buyout";
+export type RelatedDoc = "order" | "parcel" | "task" | "purchase";
 
 export type RelatedNode = {
   key: string;
@@ -65,32 +65,49 @@ async function orderBranch(orderId: string, current: string | null, withTask: bo
   );
 }
 
-// Выкуп — основание заказа (docs/product/задание-выкуп.md): над заказом из выкупа — выкуп, рядом его деньги
-// (оплата с баланса и возврат — «Изменение долга клиента»). Заказ не из выкупа возвращается как есть.
-async function withBuyout(orderNode: RelatedNode | null, orderId: string, current: string | null): Promise<RelatedNode | null> {
-  if (!orderNode) return null;
-  const buyout = await prisma.buyout.findUnique({ where: { orderId }, select: { id: true } });
-  return buyout ? buyoutBranch(buyout.id, current, orderNode) : orderNode;
-}
-
-async function buyoutBranch(buyoutId: string, current: string | null, orderNode: RelatedNode | null): Promise<RelatedNode | null> {
-  const buyout = await prisma.buyout.findUnique({
-    where: { id: buyoutId },
+// Покупка — основание заказов (docs/product/задание-выкуп.md): над заказами строк — покупка, рядом её деньги
+// (оплата с баланса, доплаты и возвраты — «Изменение долга клиента»). Заказы не из покупки остаются как есть.
+async function purchaseBranch(purchaseId: string, current: string | null, orderNodes: RelatedNode[]): Promise<RelatedNode | null> {
+  const purchase = await prisma.purchase.findUnique({
+    where: { id: purchaseId },
     include: { ledgerEntries: { orderBy: { createdAt: "asc" } } },
   });
-  if (!buyout) return null;
-  const children: RelatedNode[] = buyout.ledgerEntries.map((entry) => node("Изменение долга клиента", entry, { note: money(entry.amount) }));
-  if (orderNode) children.push(orderNode);
+  if (!purchase) return null;
+  const children: RelatedNode[] = purchase.ledgerEntries.map((entry) => node("Изменение долга клиента", entry, { note: money(entry.amount) }));
+  children.push(...orderNodes);
   return node(
-    "Выкуп",
-    buyout,
+    "Покупка",
+    purchase,
     {
-      note: [buyout.totalCny != null ? `¥${formatNumber(Number(buyout.totalCny))}` : null, buyoutStatusLabel(buyout.status)].filter(Boolean).join(" · "),
-      href: `/buyouts/${buyout.id}`,
-      current: current === `Выкуп:${buyout.id}`,
+      note: [purchase.totalCny != null ? `¥${formatNumber(Number(purchase.totalCny))}` : null, purchaseStatusLabel(purchase.status)].filter(Boolean).join(" · "),
+      href: `/purchases/${purchase.id}`,
+      current: current === `Покупка:${purchase.id}`,
     },
     children
   );
+}
+
+/** Ветки заказов, сгруппированные под их покупками: заказы одной покупки — под одним узлом «Покупка». */
+async function withPurchases(orderIds: string[], current: string | null, withTask: boolean): Promise<RelatedNode[]> {
+  const lines = await prisma.purchaseLine.findMany({ where: { orderId: { in: orderIds } }, select: { orderId: true, purchaseId: true } });
+  const purchaseOf = new Map(lines.map((l) => [l.orderId!, l.purchaseId]));
+  const roots: RelatedNode[] = [];
+  const grouped = new Map<string, RelatedNode[]>();
+  for (const orderId of orderIds) {
+    const branch = await orderBranch(orderId, current, withTask);
+    if (!branch) continue;
+    const purchaseId = purchaseOf.get(orderId);
+    if (!purchaseId) roots.push(branch);
+    else {
+      if (!grouped.has(purchaseId)) grouped.set(purchaseId, []);
+      grouped.get(purchaseId)!.push(branch);
+    }
+  }
+  for (const [purchaseId, nodes] of grouped) {
+    const branch = await purchaseBranch(purchaseId, current, nodes);
+    if (branch) roots.unshift(branch);
+  }
+  return roots;
 }
 
 // Задача на формирование посылки: сборка, упаковка, взвешивание, посылка со всем, что после неё.
@@ -182,13 +199,16 @@ async function parcelBranch(parcelId: string, current: string | null): Promise<R
 // Дерево для окна «Связанные документы». Из заказа — заказ и всё, что из него выросло.
 // Из посылки и из задачи — заказы задачи (основания) и задача с посылкой.
 export async function relatedTree(doc: RelatedDoc, id: string): Promise<RelatedTree | null> {
-  if (doc === "buyout") {
-    const buyout = await prisma.buyout.findUnique({ where: { id }, select: { number: true, productName: true, orderId: true } });
-    if (!buyout) return null;
-    const current = `Выкуп:${id}`;
-    const order = buyout.orderId ? await orderBranch(buyout.orderId, current, true) : null;
-    const root = await buyoutBranch(id, current, order);
-    return root ? { title: `Выкуп ${buyout.number} (${buyout.productName})`, roots: [root] } : null;
+  if (doc === "purchase") {
+    const purchase = await prisma.purchase.findUnique({
+      where: { id },
+      select: { number: true, lines: { where: { orderId: { not: null } }, select: { orderId: true }, orderBy: { lineNo: "asc" } } },
+    });
+    if (!purchase) return null;
+    const current = `Покупка:${id}`;
+    const orders = (await Promise.all(purchase.lines.map((l) => orderBranch(l.orderId!, current, true)))).filter((b): b is RelatedNode => b !== null);
+    const root = await purchaseBranch(id, current, orders);
+    return root ? { title: `Покупка ${purchase.number}`, roots: [root] } : null;
   }
 
   if (doc === "task") {
@@ -198,18 +218,16 @@ export async function relatedTree(doc: RelatedDoc, id: string): Promise<RelatedT
     });
     if (!task) return null;
     const current = `Задача:${id}`;
-    const orders = (await Promise.all(task.orders.map(async (order) => withBuyout(await orderBranch(order.id, current, false), order.id, current)))).filter(
-      (branch): branch is RelatedNode => branch !== null
-    );
+    const orders = await withPurchases(task.orders.map((order) => order.id), current, false);
     const tail = await taskBranch(id, current);
     return { title: `Задача ${task.number}`, roots: tail ? [...orders, tail] : orders };
   }
 
   if (doc === "order") {
     const order = await prisma.order.findUnique({ where: { id }, select: { number: true, trackNumber: true } });
-    const root = order && (await withBuyout(await orderBranch(id, `Заказ:${id}`, true), id, `Заказ:${id}`));
-    if (!order || !root) return null;
-    return { title: `Заказ ${order.number ?? ""}${order.trackNumber ? ` (${order.trackNumber})` : ""}`, roots: [root] };
+    const roots = order ? await withPurchases([id], `Заказ:${id}`, true) : [];
+    if (!order || !roots.length) return null;
+    return { title: `Заказ ${order.number ?? ""}${order.trackNumber ? ` (${order.trackNumber})` : ""}`, roots };
   }
 
   const parcel = await prisma.parcel.findUnique({
@@ -218,9 +236,7 @@ export async function relatedTree(doc: RelatedDoc, id: string): Promise<RelatedT
   });
   if (!parcel) return null;
   const current = `Посылка:${parcel.id}`;
-  const orders = (await Promise.all(parcel.orders.map(async (order) => withBuyout(await orderBranch(order.id, current, false), order.id, current)))).filter(
-    (branch): branch is RelatedNode => branch !== null
-  );
+  const orders = await withPurchases(parcel.orders.map((order) => order.id), current, false);
   const tail = parcel.parcelTaskId ? await taskBranch(parcel.parcelTaskId, current) : await parcelBranch(parcel.id, current);
   return {
     title: `Посылка ${parcel.number}${parcel.trackingNumber ? ` (${parcel.trackingNumber})` : ""}`,

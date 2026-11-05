@@ -5,12 +5,12 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import { TOP_UP_STATUS_COLOR, TOP_UP_STATUS_LABELS } from "@/lib/statuses";
-import { yuan } from "@/lib/buyout-money";
+import { yuan } from "@/lib/purchase-money";
 import { LEDGER_REASON_LABELS, clientBalance } from "@/lib/balance";
-import { getBuyoutSettings } from "@/lib/buyouts";
+import { getPurchaseSettings } from "@/lib/purchases";
 import Form from "@/components/form/form";
-import TopUpActions from "@/components/buyouts/top-up-actions";
-import { BUYOUT_ADMIN_CSS } from "@/components/buyouts/admin-styles";
+import TopUpActions from "@/components/purchases/top-up-actions";
+import { PURCHASE_ADMIN_CSS } from "@/components/purchases/admin-styles";
 
 export const metadata: Metadata = { title: "Заявка на пополнение" };
 
@@ -31,7 +31,7 @@ export default async function TopUpPage({ params }: { params: Promise<{ id: stri
       },
     }),
     auth(),
-    getBuyoutSettings(),
+    getPurchaseSettings(),
   ]);
   if (!request) notFound();
   const balance = await clientBalance(request.customerId);
@@ -64,7 +64,7 @@ export default async function TopUpPage({ params }: { params: Promise<{ id: stri
                   <h3 className="card-title" style={{ marginTop: 12 }}>Скриншот оплаты</h3>
                   <div className="bo-files">
                     <a href={request.screenshotUrl} target="_blank" rel="noopener noreferrer">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- закрытый файл: отдаёт /api/buyouts/files с проверкой доступа */}
+                      {/* eslint-disable-next-line @next/next/no-img-element -- закрытый файл: отдаёт /api/purchases/files с проверкой доступа */}
                       <img src={request.screenshotUrl} alt="Скриншот оплаты" />
                     </a>
                   </div>
@@ -115,7 +115,7 @@ export default async function TopUpPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
       </Form>
-      <style>{BUYOUT_ADMIN_CSS}</style>
+      <style>{PURCHASE_ADMIN_CSS}</style>
     </>
   );
 }

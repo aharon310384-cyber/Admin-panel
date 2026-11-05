@@ -3,15 +3,15 @@ import "server-only";
 import type { LedgerReason, Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { nextDocumentNumber } from "@/lib/document-numbers";
-import { round2 } from "@/lib/buyout-money";
+import { round2 } from "@/lib/purchase-money";
 
 // Баланс клиента — его деньги у нас, в юанях.
 // Источник — регистр «Изменение долга клиента» (ClientLedger, DK-…): amount > 0 — долг вырос (списали с баланса),
 // amount < 0 — долг уменьшился (зачислили на баланс). Баланс = минус сумма строк в юанях.
 // Записи только добавляются: ошибку исправляет обратная запись (сторно), удалять нельзя (будущее.md, раздел 8).
 //
-// Кто пишет: зачисление пополнения (TOP_UP, минус), оплата выкупа (BUYOUT_PAYMENT, плюс),
-// возврат за выкуп (BUYOUT_REFUND, минус). Начисления за посылки (PARCEL_CHARGE) — когда до них дойдёт чат «админка»:
+// Кто пишет: зачисление пополнения (TOP_UP, минус), оплата покупки (PURCHASE_PAYMENT, плюс), возврат по покупке
+// (PURCHASE_REFUND — отказ, отменённые строки, разница в цене) и возврат товара (PURCHASE_RETURN) — минус. Начисления за посылки (PARCEL_CHARGE) — когда до них дойдёт чат «админка»:
 // тогда неоплаченная посылка уменьшит баланс, а распределение уже зачисленного прихода второй строки писать не должно.
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -53,7 +53,7 @@ export async function addLedgerEntry(
     reason: LedgerReason;
     note: string;
     createdById: string | null;
-    buyoutId?: string;
+    purchaseId?: string;
     paymentId?: string;
   }
 ) {
@@ -66,7 +66,7 @@ export async function addLedgerEntry(
       reason: entry.reason,
       note: entry.note,
       createdById: entry.createdById,
-      buyoutId: entry.buyoutId ?? null,
+      purchaseId: entry.purchaseId ?? null,
       paymentId: entry.paymentId ?? null,
     },
   });
@@ -77,8 +77,9 @@ export const LEDGER_REASON_LABELS: Record<LedgerReason, string> = {
   PAYMENT: "Оплата",
   ADJUSTMENT: "Корректировка",
   TOP_UP: "Пополнение баланса",
-  BUYOUT_PAYMENT: "Оплата выкупа",
-  BUYOUT_REFUND: "Возврат за выкуп",
+  PURCHASE_PAYMENT: "Оплата покупки",
+  PURCHASE_REFUND: "Возврат по покупке",
+  PURCHASE_RETURN: "Возврат товара",
 };
 
 export type BalanceMove = { id: string; number: string; date: Date; reason: LedgerReason; label: string; amount: number; note: string | null };

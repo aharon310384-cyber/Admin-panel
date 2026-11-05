@@ -17,7 +17,7 @@ const TABS_RIGHT: Tab[] = [
 ];
 
 // Пути, относящиеся к разделу «Ещё» (подсветка пункта меню)
-const MORE_PATHS = ["/cabinet/more", "/cabinet/buyouts", "/cabinet/recipients", "/cabinet/tariffs", "/cabinet/profile"];
+const MORE_PATHS = ["/cabinet/more", "/cabinet/purchases", "/cabinet/recipients", "/cabinet/tariffs", "/cabinet/profile"];
 
 export default function CabinetNav() {
   const pathname = usePathname();

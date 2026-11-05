@@ -6,12 +6,12 @@ import { formatDateTime } from "@/lib/utils";
 import { TOP_UP_STATUS_COLOR, TOP_UP_STATUS_LABELS } from "@/lib/statuses";
 import { parseSortParam, buildListHref, type SortDirection } from "@/lib/list-params";
 import { clientFields, readListSearch, searchConditions, searchParamsOf, type ServerSearchField } from "@/lib/list-search";
-import { yuan } from "@/lib/buyout-money";
+import { yuan } from "@/lib/purchase-money";
 import Form from "@/components/form/form";
 import ListFilters from "@/components/form/list-filters";
 import ClickableRow from "@/components/ui/clickable-row";
 import SortableHeader from "@/components/ui/sortable-header";
-import { BUYOUT_ADMIN_CSS } from "@/components/buyouts/admin-styles";
+import { PURCHASE_ADMIN_CSS } from "@/components/purchases/admin-styles";
 
 export const metadata: Metadata = { title: "Заявки на пополнение" };
 
@@ -123,7 +123,7 @@ export default async function TopUpsPage({ searchParams }: { searchParams: Promi
           </div>
         </div>
       </Form>
-      <style>{BUYOUT_ADMIN_CSS}</style>
+      <style>{PURCHASE_ADMIN_CSS}</style>
     </>
   );
 }

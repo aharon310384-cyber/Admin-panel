@@ -1,4 +1,4 @@
-import type { BuyoutKind, BuyoutReturnKind, BuyoutStatus, OrderStatus, ParcelStatus, ParcelTaskStatus, TopUpRequestStatus } from "@prisma/client";
+import type { OrderStatus, ParcelStatus, ParcelTaskStatus, PurchaseLineKind, PurchaseLineStatus, PurchaseMode, PurchaseReturnKind, PurchaseStatus, TopUpRequestStatus } from "@prisma/client";
 
 /** RU-названия статусов Заказа. */
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -34,38 +34,52 @@ export const TASK_STATUS_LABELS: Record<ParcelTaskStatus, string> = {
   CANCELED: "Отменена",
 };
 
-/** RU-названия статусов Выкупа (docs/product/задание-выкуп.md, раздел 2). */
-export const BUYOUT_STATUS_LABELS: Record<BuyoutStatus, string> = {
+/** RU-названия статусов Покупки (docs/product/задание-выкуп.md, раздел 4). */
+export const PURCHASE_STATUS_LABELS: Record<PurchaseStatus, string> = {
   NEW: "Новая",
   PRICED: "Цена назначена",
   PAID: "Оплачена",
   PURCHASED: "Выкуплена",
-  SHIPPED: "Отправлена продавцом",
   AT_WAREHOUSE: "На складе",
+  SHIPPED: "Отправлена",
   REJECTED: "Отказ",
-  CANCELED: "Отменена клиентом",
+  CANCELED: "Отменена",
   RETURNED: "Возврат",
 };
 
-/** Пояснение статуса выкупа для клиента (кабинет). */
-export const BUYOUT_STATUS_HINTS: Record<BuyoutStatus, string> = {
-  NEW: "Менеджер проверяет товар и считает цену",
-  PRICED: "Цена готова — оплатите с баланса",
-  PAID: "Оплачено, покупаем у продавца",
-  PURCHASED: "Выкуплено, ждём отправку от продавца",
-  SHIPPED: "Продавец отправил товар на наш склад",
-  AT_WAREHOUSE: "Товар на складе — дальше как обычный заказ",
-  REJECTED: "Выкуп невозможен",
-  CANCELED: "Вы отменили заявку",
-  RETURNED: "Товар возвращён продавцу",
+/** Что происходит с покупкой — для клиента (кабинет, «Мои покупки»). */
+export const PURCHASE_STATUS_HINTS: Record<PurchaseStatus, string> = {
+  NEW: "Менеджер проверяет товары и считает цену",
+  PRICED: "Цена готова — ждём оплату",
+  PAID: "Покупаем у продавцов",
+  PURCHASED: "Всё выкуплено — ждём, когда продавцы отправят на склад",
+  AT_WAREHOUSE: "Все товары на складе",
+  SHIPPED: "Посылка оформлена — дальше в «Посылках»",
+  REJECTED: "Покупка невозможна",
+  CANCELED: "Вы отменили покупку",
+  RETURNED: "Товары возвращены продавцам",
 };
 
-export const BUYOUT_KIND_LABELS: Record<BuyoutKind, string> = {
+export const PURCHASE_LINE_STATUS_LABELS: Record<PurchaseLineStatus, string> = {
+  WAITING: "Ждёт покупки",
+  PURCHASED: "Выкуплена",
+  SHIPPED: "Отправлена продавцом",
+  AT_WAREHOUSE: "На складе",
+  REJECTED: "Отказ",
+  RETURNED: "Возврат",
+};
+
+export const PURCHASE_MODE_LABELS: Record<PurchaseMode, string> = {
+  TURNKEY: "Под ключ",
+  BUYOUT_ONLY: "Только выкуп",
+};
+
+export const PURCHASE_LINE_KIND_LABELS: Record<PurchaseLineKind, string> = {
   LINK: "По ссылке",
   CONTACT: "По контакту",
 };
 
-export const BUYOUT_RETURN_KIND_LABELS: Record<BuyoutReturnKind, string> = {
+export const PURCHASE_RETURN_KIND_LABELS: Record<PurchaseReturnKind, string> = {
   SELLER: "Брак или не тот товар — за счёт продавца",
   CLIENT: "Клиент передумал — за счёт клиента",
 };
@@ -128,17 +142,26 @@ export const TASK_STATUS_COLOR: Record<ParcelTaskStatus, string> = {
   CANCELED: "canceled",
 };
 
-/** Цвет статуса Выкупа (для бейджей admin): те же ключи, что у посылки. */
-export const BUYOUT_STATUS_COLOR: Record<BuyoutStatus, string> = {
+/** Цвет статуса Покупки (для бейджей admin): те же ключи, что у посылки. */
+export const PURCHASE_STATUS_COLOR: Record<PurchaseStatus, string> = {
   NEW: "new",
   PRICED: "processing",
   PAID: "assembled",
   PURCHASED: "ready",
-  SHIPPED: "shipped",
-  AT_WAREHOUSE: "completed",
+  AT_WAREHOUSE: "shipped",
+  SHIPPED: "completed",
   REJECTED: "canceled",
   CANCELED: "utilized",
   RETURNED: "canceled",
+};
+
+export const PURCHASE_LINE_STATUS_COLOR: Record<PurchaseLineStatus, string> = {
+  WAITING: "processing",
+  PURCHASED: "ready",
+  SHIPPED: "shipped",
+  AT_WAREHOUSE: "completed",
+  REJECTED: "canceled",
+  RETURNED: "utilized",
 };
 
 export const TOP_UP_STATUS_COLOR: Record<TopUpRequestStatus, string> = {
@@ -147,8 +170,8 @@ export const TOP_UP_STATUS_COLOR: Record<TopUpRequestStatus, string> = {
   CANCELED: "canceled",
 };
 
-export function buyoutStatusLabel(s: BuyoutStatus): string {
-  return BUYOUT_STATUS_LABELS[s] ?? s;
+export function purchaseStatusLabel(s: PurchaseStatus): string {
+  return PURCHASE_STATUS_LABELS[s] ?? s;
 }
 
 export function orderStatusLabel(s: OrderStatus): string {

@@ -53,7 +53,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/orders", label: "Заказы", icon: ClipboardList },
       { href: "/parcels", label: "Посылки", icon: Package },
-      { href: "/buyouts", label: "Выкупы", icon: ShoppingCart },
+      { href: "/purchases", label: "Покупки", icon: ShoppingCart },
       { href: "/top-ups", label: "Заявки на пополнение", icon: HandCoins },
     ],
   },

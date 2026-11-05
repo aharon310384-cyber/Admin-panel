@@ -7,16 +7,16 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-helpers";
 import { nextDocumentNumber } from "@/lib/document-numbers";
 import { addLedgerEntry, lockClientMoney, paymentReference, paymentReferenceUsed } from "@/lib/balance";
-import { parseMoney, yuan } from "@/lib/buyout-money";
-import { getBuyoutSettings } from "@/lib/buyouts";
-import { notifyTopUpClient } from "@/lib/buyout-notify";
+import { parseMoney, yuan } from "@/lib/purchase-money";
+import { getPurchaseSettings } from "@/lib/purchases";
+import { notifyTopUpClient } from "@/lib/purchase-notify";
 
 // Зачисление пополнения баланса — правила безопасности денег (docs/product/будущее.md, раздел 8):
 // 1) зачисляет только администратор (отдельного права «деньги» в программе пока нет);
 // 2) номер платежа и скриншот — в заявке, один номер платежа не зачисляется дважды;
 // 3) кто, когда и сколько — в приходе ДС и регистре; удалить нельзя, только сторно (обратная запись);
 // 4) сумма больше порога из настроек — с повторным вводом пароля (порог не задан — пароль всегда);
-// 5) клиенту — сообщение о зачислении (и о каждом списании — lib/buyout-notify.ts).
+// 5) клиенту — сообщение о зачислении (и о каждом списании — lib/purchase-notify.ts).
 
 export type TopUpResult = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -34,8 +34,8 @@ async function run(id: string, work: () => Promise<string>): Promise<TopUpResult
     const message = await work();
     revalidatePath("/top-ups");
     revalidatePath(`/top-ups/${id}`);
-    revalidatePath("/cabinet/buyouts/balance");
-    revalidatePath("/cabinet/buyouts");
+    revalidatePath("/cabinet/purchases/balance");
+    revalidatePath("/cabinet/purchases");
     return { ok: true, message };
   } catch (error) {
     if (error instanceof StepError) return { ok: false, error: error.message };
@@ -55,7 +55,7 @@ export async function creditTopUp(id: string, formData: FormData): Promise<TopUp
     if (amount == null || amount <= 0) throw new StepError("Укажите сумму, которая пришла");
     if (!reference) throw new StepError("Укажите номер платежа — по нему видно, что платёж не зачислен дважды");
 
-    const { topUpConfirmAboveCny } = await getBuyoutSettings();
+    const { topUpConfirmAboveCny } = await getPurchaseSettings();
     if ((topUpConfirmAboveCny == null || amount > topUpConfirmAboveCny) && !(await passwordOk(session.user.id, password))) {
       throw new StepError(password ? "Неверный пароль" : "Введите свой пароль, чтобы подтвердить зачисление");
     }

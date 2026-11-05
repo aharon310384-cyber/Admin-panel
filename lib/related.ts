@@ -2,7 +2,7 @@
 // В карточке документ — сама запись окна (guid), в списке — текущая строка (строки помечены data-doc, data-doc-id).
 // Общий модуль для сервера и браузера: без обращения к базе.
 
-export type DocEntity = "order" | "parcel" | "task" | "buyout";
+export type DocEntity = "order" | "parcel" | "task" | "purchase";
 export type DocTarget = { entity: DocEntity; id: string };
 
 // history — у документов с версиями (lib/versions.ts); у задачи версий пока нет.
@@ -21,19 +21,19 @@ export const DOC_LINKS: Record<DocEntity, { open: (id: string) => string; relate
     open: (id) => `/tasks/${id}`,
     related: (id) => `/related/task/${id}`,
   },
-  buyout: {
-    open: (id) => `/buyouts/${id}`,
-    related: (id) => `/related/buyout/${id}`,
+  purchase: {
+    open: (id) => `/purchases/${id}`,
+    related: (id) => `/related/purchase/${id}`,
   },
 };
 
 // Карточки документов: formKey окна → вид документа.
-const CARDS: Record<string, DocEntity> = { "order-edit": "order", parcel: "parcel", task: "task", buyout: "buyout" };
+const CARDS: Record<string, DocEntity> = { "order-edit": "order", parcel: "parcel", task: "task", purchase: "purchase" };
 
 export function cardTarget(formKey: string, guid?: string): DocTarget | null {
   return guid && CARDS[formKey] ? { entity: CARDS[formKey], id: guid } : null;
 }
 
 export function isDocEntity(value: string | undefined): value is DocEntity {
-  return value === "order" || value === "parcel" || value === "task" || value === "buyout";
+  return value === "order" || value === "parcel" || value === "task" || value === "purchase";
 }
